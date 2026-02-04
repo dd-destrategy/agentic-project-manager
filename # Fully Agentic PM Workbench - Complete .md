@@ -1,3 +1,7 @@
+> **SUPERSEDED — Do not use for implementation decisions.**
+> This document has been replaced by `SPEC.md`, which is the single source of truth.
+> Retained for historical reference only.
+
 # Fully Agentic PM Workbench - Complete Specification
 
 ## Executive Summary

@@ -1,3 +1,7 @@
+> **SUPERSEDED — Consolidation is complete.**
+> The output of this plan is `SPEC.md`, which is now the single source of truth.
+> Retained for historical reference only.
+
 # Plan: Consolidated PM Workbench Spec
 
 ## Context

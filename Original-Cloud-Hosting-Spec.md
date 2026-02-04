@@ -1,3 +1,7 @@
+> **SUPERSEDED — Do not use for implementation decisions.**
+> This document has been replaced by `SPEC.md`, which is the single source of truth.
+> Retained for historical reference only. (Originally misnamed `Orgiinal and Cloud Hosting Specif.ini`.)
+
 # Web Interface and Cloud Hosting Specification
 
 ## 12. Web Interface Design
