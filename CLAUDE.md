@@ -6,7 +6,7 @@ A fully autonomous personal project management assistant. The agent monitors Jir
 
 **Key constraints:**
 - Personal tool only — single user, no multi-tenancy
-- Budget ceiling: $10/month total (infrastructure + LLM)
+- Budget ceiling: $35/month total (Vercel Pro $20 + VPS $4 + LLM ~$7 + buffer)
 - Scale: 1-2 active projects at a time
 - MS Teams: deferred indefinitely (Azure AD admin consent barrier)
 
@@ -18,14 +18,14 @@ Next steps: pre-code validation (spikes S1-S4), then Phase 1 Foundation implemen
 
 ## Architecture Decisions (Locked)
 
-- **Frontend:** Next.js App Router on Vercel (free hobby tier)
+- **Frontend:** Next.js App Router on Vercel Pro ($20/month), hybrid SSR pattern
 - **Agent runtime:** Hetzner VPS CX22 (~$4/month), persistent Node.js process, pm2, Caddy
 - **Database:** Neon PostgreSQL (free tier, 0.5 GB), artefacts stored as structured JSONB
 - **ORM:** Drizzle ORM
 - **Auth:** NextAuth.js + Credentials provider (single user)
-- **LLM:** Claude API — Haiku 4.5 for triage (85%), Sonnet 4.5 for complex reasoning (15%)
+- **LLM:** Claude API — Haiku 4.5 for triage (70%), Sonnet 4.5 for complex reasoning (30%)
 - **Integrations (MVP):** Jira Cloud, Outlook (Graph API), Resend (notifications)
-- **No:** Redis, Pinecone, Pusher, S3, Vercel Blob, Vercel Cron, LangGraph, multi-user auth, RBAC, Slack, Teams, GitHub integration, SQLite for local dev
+- **No:** Redis, Pinecone, Pusher, S3, Vercel Blob, LangGraph, multi-user auth, RBAC, Slack, Teams, GitHub integration, SQLite for local dev
 
 ## Working Conventions
 

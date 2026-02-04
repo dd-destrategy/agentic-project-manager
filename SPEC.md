@@ -27,7 +27,7 @@ Cross-platform synthesis. The agent creates structured PM artefacts that do not 
 | Constraint | Value | Rationale |
 |------------|-------|-----------|
 | Users | 1 (you) | Personal tool |
-| Budget ceiling | $10/month total | Infrastructure + LLM |
+| Budget ceiling | $35/month total | Infrastructure ($24) + LLM (~$7) + buffer |
 | Active projects | 1-2 at a time | Scope control |
 | Database storage | 0.5 GB (Neon free tier) | Cost ceiling |
 
@@ -41,7 +41,7 @@ All architectural and technology decisions are final. Do not revisit unless a bl
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
-| Frontend hosting | Vercel (free hobby tier) | Best Next.js DX, sufficient for single user |
+| Frontend hosting | Vercel Pro ($20/month) | 300s function limit enables SSR, better monitoring |
 | Agent runtime | Hetzner VPS CX22 (~$4/month) | Persistent Node.js process, no execution time limits |
 | Database | Neon PostgreSQL (free tier, 0.5 GB) | Serverless Postgres, free |
 | ORM | Drizzle ORM | Lighter than Prisma, better TypeScript inference, good migrations |
@@ -81,7 +81,7 @@ All architectural and technology decisions are final. Do not revisit unless a bl
 
 ### Explicitly excluded
 
-No Redis. No Pinecone. No Pusher. No S3. No Vercel Blob. No Vercel Cron (agent runs on VPS). No LangGraph. No multi-user auth. No RBAC. No Slack integration. No GitHub integration. No SharePoint. No Calendar integration. No mobile-specific builds. No dark mode (MVP). No i18n framework. No animation library.
+No Redis. No Pinecone. No Pusher. No S3. No Vercel Blob. No LangGraph. No multi-user auth. No RBAC. No Slack integration. No GitHub integration. No SharePoint. No Calendar integration. No mobile-specific builds. No dark mode (MVP). No i18n framework. No animation library.
 
 ---
 
@@ -92,15 +92,18 @@ YOU (browser)
   │
   ▼
 ┌─────────────────────────────┐
-│  Vercel (free hobby tier)   │
-│  Next.js App Router         │
+│  Vercel Pro ($20/month)     │
+│  Next.js App Router (SSR)   │
 │  - Dashboard (Mission Ctrl) │
 │  - Activity feed            │
 │  - Decision interface       │
-│  - Agent config             │
-│  - API routes (read from DB)│
+│  - Project detail           │
+│  - Settings                 │
+│  - Server Actions (writes)  │
+│  - API routes               │
 └─────────────┬───────────────┘
-              │ reads (Neon serverless driver)
+              │ reads + user writes
+              │ (@neondatabase/serverless)
               ▼
 ┌─────────────────────────────┐
 │  Neon PostgreSQL (free)     │
@@ -131,11 +134,11 @@ YOU (browser)
 
 ### Key architectural rules
 
-1. **All LLM calls route through the VPS, never through Vercel functions.** The Vercel 10-second hobby tier limit combined with Neon cold starts leaves insufficient headroom.
-2. **Vercel reads from the database only.** It never writes agent state, actions, or artefacts. The VPS owns all writes except user config changes.
+1. **All LLM calls route through the VPS, never through Vercel functions.** LLM calls are part of the agent loop and benefit from persistent connections, no timeout constraints, and co-location with agent state.
+2. **Vercel reads from the database; user-initiated writes via Server Actions.** The VPS owns all agent-initiated writes (artefacts, events, actions). Vercel handles user decisions, config changes, and approvals via Server Actions.
 3. **The events table is the backbone for frontend-agent coordination.** It powers the activity feed, dashboard stats, and heartbeat signal from a single table.
 4. **Neon keepalive: the agent sends `SELECT 1` every 4 minutes** to prevent cold starts (2-5 seconds) on every 15-minute cycle.
-5. **Static shell pattern for frontend:** The dashboard serves a static shell from CDN with client-side data fetching. This gives sub-500ms first contentful paint regardless of Neon state.
+5. **Hybrid SSR pattern for frontend:** Server Components render initial page data for dashboard views (Mission Control, Activity, Project Detail). TanStack Query handles subsequent polling for real-time data (agent status, activity updates). Settings remains client-rendered.
 
 ### Database connection strategy
 
@@ -592,8 +595,10 @@ Level 4 (Strategic) is explicitly deferred from all planning.
 
 | Model | Use | % of calls |
 |-------|-----|-----------|
-| **Haiku 4.5** | Signal sanitisation, triage, classification, routine artefact updates | ~85% |
-| **Sonnet 4.5** | Risk assessment, stakeholder communication drafting, complex multi-source reasoning | ~15% |
+| **Haiku 4.5** | Signal sanitisation, triage, classification, routine artefact updates | ~70% |
+| **Sonnet 4.5** | Risk assessment, stakeholder communication drafting, RAID log synthesis, complex multi-source reasoning | ~30% |
+
+The 70/30 split (up from 85/15) provides better quality for stakeholder-facing outputs at ~$1/month additional cost.
 
 ### 6.2 Cost model (February 2026 pricing)
 
@@ -630,13 +635,16 @@ Level 4 (Strategic) is explicitly deferred from all planning.
 
 ### 6.3 Budget controls
 
+The $35/month ceiling allocates: $24/month fixed (Vercel Pro $20 + VPS $4) and $11/month variable (LLM + potential Neon upgrade). LLM budget is ~$7/month with $4 buffer.
+
 | Control | Value |
 |---------|-------|
-| Daily budget ceiling | $0.33 (= $10/month ÷ 30) |
-| Degradation tier 1 | At $0.25/day: Haiku-only (no Sonnet) |
-| Degradation tier 2 | At $0.30/day: 30-min polling interval |
-| Degradation tier 3 | At $0.33/day: monitoring-only (no LLM calls, just API polling and logging) |
-| Monthly hard ceiling | $10.00 — agent enters monitoring-only mode |
+| Daily LLM budget (baseline) | $0.23 (= $7/month ÷ 30) |
+| Degradation tier 1 | At $0.23/day: Reduce to 85/15 Haiku/Sonnet split |
+| Degradation tier 2 | At $0.30/day: 85/15 split + 20-min polling interval |
+| Degradation tier 3 | At $0.35/day: Haiku-only + 30-min polling |
+| Daily hard ceiling | $0.50/day: monitoring-only (no LLM calls) |
+| Monthly LLM ceiling | $11.00 — agent enters monitoring-only mode for remainder of month |
 
 The agent tracks cumulative daily spend in `agent_config` and checks before every LLM call.
 
@@ -728,10 +736,11 @@ Failed health checks log a warning event. Three consecutive failures log an erro
 
 ### 8.2 Frontend architecture
 
-- **Next.js App Router** with React Server Components where possible
-- **TanStack Query** for client-side data fetching with polling (30-second refresh)
-- **Static shell pattern:** Layout and navigation render instantly from CDN; data fetches client-side
-- **No SSR for dashboard data:** Avoids Vercel function time limits and Neon cold start dependency on page load
+- **Next.js App Router** with React Server Components for data-heavy views
+- **Hybrid SSR pattern:** Server Components render initial page data; TanStack Query handles real-time polling (30-second refresh for agent status, activity feed)
+- **SSR views:** Mission Control, Activity Feed, Decision Interface, Project Detail — render with data on first load
+- **Client-rendered views:** Settings (interactive forms), modals/dialogs
+- **Server Actions:** User decisions on escalations, autonomy changes, config updates, hold queue approvals
 - **shadcn/ui** components: Card, Badge, Button, Separator, Tabs, Dialog
 - **Accessibility:** Semantic HTML, ARIA live regions for activity feed, keyboard navigation, WCAG contrast ratios (note: amber #f59e0b fails AA at 2.1:1 contrast — use #d97706 instead)
 
@@ -884,18 +893,19 @@ Single user. NextAuth.js with Credentials provider. Username and bcrypt-hashed p
 |---|------|-----------|
 | 5 | Prompt injection via Jira/email content | Two-stage triage (section 9.1). Outbound action allowlist. |
 | 6 | Agent crashes silently, dashboard shows stale "healthy" state | Heartbeat logging. Dashboard reads last heartbeat, not a frontend timer. Alert via Resend if no heartbeat for 30 minutes. |
-| 7 | Neon cold starts cause Vercel function timeouts | Static shell pattern. Keepalive from agent. No SSR for dashboard data. |
-| 8 | User stops reviewing daily digest (automation complacency) | Anti-complacency spot checks every 2 weeks. |
-| 9 | Scope creep during development | Kill threshold defined. Deferred list is explicit. |
+| 7 | User stops reviewing daily digest (automation complacency) | Anti-complacency spot checks every 2 weeks. |
+| 8 | Scope creep during development | Kill threshold defined. Deferred list is explicit. |
 
 ### Watch
 
 | # | Risk | Notes |
 |---|------|-------|
+| 9 | Neon cold starts cause slow page loads | Vercel Pro 300s limit eliminates timeout risk. Agent keepalive prevents cold starts. SSR with Suspense shows shell instantly while data streams. |
 | 10 | Jira API rate limits | Monitor. Current free tier allows 100 requests/minute — sufficient for 15-min polling. |
 | 11 | Competitive landscape (Jira Rovo, Asana AI) | Unique value is cross-platform synthesis. Monitor competitor features quarterly. |
 | 12 | Claude API pricing changes | Budget model assumes current pricing. Re-validate quarterly. |
 | 13 | Hetzner VPS availability | Single point of failure. Acceptable for personal tool. Backup: redeploy to another provider in <1 hour. |
+| 14 | Monthly cost overrun | Monitor actual vs projected spend. Value gates at $30, $40, $50 thresholds. |
 
 ---
 

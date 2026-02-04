@@ -9,16 +9,16 @@ A fully autonomous personal project management assistant. Monitors Jira and Outl
 ## Architecture
 
 ```
-Browser → Vercel (Next.js, free tier) → Neon PostgreSQL (free tier) ← Hetzner VPS (~$4/mo, agent process)
-                                                                        ├── Jira Cloud API
-                                                                        ├── MS Graph API (Outlook)
-                                                                        ├── Claude API (Haiku/Sonnet)
-                                                                        └── Resend (notifications)
+Browser → Vercel Pro (Next.js, SSR) → Neon PostgreSQL (free tier) ← Hetzner VPS (~$4/mo, agent process)
+                                                                      ├── Jira Cloud API
+                                                                      ├── MS Graph API (Outlook)
+                                                                      ├── Claude API (Haiku/Sonnet)
+                                                                      └── Resend (notifications)
 ```
 
-- **Budget ceiling:** $10/month total (infrastructure + LLM)
+- **Budget ceiling:** $35/month total (Vercel Pro $20 + VPS $4 + LLM ~$7 + buffer)
 - **Single user** — no multi-tenancy, no RBAC
-- **LLM strategy:** Haiku 4.5 for triage (85%), Sonnet 4.5 for complex reasoning (15%)
+- **LLM strategy:** Haiku 4.5 for triage (70%), Sonnet 4.5 for complex reasoning (30%)
 
 ## Key Documents
 
@@ -40,4 +40,4 @@ Browser → Vercel (Next.js, free tier) → Neon PostgreSQL (free tier) ← Hetz
 | LLM | Claude API (tool-use for structured outputs) |
 | Auth | NextAuth.js + Credentials |
 | Notifications | Resend |
-| Hosting | Vercel (frontend), Hetzner VPS (agent) |
+| Hosting | Vercel Pro (frontend), Hetzner VPS (agent) |
