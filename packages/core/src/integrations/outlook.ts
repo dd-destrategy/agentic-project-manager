@@ -13,6 +13,7 @@
  */
 
 import type { RawSignal, IntegrationSource } from '../types/index.js';
+import { parseOutlookCredentials } from '../types/index.js';
 import type { IntegrationHealthCheck, SignalSource } from './types.js';
 import {
   GraphClient,
@@ -519,9 +520,9 @@ export function createOutlookClient(config: OutlookConfig): OutlookClient {
 export async function createOutlookClientForProject(
   getSecret: (secretId: string) => Promise<string>
 ): Promise<OutlookClient> {
-  const credentials = JSON.parse(
-    await getSecret('/agentic-pm/outlook/credentials')
-  ) as OutlookConfig;
+  const credentials = parseOutlookCredentials(
+    JSON.parse(await getSecret('/agentic-pm/outlook/credentials'))
+  );
 
   return new OutlookClient(credentials);
 }

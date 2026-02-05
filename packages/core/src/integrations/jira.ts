@@ -10,6 +10,7 @@
  */
 
 import type { RawSignal, IntegrationSource, Project } from '../types/index.js';
+import { parseJiraCredentials } from '../types/index.js';
 import type { IntegrationHealthCheck, SignalSource } from './types.js';
 
 /**
@@ -685,13 +686,9 @@ export async function createJiraClientForProject(
   getSecret: (secretId: string) => Promise<string>
 ): Promise<JiraClient> {
   // Retrieve credentials from secrets manager
-  const credentials = JSON.parse(
-    await getSecret('/agentic-pm/jira/credentials')
-  ) as {
-    baseUrl: string;
-    email: string;
-    apiToken: string;
-  };
+  const credentials = parseJiraCredentials(
+    JSON.parse(await getSecret('/agentic-pm/jira/credentials'))
+  );
 
   return new JiraClient(credentials);
 }

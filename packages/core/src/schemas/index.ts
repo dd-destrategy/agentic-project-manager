@@ -459,12 +459,68 @@ export const BacklogSummaryContentSchema = z.object({
   scopeNotes: z.string().max(500).optional(),
 });
 
+// Non-discriminated union for backward compatibility
 export const ArtefactContentSchema = z.union([
   DeliveryStateContentSchema,
   RaidLogContentSchema,
   BacklogSummaryContentSchema,
   DecisionLogContentSchema,
 ]);
+
+// Discriminated union schemas with type field for type-safe content handling
+export const DiscriminatedDeliveryStateSchema = z.object({
+  type: z.literal('delivery_state'),
+  data: DeliveryStateContentSchema,
+});
+
+export const DiscriminatedRaidLogSchema = z.object({
+  type: z.literal('raid_log'),
+  data: RaidLogContentSchema,
+});
+
+export const DiscriminatedBacklogSummarySchema = z.object({
+  type: z.literal('backlog_summary'),
+  data: BacklogSummaryContentSchema,
+});
+
+export const DiscriminatedDecisionLogSchema = z.object({
+  type: z.literal('decision_log'),
+  data: DecisionLogContentSchema,
+});
+
+export const DiscriminatedArtefactContentSchema = z.discriminatedUnion('type', [
+  DiscriminatedDeliveryStateSchema,
+  DiscriminatedRaidLogSchema,
+  DiscriminatedBacklogSummarySchema,
+  DiscriminatedDecisionLogSchema,
+]);
+
+// ============================================================================
+// Credential Schemas (for Zod validation after JSON.parse)
+// ============================================================================
+
+export const JiraCredentialsSchema = z.object({
+  baseUrl: z.string().url(),
+  email: z.string().email(),
+  apiToken: z.string().min(1),
+});
+
+export const AzureADCredentialsSchema = z.object({
+  tenantId: z.string().min(1),
+  clientId: z.string().min(1),
+  clientSecret: z.string().min(1),
+  userId: z.string().min(1),
+});
+
+export const OutlookCredentialsSchema = AzureADCredentialsSchema.extend({
+  folderToMonitor: z.string().optional(),
+  maxMessagesPerDelta: z.number().int().positive().optional(),
+});
+
+export const SESConfigSchema = z.object({
+  fromAddress: z.string().email(),
+  region: z.string().optional(),
+});
 
 export const ArtefactSchema = z.object({
   id: UuidSchema,

@@ -1,6 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import { z } from 'zod';
 import type { ArtefactType } from '@/types';
 
 interface Artefact {
@@ -46,11 +47,24 @@ export function useArtefacts(projectId: string | undefined) {
 }
 
 /**
- * Parse artefact content from JSON string
+ * Parse artefact content from JSON string with Zod schema validation
  */
-export function parseArtefactContent<T>(content: string): T | null {
+export function parseArtefactContent<T>(
+  content: string,
+  schema?: z.ZodType<T>
+): T | null {
   try {
-    return JSON.parse(content) as T;
+    const parsed = JSON.parse(content);
+    if (schema) {
+      const result = schema.safeParse(parsed);
+      if (!result.success) {
+        console.error('Artefact content validation failed:', result.error);
+        return null;
+      }
+      return result.data;
+    }
+    // Fallback for backward compatibility when no schema provided
+    return parsed as T;
   } catch {
     console.error('Failed to parse artefact content');
     return null;

@@ -1,449 +1,211 @@
 /**
  * Core TypeScript types for Agentic PM
  *
- * These types are derived from SPEC.md and solution-design/02-api-schemas.md
+ * Types are derived from Zod schemas to ensure consistency between
+ * runtime validation and compile-time type checking.
  */
 
-// ============================================================================
-// Primitive Types
-// ============================================================================
-
-export type ProjectStatus = 'active' | 'paused' | 'archived';
-
-export type IntegrationSource = 'jira' | 'outlook' | 'asana' | 'ses';
-
-export type AutonomyLevel = 'monitoring' | 'artefact' | 'tactical';
-
-export type ArtefactType =
-  | 'delivery_state'
-  | 'raid_log'
-  | 'backlog_summary'
-  | 'decision_log';
-
-export type EventSeverity = 'info' | 'warning' | 'error' | 'critical';
-
-export type EventType =
-  | 'heartbeat'
-  | 'heartbeat_with_changes'
-  | 'signal_detected'
-  | 'action_taken'
-  | 'action_held'
-  | 'action_approved'
-  | 'action_rejected'
-  | 'escalation_created'
-  | 'escalation_decided'
-  | 'escalation_expired'
-  | 'artefact_updated'
-  | 'integration_error'
-  | 'budget_warning'
-  | 'error';
-
-export type EscalationStatus = 'pending' | 'decided' | 'expired' | 'superseded';
-
-export type ActionType =
-  | 'artefact_update'
-  | 'email_sent'
-  | 'email_held'
-  | 'jira_comment'
-  | 'jira_status_change'
-  | 'jira_status_change_held'
-  | 'escalation_created'
-  | 'notification_sent';
-
-export type IntegrationStatus = 'active' | 'inactive' | 'error';
-
-export type SignalType =
-  | 'ticket_created'
-  | 'ticket_updated'
-  | 'ticket_status_changed'
-  | 'ticket_assigned'
-  | 'ticket_commented'
-  | 'sprint_started'
-  | 'sprint_closed'
-  | 'sprint_scope_changed'
-  | 'email_received'
-  | 'email_thread_updated'
-  | 'unknown';
-
-export type SignalCategory =
-  | 'blocker'
-  | 'risk'
-  | 'scope_change'
-  | 'deadline_impact'
-  | 'stakeholder_communication'
-  | 'routine_update'
-  | 'noise';
-
-export type RecommendedAction =
-  | 'update_artefact'
-  | 'create_escalation'
-  | 'send_notification'
-  | 'hold_for_review'
-  | 'ignore';
+import { z } from 'zod';
+import {
+  // Primitive schemas
+  ProjectStatusSchema,
+  IntegrationSourceSchema,
+  AutonomyLevelSchema,
+  ArtefactTypeSchema,
+  EventSeveritySchema,
+  EventTypeSchema,
+  EscalationStatusSchema,
+  ActionTypeSchema,
+  IntegrationStatusSchema,
+  SignalTypeSchema,
+  SignalCategorySchema,
+  RecommendedActionSchema,
+  // Entity schemas
+  ProjectSchema,
+  ProjectConfigSchema,
+  ArtefactSchema,
+  EventSchema,
+  EventDetailSchema,
+  EscalationSchema,
+  EscalationContextSchema,
+  EscalationOptionSchema,
+  SignalReferenceSchema,
+  ArtefactExcerptSchema,
+  AgentActionSchema,
+  ActionDetailSchema,
+  AgentCheckpointSchema,
+  IntegrationConfigSchema,
+  ConfidenceScoreSchema,
+  ConfidenceDimensionsSchema,
+  DimensionScoreSchema,
+  // Signal schemas
+  NormalisedSignalSchema,
+  SignalMetadataSchema,
+  SanitisedSignalSchema,
+  ClassifiedSignalSchema,
+  SignalClassificationSchema,
+  // Artefact content schemas
+  ArtefactContentSchema,
+  DeliveryStateContentSchema,
+  RaidLogContentSchema,
+  BacklogSummaryContentSchema,
+  DecisionLogContentSchema,
+  SprintInfoSchema,
+  SprintProgressSchema,
+  MilestoneSchema,
+  BlockerSchema,
+  KeyMetricsSchema,
+  RaidItemSchema,
+  DecisionSchema,
+  DecisionOptionSchema,
+  BacklogStatsSchema,
+  BacklogHighlightSchema,
+  RefinementCandidateSchema,
+  // Discriminated union schemas
+  DiscriminatedArtefactContentSchema,
+  // Credential schemas
+  JiraCredentialsSchema,
+  OutlookCredentialsSchema,
+  AzureADCredentialsSchema,
+  SESConfigSchema,
+  // API schemas
+  WorkingHoursSchema,
+} from '../schemas/index.js';
 
 // ============================================================================
-// Entity Interfaces
+// Primitive Types (derived from Zod schemas)
 // ============================================================================
 
-export interface Project {
-  id: string;
-  name: string;
-  description?: string;
-  status: ProjectStatus;
-  source: IntegrationSource;
-  sourceProjectKey: string;
-  autonomyLevel: AutonomyLevel;
-  config: ProjectConfig;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface ProjectConfig {
-  pollingIntervalMinutes?: number;
-  holdQueueMinutes?: number;
-  jiraBoardId?: string;
-  monitoredEmails?: string[];
-}
-
-export interface Artefact<T extends ArtefactContent = ArtefactContent> {
-  id: string;
-  projectId: string;
-  type: ArtefactType;
-  content: T;
-  previousVersion?: T;
-  version: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface Event {
-  id: string;
-  projectId?: string;
-  eventType: EventType;
-  severity: EventSeverity;
-  summary: string;
-  detail?: EventDetail;
-  createdAt: string;
-}
-
-export interface EventDetail {
-  source?: string;
-  relatedIds?: {
-    artefactId?: string;
-    escalationId?: string;
-    actionId?: string;
-    signalId?: string;
-  };
-  metrics?: {
-    durationMs?: number;
-    tokensUsed?: number;
-    costUsd?: number;
-  };
-  context?: Record<string, unknown>;
-}
-
-export interface Escalation {
-  id: string;
-  projectId: string;
-  title: string;
-  context: EscalationContext;
-  options: EscalationOption[];
-  agentRecommendation?: string;
-  agentRationale?: string;
-  status: EscalationStatus;
-  userDecision?: string;
-  userNotes?: string;
-  decidedAt?: string;
-  createdAt: string;
-}
-
-export interface EscalationContext {
-  summary: string;
-  triggeringSignals: SignalReference[];
-  relevantArtefacts?: ArtefactExcerpt[];
-  precedents?: string[];
-}
-
-export interface EscalationOption {
-  id: string;
-  label: string;
-  description: string;
-  pros: string[];
-  cons: string[];
-  riskLevel: 'low' | 'medium' | 'high';
-}
-
-export interface SignalReference {
-  source: IntegrationSource;
-  type: string;
-  summary: string;
-  timestamp: string;
-}
-
-export interface ArtefactExcerpt {
-  artefactType: ArtefactType;
-  excerpt: string;
-}
-
-export interface AgentAction {
-  id: string;
-  projectId?: string;
-  actionType: ActionType;
-  description: string;
-  detail?: ActionDetail;
-  confidence?: ConfidenceScore;
-  executed: boolean;
-  heldUntil?: string;
-  executedAt?: string;
-  createdAt: string;
-}
-
-export interface ActionDetail {
-  target?: {
-    type: 'artefact' | 'jira_ticket' | 'email' | 'escalation';
-    id: string;
-    name?: string;
-  };
-  changes?: {
-    before?: unknown;
-    after?: unknown;
-  };
-  draftContent?: string;
-  holdReason?: string;
-}
-
-export interface AgentCheckpoint {
-  projectId: string;
-  integration: IntegrationSource;
-  checkpointKey: string;
-  checkpointValue: string;
-  updatedAt: string;
-}
-
-export interface IntegrationConfig {
-  id: string;
-  integration: IntegrationSource;
-  configEncrypted: string;
-  status: IntegrationStatus;
-  lastHealthCheck?: string;
-  createdAt: string;
-  updatedAt: string;
-}
+export type ProjectStatus = z.infer<typeof ProjectStatusSchema>;
+export type IntegrationSource = z.infer<typeof IntegrationSourceSchema>;
+export type AutonomyLevel = z.infer<typeof AutonomyLevelSchema>;
+export type ArtefactType = z.infer<typeof ArtefactTypeSchema>;
+export type EventSeverity = z.infer<typeof EventSeveritySchema>;
+export type EventType = z.infer<typeof EventTypeSchema>;
+export type EscalationStatus = z.infer<typeof EscalationStatusSchema>;
+export type ActionType = z.infer<typeof ActionTypeSchema>;
+export type IntegrationStatus = z.infer<typeof IntegrationStatusSchema>;
+export type SignalType = z.infer<typeof SignalTypeSchema>;
+export type SignalCategory = z.infer<typeof SignalCategorySchema>;
+export type RecommendedAction = z.infer<typeof RecommendedActionSchema>;
 
 // ============================================================================
-// Confidence Scoring Types
+// Entity Types (derived from Zod schemas)
 // ============================================================================
 
-export interface ConfidenceScore {
-  pass: boolean;
-  dimensions: ConfidenceDimensions;
-  scoredAt: string;
-}
-
-export interface ConfidenceDimensions {
-  sourceAgreement: DimensionScore;
-  boundaryCompliance: DimensionScore;
-  schemaValidity: DimensionScore;
-  precedentMatch: DimensionScore;
-}
-
-export interface DimensionScore {
-  pass: boolean;
-  score: number;
-  evidence: string;
-}
+export type Project = z.infer<typeof ProjectSchema>;
+export type ProjectConfig = z.infer<typeof ProjectConfigSchema>;
+export type Artefact = z.infer<typeof ArtefactSchema>;
+export type Event = z.infer<typeof EventSchema>;
+export type EventDetail = z.infer<typeof EventDetailSchema>;
+export type Escalation = z.infer<typeof EscalationSchema>;
+export type EscalationContext = z.infer<typeof EscalationContextSchema>;
+export type EscalationOption = z.infer<typeof EscalationOptionSchema>;
+export type SignalReference = z.infer<typeof SignalReferenceSchema>;
+export type ArtefactExcerpt = z.infer<typeof ArtefactExcerptSchema>;
+export type AgentAction = z.infer<typeof AgentActionSchema>;
+export type ActionDetail = z.infer<typeof ActionDetailSchema>;
+export type AgentCheckpoint = z.infer<typeof AgentCheckpointSchema>;
+export type IntegrationConfig = z.infer<typeof IntegrationConfigSchema>;
 
 // ============================================================================
-// Signal Types
+// Confidence Scoring Types (derived from Zod schemas)
 // ============================================================================
 
+export type ConfidenceScore = z.infer<typeof ConfidenceScoreSchema>;
+export type ConfidenceDimensions = z.infer<typeof ConfidenceDimensionsSchema>;
+export type DimensionScore = z.infer<typeof DimensionScoreSchema>;
+
+// ============================================================================
+// Signal Types (derived from Zod schemas)
+// ============================================================================
+
+export type NormalisedSignal = z.infer<typeof NormalisedSignalSchema>;
+export type SignalMetadata = z.infer<typeof SignalMetadataSchema>;
+export type SanitisedSignal = z.infer<typeof SanitisedSignalSchema>;
+export type ClassifiedSignal = z.infer<typeof ClassifiedSignalSchema>;
+export type SignalClassification = z.infer<typeof SignalClassificationSchema>;
+
+// RawSignal is not in schemas - keep manual definition
 export interface RawSignal {
   source: IntegrationSource;
   timestamp: string;
   rawPayload: unknown;
 }
 
-export interface NormalisedSignal {
-  id: string;
-  source: IntegrationSource;
-  timestamp: string;
-  type: SignalType;
-  summary: string;
-  raw: Record<string, unknown>;
-  projectId: string;
-  metadata?: SignalMetadata;
-}
-
-export interface SignalMetadata {
-  priority?: 'critical' | 'high' | 'medium' | 'low';
-  participants?: string[];
-  relatedTickets?: string[];
-  tags?: string[];
-}
-
-export interface SanitisedSignal extends NormalisedSignal {
-  sanitised: true;
-  sanitisedSummary: string;
-  sanitisationNotes?: string[];
-}
-
-export interface ClassifiedSignal extends SanitisedSignal {
-  classification: SignalClassification;
-}
-
-export interface SignalClassification {
-  importance: 'critical' | 'high' | 'medium' | 'low' | 'noise';
-  categories: SignalCategory[];
-  recommendedAction: RecommendedAction;
-  requiresComplexReasoning: boolean;
-  rationale: string;
-}
-
 // ============================================================================
-// Artefact Content Types
+// Artefact Content Types (derived from Zod schemas)
 // ============================================================================
 
-export type ArtefactContent =
-  | DeliveryStateContent
-  | RaidLogContent
-  | BacklogSummaryContent
-  | DecisionLogContent;
+export type ArtefactContent = z.infer<typeof ArtefactContentSchema>;
+export type DeliveryStateContent = z.infer<typeof DeliveryStateContentSchema>;
+export type RaidLogContent = z.infer<typeof RaidLogContentSchema>;
+export type BacklogSummaryContent = z.infer<typeof BacklogSummaryContentSchema>;
+export type DecisionLogContent = z.infer<typeof DecisionLogContentSchema>;
+export type SprintInfo = z.infer<typeof SprintInfoSchema>;
+export type SprintProgress = z.infer<typeof SprintProgressSchema>;
+export type Milestone = z.infer<typeof MilestoneSchema>;
+export type Blocker = z.infer<typeof BlockerSchema>;
+export type KeyMetrics = z.infer<typeof KeyMetricsSchema>;
+export type RaidItem = z.infer<typeof RaidItemSchema>;
+export type Decision = z.infer<typeof DecisionSchema>;
+export type DecisionOption = z.infer<typeof DecisionOptionSchema>;
+export type BacklogStats = z.infer<typeof BacklogStatsSchema>;
+export type BacklogHighlight = z.infer<typeof BacklogHighlightSchema>;
+export type RefinementCandidate = z.infer<typeof RefinementCandidateSchema>;
 
-export interface DeliveryStateContent {
-  overallStatus: 'green' | 'amber' | 'red';
-  statusSummary: string;
-  currentSprint?: SprintInfo;
-  milestones: Milestone[];
-  blockers: Blocker[];
-  keyMetrics: KeyMetrics;
-  nextActions: string[];
-}
+// ============================================================================
+// Discriminated Artefact Content Union
+// ============================================================================
 
-export interface SprintInfo {
-  name: string;
-  startDate: string;
-  endDate: string;
-  goal: string;
-  progress: SprintProgress;
-}
+/**
+ * Discriminated union for artefact content with explicit type field.
+ * Use this for type-safe content handling with narrowing support.
+ */
+export type DiscriminatedArtefactContent = z.infer<
+  typeof DiscriminatedArtefactContentSchema
+>;
 
-export interface SprintProgress {
-  totalPoints: number;
-  completedPoints: number;
-  inProgressPoints: number;
-  blockedPoints: number;
-}
+export type DiscriminatedDeliveryState = {
+  type: 'delivery_state';
+  data: DeliveryStateContent;
+};
 
-export interface Milestone {
-  name: string;
-  dueDate: string;
-  status: 'on_track' | 'at_risk' | 'delayed' | 'completed';
-  notes?: string;
-}
+export type DiscriminatedRaidLog = {
+  type: 'raid_log';
+  data: RaidLogContent;
+};
 
-export interface Blocker {
-  id: string;
-  description: string;
-  owner: string;
-  raisedDate: string;
-  severity: 'high' | 'medium' | 'low';
-  sourceTicket?: string;
-}
+export type DiscriminatedBacklogSummary = {
+  type: 'backlog_summary';
+  data: BacklogSummaryContent;
+};
 
-export interface KeyMetrics {
-  velocityTrend: 'increasing' | 'stable' | 'decreasing';
-  avgCycleTimeDays: number;
-  openBlockers: number;
-  activeRisks: number;
-}
+export type DiscriminatedDecisionLog = {
+  type: 'decision_log';
+  data: DecisionLogContent;
+};
 
-export interface RaidLogContent {
-  items: RaidItem[];
-}
+// ============================================================================
+// Credential Types (derived from Zod schemas)
+// ============================================================================
 
-export interface RaidItem {
-  id: string;
-  type: 'risk' | 'assumption' | 'issue' | 'dependency';
-  title: string;
-  description: string;
-  severity: 'critical' | 'high' | 'medium' | 'low';
-  status: 'open' | 'mitigating' | 'resolved' | 'accepted' | 'closed';
-  owner: string;
-  raisedDate: string;
-  dueDate?: string;
-  mitigation?: string;
-  resolution?: string;
-  resolvedDate?: string;
-  source: 'agent_detected' | 'user_added' | 'integration_signal';
-  sourceReference?: string;
-  lastReviewed: string;
-}
-
-export interface DecisionLogContent {
-  decisions: Decision[];
-}
-
-export interface Decision {
-  id: string;
-  title: string;
-  context: string;
-  optionsConsidered: DecisionOption[];
-  decision: string;
-  rationale: string;
-  madeBy: 'user' | 'agent';
-  date: string;
-  status: 'active' | 'superseded' | 'reversed';
-  relatedRaidItems?: string[];
-}
-
-export interface DecisionOption {
-  option: string;
-  pros: string[];
-  cons: string[];
-}
-
-export interface BacklogSummaryContent {
-  source: IntegrationSource;
-  lastSynced: string;
-  summary: BacklogStats;
-  highlights: BacklogHighlight[];
-  refinementCandidates: RefinementCandidate[];
-  scopeNotes?: string;
-}
-
-export interface BacklogStats {
-  totalItems: number;
-  byStatus: {
-    toDo: number;
-    inProgress: number;
-    doneThisSprint: number;
-    blocked: number;
-  };
-  byPriority: {
-    critical: number;
-    high: number;
-    medium: number;
-    low: number;
-  };
-}
-
-export interface BacklogHighlight {
-  ticketId: string;
-  title: string;
-  flag: 'blocked' | 'stale' | 'missing_criteria' | 'scope_creep' | 'new';
-  detail: string;
-  suggestedAction?: string;
-}
-
-export interface RefinementCandidate {
-  ticketId: string;
-  title: string;
-  issue: string;
-}
+export type JiraCredentials = z.infer<typeof JiraCredentialsSchema>;
+export type OutlookCredentials = z.infer<typeof OutlookCredentialsSchema>;
+export type AzureADCredentials = z.infer<typeof AzureADCredentialsSchema>;
+export type SESConfig = z.infer<typeof SESConfigSchema>;
 
 // ============================================================================
 // API Types
 // ============================================================================
+
+export type WorkingHours = z.infer<typeof WorkingHoursSchema>;
+
+// These types don't have schemas yet - keep manual definitions
+export interface LlmSplit {
+  haikuPercent: number;
+  sonnetPercent: number;
+}
 
 export interface AgentConfig {
   pollingIntervalMinutes: number;
@@ -503,17 +265,6 @@ export interface DryRunResult {
   plannedAction?: Record<string, unknown>;
 }
 
-export interface WorkingHours {
-  start: string;
-  end: string;
-  timezone: string;
-}
-
-export interface LlmSplit {
-  haikuPercent: number;
-  sonnetPercent: number;
-}
-
 export interface BudgetStatus {
   dailySpendUsd: number;
   dailyLimitUsd: number;
@@ -528,3 +279,193 @@ export interface IntegrationHealthStatus {
   lastCheck: string;
   errorMessage?: string;
 }
+
+// ============================================================================
+// Type Guards (using Zod for runtime validation)
+// ============================================================================
+
+/**
+ * Type guard for Project using Zod schema validation
+ */
+export function isProject(data: unknown): data is Project {
+  return ProjectSchema.safeParse(data).success;
+}
+
+/**
+ * Type guard for Artefact using Zod schema validation
+ */
+export function isArtefact(data: unknown): data is Artefact {
+  return ArtefactSchema.safeParse(data).success;
+}
+
+/**
+ * Type guard for Event using Zod schema validation
+ */
+export function isEvent(data: unknown): data is Event {
+  return EventSchema.safeParse(data).success;
+}
+
+/**
+ * Type guard for Escalation using Zod schema validation
+ */
+export function isEscalation(data: unknown): data is Escalation {
+  return EscalationSchema.safeParse(data).success;
+}
+
+/**
+ * Type guard for AgentAction using Zod schema validation
+ */
+export function isAgentAction(data: unknown): data is AgentAction {
+  return AgentActionSchema.safeParse(data).success;
+}
+
+/**
+ * Type guard for NormalisedSignal using Zod schema validation
+ */
+export function isNormalisedSignal(data: unknown): data is NormalisedSignal {
+  return NormalisedSignalSchema.safeParse(data).success;
+}
+
+/**
+ * Type guard for SanitisedSignal using Zod schema validation
+ */
+export function isSanitisedSignal(data: unknown): data is SanitisedSignal {
+  return SanitisedSignalSchema.safeParse(data).success;
+}
+
+/**
+ * Type guard for ClassifiedSignal using Zod schema validation
+ */
+export function isClassifiedSignal(data: unknown): data is ClassifiedSignal {
+  return ClassifiedSignalSchema.safeParse(data).success;
+}
+
+/**
+ * Type guard for JiraCredentials using Zod schema validation
+ */
+export function isJiraCredentials(data: unknown): data is JiraCredentials {
+  return JiraCredentialsSchema.safeParse(data).success;
+}
+
+/**
+ * Type guard for OutlookCredentials using Zod schema validation
+ */
+export function isOutlookCredentials(
+  data: unknown
+): data is OutlookCredentials {
+  return OutlookCredentialsSchema.safeParse(data).success;
+}
+
+/**
+ * Type guard for SESConfig using Zod schema validation
+ */
+export function isSESConfig(data: unknown): data is SESConfig {
+  return SESConfigSchema.safeParse(data).success;
+}
+
+// ============================================================================
+// Artefact Content Type Guards
+// ============================================================================
+
+/**
+ * Type guard for DeliveryStateContent
+ */
+export function isDeliveryStateContent(
+  data: unknown
+): data is DeliveryStateContent {
+  return DeliveryStateContentSchema.safeParse(data).success;
+}
+
+/**
+ * Type guard for RaidLogContent
+ */
+export function isRaidLogContent(data: unknown): data is RaidLogContent {
+  return RaidLogContentSchema.safeParse(data).success;
+}
+
+/**
+ * Type guard for BacklogSummaryContent
+ */
+export function isBacklogSummaryContent(
+  data: unknown
+): data is BacklogSummaryContent {
+  return BacklogSummaryContentSchema.safeParse(data).success;
+}
+
+/**
+ * Type guard for DecisionLogContent
+ */
+export function isDecisionLogContent(
+  data: unknown
+): data is DecisionLogContent {
+  return DecisionLogContentSchema.safeParse(data).success;
+}
+
+// ============================================================================
+// Parse Functions (Zod validation with error handling)
+// ============================================================================
+
+/**
+ * Parse and validate JSON as Project, throwing on invalid data
+ */
+export function parseProject(data: unknown): Project {
+  return ProjectSchema.parse(data);
+}
+
+/**
+ * Parse and validate JSON as Artefact, throwing on invalid data
+ */
+export function parseArtefact(data: unknown): Artefact {
+  return ArtefactSchema.parse(data);
+}
+
+/**
+ * Parse and validate JSON as Event, throwing on invalid data
+ */
+export function parseEvent(data: unknown): Event {
+  return EventSchema.parse(data);
+}
+
+/**
+ * Parse and validate JSON as JiraCredentials, throwing on invalid data
+ */
+export function parseJiraCredentials(data: unknown): JiraCredentials {
+  return JiraCredentialsSchema.parse(data);
+}
+
+/**
+ * Parse and validate JSON as OutlookCredentials, throwing on invalid data
+ */
+export function parseOutlookCredentials(data: unknown): OutlookCredentials {
+  return OutlookCredentialsSchema.parse(data);
+}
+
+/**
+ * Parse and validate JSON as SESConfig, throwing on invalid data
+ */
+export function parseSESConfig(data: unknown): SESConfig {
+  return SESConfigSchema.parse(data);
+}
+
+// ============================================================================
+// Re-export schemas for direct access
+// ============================================================================
+
+export {
+  ProjectSchema,
+  ArtefactSchema,
+  EventSchema,
+  EscalationSchema,
+  AgentActionSchema,
+  NormalisedSignalSchema,
+  SanitisedSignalSchema,
+  ClassifiedSignalSchema,
+  JiraCredentialsSchema,
+  OutlookCredentialsSchema,
+  SESConfigSchema,
+  DiscriminatedArtefactContentSchema,
+  DeliveryStateContentSchema,
+  RaidLogContentSchema,
+  BacklogSummaryContentSchema,
+  DecisionLogContentSchema,
+};

@@ -20,6 +20,10 @@ import type {
 import { SESClient } from '@agentic-pm/core/integrations/ses';
 import { JiraClient } from '@agentic-pm/core/integrations/jira';
 import {
+  parseJiraCredentials,
+  parseSESConfig,
+} from '@agentic-pm/core';
+import {
   SecretsManagerClient,
   GetSecretValueCommand,
 } from '@aws-sdk/client-secrets-manager';
@@ -52,10 +56,7 @@ async function createActionExecutor(): Promise<ActionExecutor> {
       })
     );
 
-    const config = JSON.parse(secretResponse.SecretString ?? '{}') as {
-      fromAddress: string;
-      region?: string;
-    };
+    const config = parseSESConfig(JSON.parse(secretResponse.SecretString ?? '{}'));
 
     sesClient = new SESClient({
       fromAddress: config.fromAddress,
@@ -74,11 +75,7 @@ async function createActionExecutor(): Promise<ActionExecutor> {
       })
     );
 
-    const credentials = JSON.parse(secretResponse.SecretString ?? '{}') as {
-      baseUrl: string;
-      email: string;
-      apiToken: string;
-    };
+    const credentials = parseJiraCredentials(JSON.parse(secretResponse.SecretString ?? '{}'));
 
     jiraClient = new JiraClient(credentials);
 

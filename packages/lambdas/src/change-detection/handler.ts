@@ -12,8 +12,9 @@
  */
 
 import type { Context } from 'aws-lambda';
-import { DynamoDBClient } from '@agentic-pm/core';
-import { JiraClient, type JiraConfig } from '@agentic-pm/core/integrations/jira';
+import { parseJiraCredentials } from '@agentic-pm/core';
+import { DynamoDBClient } from '@agentic-pm/core/db/client';
+import { JiraClient } from '@agentic-pm/core/integrations/jira';
 import { CheckpointRepository } from '@agentic-pm/core/db/repositories/checkpoint';
 import { ProjectRepository } from '@agentic-pm/core/db/repositories/project';
 import type { Project } from '@agentic-pm/core';
@@ -73,7 +74,7 @@ async function getSecret(secretId: string): Promise<string> {
  */
 async function createJiraClientFromSecrets(): Promise<JiraClient> {
   const secretValue = await getSecret('/agentic-pm/jira/credentials');
-  const credentials = JSON.parse(secretValue) as JiraConfig;
+  const credentials = parseJiraCredentials(JSON.parse(secretValue));
 
   return new JiraClient(credentials);
 }
