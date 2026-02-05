@@ -348,34 +348,99 @@ export class AgentConfigRepository {
    * - Tier 2: At $0.27/day - 85/15 split + 20-min polling
    * - Tier 3: At $0.30/day - Haiku-only + 30-min polling
    * - Hard ceiling: $0.40/day - monitoring-only mode
+   *
+   * Uses atomic DynamoDB operations to prevent race conditions.
    */
   async recordSpend(amountUsd: number): Promise<BudgetStatus> {
     const status = await this.getBudgetStatus();
+    const now = new Date().toISOString();
 
-    const newDailySpend = status.dailySpendUsd + amountUsd;
-    const newMonthlySpend = status.monthlySpendUsd + amountUsd;
+    // Calculate expected new values for tier calculation
+    const expectedDailySpend = status.dailySpendUsd + amountUsd;
+    const expectedMonthlySpend = status.monthlySpendUsd + amountUsd;
 
-    // Calculate new degradation tier
+    // Pre-check if this would exceed hard ceiling (fail fast)
+    if (expectedMonthlySpend > status.monthlyLimitUsd) {
+      throw new Error(
+        `Cannot record spend: would exceed monthly limit ($${expectedMonthlySpend.toFixed(2)} > $${status.monthlyLimitUsd.toFixed(2)})`
+      );
+    }
+    if (expectedDailySpend > 0.40) {
+      throw new Error(
+        `Cannot record spend: would exceed daily hard ceiling ($${expectedDailySpend.toFixed(2)} > $0.40)`
+      );
+    }
+
+    // Calculate new degradation tier based on expected spend
     let newTier: 0 | 1 | 2 | 3 = 0;
-    if (newDailySpend >= 0.30) {
+    if (expectedDailySpend >= 0.30) {
       newTier = 3;
-    } else if (newDailySpend >= 0.27) {
+    } else if (expectedDailySpend >= 0.27) {
       newTier = 2;
-    } else if (newDailySpend >= status.dailyLimitUsd) {
+    } else if (expectedDailySpend >= status.dailyLimitUsd) {
       newTier = 1;
     }
 
-    // Update values
-    await Promise.all([
-      this.setValue(CONFIG_KEYS.DAILY_SPEND, newDailySpend),
-      this.setValue(CONFIG_KEYS.MONTHLY_SPEND, newMonthlySpend),
-      this.setValue(CONFIG_KEYS.DEGRADATION_TIER, newTier),
-    ]);
+    // Use DynamoDB transaction to atomically update all budget values
+    // with conditional checks to prevent exceeding limits
+    try {
+      await this.db.transactWrite([
+        {
+          type: 'update',
+          pk: KEY_PREFIX.AGENT,
+          sk: `${KEY_PREFIX.CONFIG}${CONFIG_KEYS.DAILY_SPEND}`,
+          updateExpression: 'ADD #value :amount SET updatedAt = :now',
+          expressionAttributeNames: {
+            '#value': 'value',
+          },
+          expressionAttributeValues: {
+            ':amount': amountUsd,
+            ':now': now,
+            ':maxDaily': 0.40,
+          },
+          conditionExpression: 'attribute_exists(#value) AND #value + :amount <= :maxDaily',
+        },
+        {
+          type: 'update',
+          pk: KEY_PREFIX.AGENT,
+          sk: `${KEY_PREFIX.CONFIG}${CONFIG_KEYS.MONTHLY_SPEND}`,
+          updateExpression: 'ADD #value :amount SET updatedAt = :now',
+          expressionAttributeNames: {
+            '#value': 'value',
+          },
+          expressionAttributeValues: {
+            ':amount': amountUsd,
+            ':now': now,
+            ':maxMonthly': status.monthlyLimitUsd,
+          },
+          conditionExpression: 'attribute_exists(#value) AND #value + :amount <= :maxMonthly',
+        },
+        {
+          type: 'put',
+          pk: KEY_PREFIX.AGENT,
+          sk: `${KEY_PREFIX.CONFIG}${CONFIG_KEYS.DEGRADATION_TIER}`,
+          item: {
+            key: CONFIG_KEYS.DEGRADATION_TIER,
+            value: newTier,
+            updatedAt: now,
+          },
+        },
+      ]);
+    } catch (error) {
+      // Handle transaction cancellation (conditional check failed)
+      if (error instanceof Error && error.name === 'TransactionCanceledException') {
+        throw new Error(
+          `Budget update failed: concurrent modification or budget limit exceeded. Please retry.`
+        );
+      }
+      throw error;
+    }
 
+    // Return updated budget status
     return {
-      dailySpendUsd: newDailySpend,
+      dailySpendUsd: expectedDailySpend,
       dailyLimitUsd: status.dailyLimitUsd,
-      monthlySpendUsd: newMonthlySpend,
+      monthlySpendUsd: expectedMonthlySpend,
       monthlyLimitUsd: status.monthlyLimitUsd,
       degradationTier: newTier,
     };

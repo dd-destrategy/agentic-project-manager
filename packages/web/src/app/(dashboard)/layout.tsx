@@ -1,8 +1,7 @@
 import { redirect } from 'next/navigation';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../api/auth/[...nextauth]/auth-options';
-import { Sidebar } from '@/components/sidebar';
-import { Header } from '@/components/header';
+import { ResponsiveLayout } from '@/components/responsive-layout';
 
 export default async function DashboardLayout({
   children,
@@ -15,13 +14,5 @@ export default async function DashboardLayout({
     redirect('/auth/signin');
   }
 
-  return (
-    <div className="flex h-screen">
-      <Sidebar />
-      <div className="flex flex-1 flex-col">
-        <Header />
-        <main className="flex-1 overflow-auto p-6">{children}</main>
-      </div>
-    </div>
-  );
+  return <ResponsiveLayout>{children}</ResponsiveLayout>;
 }

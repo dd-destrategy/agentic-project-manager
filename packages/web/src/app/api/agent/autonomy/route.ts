@@ -5,34 +5,17 @@ import {
   updateAutonomySettingsSchema,
   autonomyAcknowledgeSchema,
 } from '@/schemas/api';
-import type { AutonomyLevel } from '@/types';
+import { DynamoDBClient } from '@agentic-pm/core/db';
+import { AgentConfigRepository } from '@agentic-pm/core/db/repositories/agent-config';
 
 /**
- * Autonomy settings response type
+ * Create DynamoDB client and repository
+ * Note: Each Lambda invocation creates a new instance, ensuring fresh state
  */
-interface AutonomySettingsResponse {
-  autonomyLevel: AutonomyLevel;
-  dryRun: boolean;
-  lastLevelChange?: string;
-  pendingAcknowledgement?: {
-    fromLevel: AutonomyLevel;
-    toLevel: AutonomyLevel;
-    requestedAt: string;
-    acknowledged: boolean;
-    acknowledgedAt?: string;
-  };
+function createConfigRepository(): AgentConfigRepository {
+  const dbClient = new DynamoDBClient();
+  return new AgentConfigRepository(dbClient);
 }
-
-/**
- * In-memory store for development/demo purposes
- * In production, this would use DynamoDB via AgentConfigRepository
- */
-const autonomySettings: AutonomySettingsResponse = {
-  autonomyLevel: 'monitoring',
-  dryRun: false,
-  lastLevelChange: undefined,
-  pendingAcknowledgement: undefined,
-};
 
 /**
  * GET /api/agent/autonomy
@@ -48,12 +31,11 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorised' }, { status: 401 });
     }
 
-    // TODO: Fetch real settings from DynamoDB when agent runtime is deployed
-    // const db = new DynamoDBClient();
-    // const configRepo = new AgentConfigRepository(db);
-    // const settings = await configRepo.getAutonomySettings();
+    // Fetch settings from DynamoDB
+    const configRepo = createConfigRepository();
+    const settings = await configRepo.getAutonomySettings();
 
-    return NextResponse.json(autonomySettings);
+    return NextResponse.json(settings);
   } catch (error) {
     console.error('Error fetching autonomy settings:', error);
     return NextResponse.json(
@@ -69,6 +51,10 @@ export async function GET() {
  * Updates autonomy settings. Accepts partial updates for:
  * - autonomyLevel: 'monitoring' | 'artefact' | 'tactical'
  * - dryRun: boolean
+ *
+ * IMPORTANT: Autonomy level changes create a pending acknowledgement that the
+ * agent must confirm during its next heartbeat cycle. This ensures the agent is
+ * aware of the new autonomy level before it takes effect.
  */
 export async function PATCH(request: NextRequest) {
   try {
@@ -85,59 +71,22 @@ export async function PATCH(request: NextRequest) {
     }
 
     const { autonomyLevel, dryRun } = result.data;
+    const configRepo = createConfigRepository();
 
-    // Handle autonomy level change if provided
+    // Update autonomy level if provided
+    // Note: setAutonomyLevel handles pending acknowledgement creation
     if (autonomyLevel !== undefined) {
-
-      // Check if level is changing
-      if (autonomyLevel !== autonomySettings.autonomyLevel) {
-        const now = new Date().toISOString();
-
-        // Create pending acknowledgement for level change
-        autonomySettings.pendingAcknowledgement = {
-          fromLevel: autonomySettings.autonomyLevel,
-          toLevel: autonomyLevel,
-          requestedAt: now,
-          acknowledged: false,
-        };
-
-        autonomySettings.autonomyLevel = autonomyLevel;
-        autonomySettings.lastLevelChange = now;
-
-        // Simulate agent acknowledgement after a short delay (for demo)
-        // In production, this would happen when the agent processes its next cycle
-        setTimeout(() => {
-          if (
-            autonomySettings.pendingAcknowledgement &&
-            !autonomySettings.pendingAcknowledgement.acknowledged
-          ) {
-            autonomySettings.pendingAcknowledgement = {
-              ...autonomySettings.pendingAcknowledgement,
-              acknowledged: true,
-              acknowledgedAt: new Date().toISOString(),
-            };
-          }
-        }, 5000); // 5 second simulated delay
-      }
+      await configRepo.setAutonomyLevel(autonomyLevel);
     }
 
     // Update dry-run mode if provided
     if (dryRun !== undefined) {
-      autonomySettings.dryRun = dryRun;
+      await configRepo.setDryRun(dryRun);
     }
 
-    // TODO: Persist to DynamoDB when agent runtime is deployed
-    // const db = new DynamoDBClient();
-    // const configRepo = new AgentConfigRepository(db);
-    // if (autonomyLevel !== undefined) {
-    //   await configRepo.setAutonomyLevel(autonomyLevel);
-    // }
-    // if (dryRun !== undefined) {
-    //   await configRepo.setDryRun(dryRun);
-    // }
-    // const settings = await configRepo.getAutonomySettings();
-
-    return NextResponse.json(autonomySettings);
+    // Return updated settings from DynamoDB
+    const settings = await configRepo.getAutonomySettings();
+    return NextResponse.json(settings);
   } catch (error) {
     console.error('Error updating autonomy settings:', error);
     return NextResponse.json(

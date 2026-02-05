@@ -201,6 +201,9 @@ export class HoldQueueService {
 
   /**
    * Approve a held action (executes immediately)
+   *
+   * Uses atomic conditional update to prevent race conditions.
+   * Returns null if action was already processed by another operation.
    */
   async approveAction(
     projectId: string,
@@ -210,16 +213,29 @@ export class HoldQueueService {
   ): Promise<HeldAction | null> {
     const action = await this.heldActionRepo.getById(projectId, actionId);
 
-    if (!action || action.status !== 'pending') {
+    if (!action) {
+      return null;
+    }
+
+    if (action.status !== 'pending') {
+      // Action already processed
       return null;
     }
 
     try {
+      // Atomically mark as approved (with status check)
+      // This will return null if status is not 'pending' (race condition detected)
+      const approvedAction = await this.heldActionRepo.approve(projectId, actionId, decidedBy);
+
+      if (!approvedAction) {
+        // Action was already approved or cancelled by another process
+        return null;
+      }
+
       // Execute the action
       await this.executeAction(action, executor);
 
-      // Mark as approved and executed
-      await this.heldActionRepo.approve(projectId, actionId, decidedBy);
+      // Mark as executed
       await this.heldActionRepo.markExecuted(projectId, actionId);
 
       // Record approval for graduation
@@ -268,6 +284,9 @@ export class HoldQueueService {
 
   /**
    * Cancel a held action
+   *
+   * Uses atomic conditional update to prevent race conditions.
+   * Returns null if action was already processed by another operation.
    */
   async cancelAction(
     projectId: string,
@@ -277,17 +296,28 @@ export class HoldQueueService {
   ): Promise<HeldAction | null> {
     const action = await this.heldActionRepo.getById(projectId, actionId);
 
-    if (!action || action.status !== 'pending') {
+    if (!action) {
       return null;
     }
 
-    // Cancel the action
+    if (action.status !== 'pending') {
+      // Action already processed
+      return null;
+    }
+
+    // Atomically cancel the action (with status check)
+    // This will return null if status is not 'pending' (race condition detected)
     const cancelledAction = await this.heldActionRepo.cancel(
       projectId,
       actionId,
       reason,
       decidedBy
     );
+
+    if (!cancelledAction) {
+      // Action was already approved or cancelled by another process
+      return null;
+    }
 
     // Record cancellation (resets graduation progress)
     await this.graduationRepo.recordCancellation(projectId, action.actionType);

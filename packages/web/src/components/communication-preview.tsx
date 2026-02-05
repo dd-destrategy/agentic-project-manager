@@ -205,8 +205,14 @@ export function CommunicationPreview({
           </div>
 
           {/* Time remaining badge */}
-          <Badge variant={urgencyVariant} className="flex items-center gap-1 flex-shrink-0">
-            <Clock className="h-3 w-3" />
+          <Badge
+            variant={urgencyVariant}
+            className="flex items-center gap-1 flex-shrink-0"
+            aria-live="polite"
+            aria-atomic="true"
+            aria-label={`Email will send in ${timeRemaining}`}
+          >
+            <Clock className="h-3 w-3" aria-hidden="true" />
             {timeRemaining}
           </Badge>
         </div>

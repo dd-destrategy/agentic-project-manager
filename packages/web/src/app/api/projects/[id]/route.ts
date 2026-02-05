@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
+import { DynamoDBClient } from '@agentic-pm/core/db/client';
+import { ProjectRepository } from '@agentic-pm/core/db/repositories/project';
+import { EscalationRepository } from '@agentic-pm/core/db/repositories/escalation';
+import { EventRepository } from '@agentic-pm/core/db/repositories/event';
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options';
-import type { Project, HealthStatus, AutonomyLevel, ProjectStatus } from '@/types';
+import type { Project, HealthStatus } from '@/types';
 
 interface ProjectDetailResponse {
   project: Project & {
@@ -32,60 +36,38 @@ export async function GET(
       return NextResponse.json({ error: 'Project ID is required' }, { status: 400 });
     }
 
-    // TODO: Fetch real project from DynamoDB when agent runtime is deployed
-    // For now, return mock data for frontend development
-    const mockProjects: Record<string, ProjectDetailResponse> = {
-      'proj-1': {
-        project: {
-          id: 'proj-1',
-          name: 'Platform Migration',
-          description: 'Migrating legacy platform to modern cloud-native architecture with improved scalability and maintainability.',
-          status: 'active' as ProjectStatus,
-          source: 'jira',
-          sourceProjectKey: 'PLAT',
-          autonomyLevel: 'artefact' as AutonomyLevel,
-          config: {
-            pollingIntervalMinutes: 15,
-            holdQueueMinutes: 60,
-            jiraBoardId: 'board-123',
-            monitoredEmails: ['platform-team@example.com'],
-          },
-          createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-          updatedAt: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
-          healthStatus: 'healthy',
-          pendingEscalations: 0,
-        },
-      },
-      'proj-2': {
-        project: {
-          id: 'proj-2',
-          name: 'Mobile App v2',
-          description: 'Next generation mobile application with enhanced user experience and offline capabilities.',
-          status: 'active' as ProjectStatus,
-          source: 'jira',
-          sourceProjectKey: 'MOB',
-          autonomyLevel: 'tactical' as AutonomyLevel,
-          config: {
-            pollingIntervalMinutes: 15,
-            holdQueueMinutes: 30,
-            jiraBoardId: 'board-456',
-            monitoredEmails: ['mobile-team@example.com'],
-          },
-          createdAt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString(),
-          updatedAt: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
-          healthStatus: 'warning',
-          pendingEscalations: 1,
-        },
-      },
-    };
+    // Initialize DynamoDB repositories
+    const dbClient = new DynamoDBClient();
+    const projectRepo = new ProjectRepository(dbClient);
+    const escalationRepo = new EscalationRepository(dbClient);
+    const eventRepo = new EventRepository(dbClient);
 
-    const projectData = mockProjects[id];
+    // Fetch project from DynamoDB
+    const project = await projectRepo.getById(id);
 
-    if (!projectData) {
+    if (!project) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
 
-    return NextResponse.json(projectData);
+    // Get pending escalations count
+    const pendingEscalations = await escalationRepo.countPendingByProject(id);
+
+    // Get latest activity from events
+    const projectEvents = await eventRepo.getByProject(id, { limit: 1 });
+    const lastActivity = projectEvents.items[0]?.createdAt ?? project.updatedAt;
+
+    // Calculate health status
+    const healthStatus = calculateHealthStatus(pendingEscalations, lastActivity);
+
+    const response: ProjectDetailResponse = {
+      project: {
+        ...project,
+        healthStatus,
+        pendingEscalations,
+      },
+    };
+
+    return NextResponse.json(response);
   } catch (error) {
     console.error('Error fetching project:', error);
     return NextResponse.json(
@@ -93,4 +75,109 @@ export async function GET(
       { status: 500 }
     );
   }
+}
+
+/**
+ * PATCH /api/projects/[id]
+ *
+ * Updates a project.
+ */
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    // Verify authentication
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorised' }, { status: 401 });
+    }
+
+    const { id } = await params;
+    const body = await request.json();
+
+    // Initialize DynamoDB client and repository
+    const dbClient = new DynamoDBClient();
+    const projectRepo = new ProjectRepository(dbClient);
+
+    // Check if project exists
+    const existingProject = await projectRepo.getById(id);
+    if (!existingProject) {
+      return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+    }
+
+    // Update project
+    await projectRepo.update(id, body);
+
+    // Fetch updated project
+    const updatedProject = await projectRepo.getById(id);
+
+    return NextResponse.json({ project: updatedProject });
+  } catch (error) {
+    console.error('Error updating project:', error);
+    return NextResponse.json(
+      { error: 'Failed to update project' },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * DELETE /api/projects/[id]
+ *
+ * Archives a project (soft delete).
+ */
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    // Verify authentication
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorised' }, { status: 401 });
+    }
+
+    const { id } = await params;
+
+    // Initialize DynamoDB client and repository
+    const dbClient = new DynamoDBClient();
+    const projectRepo = new ProjectRepository(dbClient);
+
+    // Check if project exists
+    const existingProject = await projectRepo.getById(id);
+    if (!existingProject) {
+      return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+    }
+
+    // Archive project (soft delete)
+    await projectRepo.update(id, { status: 'archived' });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting project:', error);
+    return NextResponse.json(
+      { error: 'Failed to delete project' },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * Calculate health status based on project metrics
+ */
+function calculateHealthStatus(
+  pendingEscalations: number,
+  lastActivity: string
+): HealthStatus {
+  const hoursSinceActivity =
+    (Date.now() - new Date(lastActivity).getTime()) / (1000 * 60 * 60);
+
+  if (pendingEscalations >= 3) {
+    return 'error';
+  }
+  if (pendingEscalations >= 1 || hoursSinceActivity > 48) {
+    return 'warning';
+  }
+  return 'healthy';
 }

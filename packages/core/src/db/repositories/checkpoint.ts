@@ -16,12 +16,18 @@ import { DynamoDBClient } from '../client.js';
  * per project. This enables delta detection - only fetching changes
  * since the last sync.
  *
+ * Uses optimistic locking with version numbers to prevent race conditions
+ * when multiple processes update the same checkpoint concurrently.
+ *
  * Key schema:
  * - PK: PROJECT#{projectId}
  * - SK: CHECKPOINT#{integration}#{checkpointKey}
  */
 export class CheckpointRepository {
   constructor(private db: DynamoDBClient) {}
+
+  /** Maximum retries for concurrent update conflicts */
+  private readonly MAX_RETRIES = 3;
 
   /**
    * Get a checkpoint value
@@ -69,6 +75,9 @@ export class CheckpointRepository {
   /**
    * Set a checkpoint value
    *
+   * Uses optimistic locking to prevent race conditions. Will retry
+   * up to MAX_RETRIES times if concurrent updates are detected.
+   *
    * @param projectId - Project ID
    * @param integration - Integration source
    * @param checkpointValue - The checkpoint value (usually an ISO timestamp)
@@ -80,30 +89,73 @@ export class CheckpointRepository {
     checkpointValue: string,
     checkpointKey: string = 'last_sync'
   ): Promise<AgentCheckpoint> {
-    const now = new Date().toISOString();
+    const pk = `${KEY_PREFIX.PROJECT}${projectId}`;
+    const sk = `${KEY_PREFIX.CHECKPOINT}${integration}#${checkpointKey}`;
 
-    const checkpoint: AgentCheckpoint = {
-      projectId,
-      integration,
-      checkpointKey,
-      checkpointValue,
-      updatedAt: now,
-    };
+    for (let attempt = 0; attempt < this.MAX_RETRIES; attempt++) {
+      try {
+        // Get current checkpoint to read version
+        const existing = await this.db.get<AgentCheckpoint & { version?: number }>(pk, sk);
+        const currentVersion = existing?.version ?? 0;
+        const now = new Date().toISOString();
 
-    await this.db.put({
-      PK: `${KEY_PREFIX.PROJECT}${projectId}`,
-      SK: `${KEY_PREFIX.CHECKPOINT}${integration}#${checkpointKey}`,
-      ...checkpoint,
-    });
+        const checkpoint: AgentCheckpoint & { version: number } = {
+          projectId,
+          integration,
+          checkpointKey,
+          checkpointValue,
+          updatedAt: now,
+          version: currentVersion + 1,
+        };
 
-    return checkpoint;
+        // Put with condition: version must match expected OR item must not exist
+        const conditionExpression = existing
+          ? 'version = :expectedVersion'
+          : 'attribute_not_exists(PK)';
+
+        const expressionAttributeValues = existing
+          ? { ':expectedVersion': currentVersion }
+          : undefined;
+
+        const success = await this.db.putWithCondition(
+          {
+            PK: pk,
+            SK: sk,
+            ...checkpoint,
+          },
+          conditionExpression,
+          expressionAttributeValues
+        );
+
+        if (success) {
+          return checkpoint;
+        }
+
+        // Condition failed, retry with exponential backoff
+        const backoffMs = Math.min(100 * Math.pow(2, attempt), 1000);
+        await new Promise((resolve) => setTimeout(resolve, backoffMs));
+      } catch (error) {
+        // If it's the last attempt, throw
+        if (attempt === this.MAX_RETRIES - 1) {
+          throw new Error(
+            `Failed to set checkpoint after ${this.MAX_RETRIES} attempts: ${error instanceof Error ? error.message : String(error)}`
+          );
+        }
+        // Otherwise, retry
+        const backoffMs = Math.min(100 * Math.pow(2, attempt), 1000);
+        await new Promise((resolve) => setTimeout(resolve, backoffMs));
+      }
+    }
+
+    // Should never reach here, but TypeScript needs it
+    throw new Error(`Failed to set checkpoint after ${this.MAX_RETRIES} attempts`);
   }
 
   /**
    * Update checkpoint only if the new value is more recent
    *
    * This prevents race conditions where an older checkpoint
-   * might overwrite a newer one.
+   * might overwrite a newer one. Uses optimistic locking.
    *
    * @returns true if checkpoint was updated, false if skipped
    */
@@ -113,12 +165,66 @@ export class CheckpointRepository {
     checkpointValue: string,
     checkpointKey: string = 'last_sync'
   ): Promise<boolean> {
-    const existing = await this.get(projectId, integration, checkpointKey);
+    const pk = `${KEY_PREFIX.PROJECT}${projectId}`;
+    const sk = `${KEY_PREFIX.CHECKPOINT}${integration}#${checkpointKey}`;
 
-    // If no existing checkpoint, or new value is more recent, update
-    if (!existing || checkpointValue > existing.checkpointValue) {
-      await this.set(projectId, integration, checkpointValue, checkpointKey);
-      return true;
+    for (let attempt = 0; attempt < this.MAX_RETRIES; attempt++) {
+      try {
+        // Get current checkpoint with version
+        const existing = await this.db.get<AgentCheckpoint & { version?: number }>(pk, sk);
+
+        // If no existing checkpoint, or new value is more recent, update
+        if (!existing || checkpointValue > existing.checkpointValue) {
+          const currentVersion = existing?.version ?? 0;
+          const now = new Date().toISOString();
+
+          const checkpoint = {
+            PK: pk,
+            SK: sk,
+            projectId,
+            integration,
+            checkpointKey,
+            checkpointValue,
+            updatedAt: now,
+            version: currentVersion + 1,
+          };
+
+          // Put with version check
+          const conditionExpression = existing
+            ? 'version = :expectedVersion'
+            : 'attribute_not_exists(PK)';
+
+          const expressionAttributeValues = existing
+            ? { ':expectedVersion': currentVersion }
+            : undefined;
+
+          const success = await this.db.putWithCondition(
+            checkpoint,
+            conditionExpression,
+            expressionAttributeValues
+          );
+
+          if (success) {
+            return true;
+          }
+
+          // Condition failed, retry
+          const backoffMs = Math.min(100 * Math.pow(2, attempt), 1000);
+          await new Promise((resolve) => setTimeout(resolve, backoffMs));
+          continue;
+        }
+
+        // New value is not more recent, don't update
+        return false;
+      } catch (error) {
+        if (attempt === this.MAX_RETRIES - 1) {
+          throw new Error(
+            `Failed to setIfNewer after ${this.MAX_RETRIES} attempts: ${error instanceof Error ? error.message : String(error)}`
+          );
+        }
+        const backoffMs = Math.min(100 * Math.pow(2, attempt), 1000);
+        await new Promise((resolve) => setTimeout(resolve, backoffMs));
+      }
     }
 
     return false;

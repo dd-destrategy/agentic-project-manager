@@ -63,6 +63,13 @@ module.exports = {
     eqeqeq: ['error', 'always', { null: 'ignore' }],
   },
   overrides: [
+    // Web package - use its own tsconfig
+    {
+      files: ['packages/web/**/*.ts', 'packages/web/**/*.tsx'],
+      parserOptions: {
+        project: ['./packages/web/tsconfig.json'],
+      },
+    },
     // Test files
     {
       files: ['**/*.test.ts', '**/*.test.tsx', '**/*.spec.ts', '**/*.spec.tsx'],
@@ -85,7 +92,6 @@ module.exports = {
     },
   ],
   ignorePatterns: [
-    'packages/web/**',
     'node_modules/',
     'dist/',
     '.next/',

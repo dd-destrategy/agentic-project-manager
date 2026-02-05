@@ -19,13 +19,27 @@ const navigation = [
   { name: 'Settings', href: '/settings', icon: Settings },
 ];
 
-export function Sidebar() {
+interface SidebarProps {
+  onNavigate?: () => void;
+}
+
+export function Sidebar({ onNavigate }: SidebarProps = {}) {
   const pathname = usePathname();
 
+  const handleLinkClick = () => {
+    if (onNavigate) {
+      onNavigate();
+    }
+  };
+
   return (
-    <aside className="flex w-64 flex-col border-r bg-card">
+    <aside className="flex w-64 flex-col border-r bg-card h-full">
       <div className="flex h-14 items-center border-b px-4">
-        <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
+        <Link
+          href="/dashboard"
+          className="flex items-center gap-2 font-semibold"
+          onClick={handleLinkClick}
+        >
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
             A
           </div>
@@ -40,6 +54,7 @@ export function Sidebar() {
             <Link
               key={item.name}
               href={item.href}
+              onClick={handleLinkClick}
               className={cn(
                 'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
                 isActive

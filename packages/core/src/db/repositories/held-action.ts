@@ -251,6 +251,12 @@ export class HeldActionRepository {
 
   /**
    * Approve a held action (executes immediately instead of waiting)
+   *
+   * Uses conditional update to prevent race conditions where the same
+   * action could be approved or cancelled concurrently.
+   *
+   * @returns Updated action if approval succeeded, null if action is not pending
+   * @throws Error if action doesn't exist or update fails
    */
   async approve(
     projectId: string,
@@ -259,29 +265,47 @@ export class HeldActionRepository {
   ): Promise<HeldAction | null> {
     const approvedAt = new Date().toISOString();
 
-    await this.db.update(
-      `${KEY_PREFIX.PROJECT}${projectId}`,
-      `HELD#${actionId}`,
-      'SET #status = :status, #approvedAt = :approvedAt, #decidedBy = :decidedBy, #gsi1pk = :gsi1pk',
-      {
-        ':status': 'approved',
-        ':approvedAt': approvedAt,
-        ':decidedBy': decidedBy ?? null,
-        ':gsi1pk': 'HELD#APPROVED',
-      },
-      {
-        '#status': 'status',
-        '#approvedAt': 'approvedAt',
-        '#decidedBy': 'decidedBy',
-        '#gsi1pk': 'GSI1PK',
-      }
-    );
+    try {
+      await this.db.update(
+        `${KEY_PREFIX.PROJECT}${projectId}`,
+        `HELD#${actionId}`,
+        'SET #status = :status, #approvedAt = :approvedAt, #decidedBy = :decidedBy, #gsi1pk = :gsi1pk',
+        {
+          ':status': 'approved',
+          ':approvedAt': approvedAt,
+          ':decidedBy': decidedBy ?? null,
+          ':gsi1pk': 'HELD#APPROVED',
+          ':pendingStatus': 'pending',
+        },
+        {
+          '#status': 'status',
+          '#approvedAt': 'approvedAt',
+          '#decidedBy': 'decidedBy',
+          '#gsi1pk': 'GSI1PK',
+        },
+        // CRITICAL: Only update if status is still 'pending'
+        // This prevents race conditions with concurrent approve/cancel operations
+        'attribute_exists(PK) AND #status = :pendingStatus'
+      );
 
-    return this.getById(projectId, actionId);
+      return this.getById(projectId, actionId);
+    } catch (error) {
+      // If conditional check failed, action was already processed
+      if (error instanceof Error && error.message.includes('ConditionalCheckFailed')) {
+        return null;
+      }
+      throw error;
+    }
   }
 
   /**
    * Cancel a held action (prevents execution)
+   *
+   * Uses conditional update to prevent race conditions where the same
+   * action could be approved or cancelled concurrently.
+   *
+   * @returns Updated action if cancellation succeeded, null if action is not pending
+   * @throws Error if action doesn't exist or update fails
    */
   async cancel(
     projectId: string,
@@ -291,27 +315,39 @@ export class HeldActionRepository {
   ): Promise<HeldAction | null> {
     const cancelledAt = new Date().toISOString();
 
-    await this.db.update(
-      `${KEY_PREFIX.PROJECT}${projectId}`,
-      `HELD#${actionId}`,
-      'SET #status = :status, #cancelledAt = :cancelledAt, #cancelReason = :cancelReason, #decidedBy = :decidedBy, #gsi1pk = :gsi1pk',
-      {
-        ':status': 'cancelled',
-        ':cancelledAt': cancelledAt,
-        ':cancelReason': reason ?? null,
-        ':decidedBy': decidedBy ?? null,
-        ':gsi1pk': 'HELD#CANCELLED',
-      },
-      {
-        '#status': 'status',
-        '#cancelledAt': 'cancelledAt',
-        '#cancelReason': 'cancelReason',
-        '#decidedBy': 'decidedBy',
-        '#gsi1pk': 'GSI1PK',
-      }
-    );
+    try {
+      await this.db.update(
+        `${KEY_PREFIX.PROJECT}${projectId}`,
+        `HELD#${actionId}`,
+        'SET #status = :status, #cancelledAt = :cancelledAt, #cancelReason = :cancelReason, #decidedBy = :decidedBy, #gsi1pk = :gsi1pk',
+        {
+          ':status': 'cancelled',
+          ':cancelledAt': cancelledAt,
+          ':cancelReason': reason ?? null,
+          ':decidedBy': decidedBy ?? null,
+          ':gsi1pk': 'HELD#CANCELLED',
+          ':pendingStatus': 'pending',
+        },
+        {
+          '#status': 'status',
+          '#cancelledAt': 'cancelledAt',
+          '#cancelReason': 'cancelReason',
+          '#decidedBy': 'decidedBy',
+          '#gsi1pk': 'GSI1PK',
+        },
+        // CRITICAL: Only update if status is still 'pending'
+        // This prevents race conditions with concurrent approve/cancel operations
+        'attribute_exists(PK) AND #status = :pendingStatus'
+      );
 
-    return this.getById(projectId, actionId);
+      return this.getById(projectId, actionId);
+    } catch (error) {
+      // If conditional check failed, action was already processed
+      if (error instanceof Error && error.message.includes('ConditionalCheckFailed')) {
+        return null;
+      }
+      throw error;
+    }
   }
 
   /**

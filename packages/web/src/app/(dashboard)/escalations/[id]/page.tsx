@@ -24,6 +24,7 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
 import type { EscalationOption } from '@/types';
 
 /**
@@ -325,12 +326,16 @@ export default function EscalationDetailPage({
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Add notes about your decision..."
-              className="min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            />
+            <div className="space-y-2">
+              <Label htmlFor="decision-notes">Decision Notes (Optional)</Label>
+              <textarea
+                id="decision-notes"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Add notes about your decision..."
+                className="min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              />
+            </div>
 
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
