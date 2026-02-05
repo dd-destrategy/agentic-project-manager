@@ -8,14 +8,33 @@ applications:
             - pnpm install --frozen-lockfile
         build:
           commands:
+            # Build core package first (dependency)
+            - pnpm --filter @agentic-pm/core build
+            # Build web package
             - pnpm --filter @agentic-pm/web build
       artifacts:
         baseDirectory: packages/web/.next
         files:
           - '**/*'
+        # Include standalone output for server functions
+        secondaryArtifacts:
+          standalone:
+            baseDirectory: packages/web/.next/standalone
+            files:
+              - '**/*'
       cache:
         paths:
           - node_modules/**/*
           - packages/web/.next/cache/**/*
+          - packages/core/dist/**/*
       buildPath: /
     appRoot: packages/web
+    environmentVariables:
+      # Build-time environment variables
+      NEXT_TELEMETRY_DISABLED: '1'
+      # Runtime variables configured in Amplify Console:
+      # - NEXTAUTH_SECRET
+      # - NEXTAUTH_URL
+      # - NEXTAUTH_PASSWORD
+      # - AWS_REGION
+      # - DYNAMODB_TABLE_NAME

@@ -19,12 +19,16 @@ import {
   UpdateCommand,
   DeleteCommand,
   TransactWriteCommand,
+  BatchGetCommand,
+  BatchWriteCommand,
   type GetCommandInput,
   type PutCommandInput,
   type QueryCommandInput,
   type UpdateCommandInput,
   type DeleteCommandInput,
   type TransactWriteCommandInput,
+  type BatchGetCommandInput,
+  type BatchWriteCommandInput,
 } from '@aws-sdk/lib-dynamodb';
 import { TABLE_NAME } from '../constants.js';
 
@@ -427,5 +431,169 @@ export class DynamoDBClient {
 
       await this.client.send(new TransactWriteCommand(input));
     }, 'TransactWrite');
+  }
+
+  /**
+   * Batch get items (up to 100 items)
+   * Returns items in the same order as requested keys (null for missing items)
+   */
+  async batchGet<T>(
+    keys: Array<{ pk: string; sk: string }>
+  ): Promise<(T | null)[]> {
+    if (keys.length === 0) {
+      return [];
+    }
+
+    if (keys.length > 100) {
+      throw new DynamoDBError(
+        'BatchGet supports up to 100 items',
+        'ValidationError',
+        false
+      );
+    }
+
+    return this.executeWithRetry(async () => {
+      const input: BatchGetCommandInput = {
+        RequestItems: {
+          [this.tableName]: {
+            Keys: keys.map((key) => ({ PK: key.pk, SK: key.sk })),
+          },
+        },
+      };
+
+      const result = await this.client.send(new BatchGetCommand(input));
+      const responses = result.Responses?.[this.tableName] ?? [];
+
+      // Create a map for quick lookup
+      const responseMap = new Map<string, T>();
+      for (const item of responses) {
+        const compositeKey = `${item.PK}#${item.SK}`;
+        responseMap.set(compositeKey, item as T);
+      }
+
+      // Return items in the same order as requested
+      return keys.map((key) => {
+        const compositeKey = `${key.pk}#${key.sk}`;
+        return responseMap.get(compositeKey) ?? null;
+      });
+    }, 'BatchGet');
+  }
+
+  /**
+   * Batch write items (up to 25 items per batch)
+   * Automatically handles unprocessed items with retry
+   */
+  async batchWrite(
+    operations: Array<{
+      type: 'put' | 'delete';
+      pk: string;
+      sk: string;
+      item?: Record<string, unknown>;
+    }>
+  ): Promise<void> {
+    if (operations.length === 0) {
+      return;
+    }
+
+    if (operations.length > 25) {
+      throw new DynamoDBError(
+        'BatchWrite supports up to 25 items per call. Use batchWriteAll for larger batches.',
+        'ValidationError',
+        false
+      );
+    }
+
+    return this.executeWithRetry(async () => {
+      const writeRequests = operations.map((op) => {
+        if (op.type === 'put' && op.item) {
+          return {
+            PutRequest: {
+              Item: { ...op.item, PK: op.pk, SK: op.sk },
+            },
+          };
+        } else if (op.type === 'delete') {
+          return {
+            DeleteRequest: {
+              Key: { PK: op.pk, SK: op.sk },
+            },
+          };
+        }
+        throw new Error(`Invalid batch write operation type: ${op.type}`);
+      });
+
+      const input: BatchWriteCommandInput = {
+        RequestItems: {
+          [this.tableName]: writeRequests,
+        },
+      };
+
+      let response = await this.client.send(new BatchWriteCommand(input));
+
+      // Handle unprocessed items with exponential backoff
+      let retryCount = 0;
+      while (
+        response.UnprocessedItems &&
+        Object.keys(response.UnprocessedItems).length > 0 &&
+        retryCount < MAX_RETRIES
+      ) {
+        const delay = calculateBackoffDelay(retryCount);
+        await sleep(delay);
+
+        response = await this.client.send(
+          new BatchWriteCommand({ RequestItems: response.UnprocessedItems })
+        );
+        retryCount++;
+      }
+
+      if (
+        response.UnprocessedItems &&
+        Object.keys(response.UnprocessedItems).length > 0
+      ) {
+        throw new DynamoDBError(
+          `BatchWrite failed with ${Object.keys(response.UnprocessedItems).length} unprocessed items after ${MAX_RETRIES} retries`,
+          'UnprocessedItems',
+          true
+        );
+      }
+    }, 'BatchWrite');
+  }
+
+  /**
+   * Batch write all items (handles chunking for large batches)
+   * Splits into 25-item chunks and processes sequentially
+   */
+  async batchWriteAll(
+    operations: Array<{
+      type: 'put' | 'delete';
+      pk: string;
+      sk: string;
+      item?: Record<string, unknown>;
+    }>
+  ): Promise<void> {
+    const BATCH_SIZE = 25;
+
+    for (let i = 0; i < operations.length; i += BATCH_SIZE) {
+      const batch = operations.slice(i, i + BATCH_SIZE);
+      await this.batchWrite(batch);
+    }
+  }
+
+  /**
+   * Batch get all items (handles chunking for large batches)
+   * Splits into 100-item chunks and processes sequentially
+   */
+  async batchGetAll<T>(
+    keys: Array<{ pk: string; sk: string }>
+  ): Promise<(T | null)[]> {
+    const BATCH_SIZE = 100;
+    const results: (T | null)[] = [];
+
+    for (let i = 0; i < keys.length; i += BATCH_SIZE) {
+      const batch = keys.slice(i, i + BATCH_SIZE);
+      const batchResults = await this.batchGet<T>(batch);
+      results.push(...batchResults);
+    }
+
+    return results;
   }
 }

@@ -87,15 +87,29 @@ export class AgentStack extends cdk.Stack {
       return fn;
     };
 
-    // Create tasks
+    // Create tasks with retry configuration
     const heartbeat = new tasks.LambdaInvoke(this, 'Heartbeat', {
       lambdaFunction: getLambda('heartbeat'),
       outputPath: '$.Payload',
+      retryOnServiceExceptions: true,
+    });
+    heartbeat.addRetry({
+      errors: ['Lambda.ServiceException', 'Lambda.TooManyRequestsException'],
+      interval: cdk.Duration.seconds(5),
+      maxAttempts: 2,
+      backoffRate: 2,
     });
 
     const changeDetection = new tasks.LambdaInvoke(this, 'ChangeDetection', {
       lambdaFunction: getLambda('change-detection'),
       outputPath: '$.Payload',
+      retryOnServiceExceptions: true,
+    });
+    changeDetection.addRetry({
+      errors: ['Lambda.ServiceException', 'Lambda.TooManyRequestsException'],
+      interval: cdk.Duration.seconds(10),
+      maxAttempts: 3,
+      backoffRate: 2,
     });
 
     const normalise = new tasks.LambdaInvoke(this, 'Normalise', {
@@ -106,53 +120,122 @@ export class AgentStack extends cdk.Stack {
     const triageSanitise = new tasks.LambdaInvoke(this, 'TriageSanitise', {
       lambdaFunction: getLambda('triage-sanitise'),
       outputPath: '$.Payload',
+      retryOnServiceExceptions: true,
+    });
+    triageSanitise.addRetry({
+      errors: ['Lambda.ServiceException', 'States.Timeout'],
+      interval: cdk.Duration.seconds(30),
+      maxAttempts: 2,
+      backoffRate: 2,
     });
 
     const triageClassify = new tasks.LambdaInvoke(this, 'TriageClassify', {
       lambdaFunction: getLambda('triage-classify'),
       outputPath: '$.Payload',
+      retryOnServiceExceptions: true,
+    });
+    triageClassify.addRetry({
+      errors: ['Lambda.ServiceException', 'States.Timeout'],
+      interval: cdk.Duration.seconds(30),
+      maxAttempts: 2,
+      backoffRate: 2,
     });
 
     const reasoning = new tasks.LambdaInvoke(this, 'Reasoning', {
       lambdaFunction: getLambda('reasoning'),
       outputPath: '$.Payload',
+      retryOnServiceExceptions: true,
+    });
+    reasoning.addRetry({
+      errors: ['Lambda.ServiceException', 'States.Timeout'],
+      interval: cdk.Duration.seconds(60),
+      maxAttempts: 2,
+      backoffRate: 2,
     });
 
     const execute = new tasks.LambdaInvoke(this, 'Execute', {
       lambdaFunction: getLambda('execute'),
       outputPath: '$.Payload',
+      retryOnServiceExceptions: true,
+    });
+    execute.addRetry({
+      errors: ['Lambda.ServiceException'],
+      interval: cdk.Duration.seconds(10),
+      maxAttempts: 2,
+      backoffRate: 2,
     });
 
     const artefactUpdate = new tasks.LambdaInvoke(this, 'ArtefactUpdate', {
       lambdaFunction: getLambda('artefact-update'),
       outputPath: '$.Payload',
+      retryOnServiceExceptions: true,
+    });
+    artefactUpdate.addRetry({
+      errors: ['Lambda.ServiceException', 'States.Timeout'],
+      interval: cdk.Duration.seconds(30),
+      maxAttempts: 2,
+      backoffRate: 2,
     });
 
     const housekeeping = new tasks.LambdaInvoke(this, 'Housekeeping', {
       lambdaFunction: getLambda('housekeeping'),
       outputPath: '$.Payload',
+      retryOnServiceExceptions: true,
+    });
+    housekeeping.addRetry({
+      errors: ['Lambda.ServiceException', 'States.Timeout'],
+      interval: cdk.Duration.seconds(30),
+      maxAttempts: 2,
+      backoffRate: 2,
+    });
+
+    // Success state
+    const success = new sfn.Succeed(this, 'Success');
+
+    // Pass state to preserve heartbeat output for housekeeping check
+    const preserveHeartbeat = new sfn.Pass(this, 'PreserveHeartbeatOutput', {
+      resultPath: '$.heartbeat',
+    });
+
+    // Housekeeping check - runs after main flow (with or without changes)
+    const checkHousekeeping = new sfn.Choice(this, 'HousekeepingDue?')
+      .when(sfn.Condition.booleanEquals('$.housekeepingDue', true), housekeeping)
+      .otherwise(success);
+
+    // Connect housekeeping to success
+    housekeeping.next(success);
+
+    // No changes path - still check housekeeping
+    const noChangesPass = new sfn.Pass(this, 'NoChanges', {
+      // Pass through the heartbeat output which contains housekeepingDue
+      resultPath: sfn.JsonPath.DISCARD,
     });
 
     // Choice states
     const hasChanges = new sfn.Choice(this, 'HasChanges?')
       .when(sfn.Condition.booleanEquals('$.hasChanges', true), normalise)
-      .otherwise(new sfn.Pass(this, 'NoChanges'));
+      .otherwise(noChangesPass);
 
     const needsReasoning = new sfn.Choice(this, 'NeedsReasoning?')
       .when(sfn.Condition.booleanEquals('$.needsComplexReasoning', true), reasoning)
       .otherwise(execute);
 
-    const success = new sfn.Succeed(this, 'Success');
-
-    // Chain states
+    // Chain states for the main processing path
     normalise.next(triageSanitise);
     triageSanitise.next(triageClassify);
     triageClassify.next(needsReasoning);
     reasoning.next(execute);
     execute.next(artefactUpdate);
-    artefactUpdate.next(success);
+    artefactUpdate.next(checkHousekeeping);
 
-    const definition = heartbeat.next(changeDetection).next(hasChanges);
+    // No changes path goes directly to housekeeping check
+    noChangesPass.next(checkHousekeeping);
+
+    // Main flow: heartbeat -> save heartbeat -> change detection -> hasChanges choice
+    const definition = heartbeat
+      .next(preserveHeartbeat)
+      .next(changeDetection)
+      .next(hasChanges);
 
     // Create log group
     const logGroup = new logs.LogGroup(this, 'StateMachineLogGroup', {

@@ -29,6 +29,21 @@ export interface LlmResponse<T = unknown> {
   durationMs?: number;
   stopReason?: string;
   retryable?: boolean;
+  retriesUsed?: number;
+}
+
+/**
+ * Retry configuration for API calls
+ */
+export interface RetryConfig {
+  /** Maximum number of retry attempts */
+  maxRetries: number;
+  /** Base delay in milliseconds for exponential backoff */
+  baseDelayMs: number;
+  /** Maximum delay in milliseconds between retries */
+  maxDelayMs: number;
+  /** HTTP status codes that should trigger a retry */
+  retryableStatusCodes: number[];
 }
 
 /**
@@ -145,10 +160,15 @@ export interface DegradationConfig {
   tier: DegradationTier;
   name: string;
   description: string;
-  dailyThresholdUsd: number;
+  /** Threshold as percentage of daily budget (0.0 - 1.0) */
+  dailyThresholdPercent: number;
   haikuPercent: number;
   sonnetPercent: number;
   allowLlmCalls: boolean;
+  /** Skip low-priority signals at this tier */
+  skipLowPriority: boolean;
+  /** Batch signals together at this tier */
+  batchSignals: boolean;
   pollingIntervalMinutes: number;
 }
 

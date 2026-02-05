@@ -12,6 +12,7 @@ import type {
   TokenUsage,
   ToolDefinition,
   ModelId,
+  RetryConfig,
 } from './types.js';
 
 /** Pricing per million tokens (as of Feb 2026) */
@@ -36,15 +37,45 @@ export const MODEL_ALIASES = {
   sonnet: 'claude-sonnet-4-5-20250514' as const,
 };
 
+/** Default retry configuration */
+const DEFAULT_RETRY_CONFIG: RetryConfig = {
+  maxRetries: 3,
+  baseDelayMs: 1000,
+  maxDelayMs: 30000,
+  retryableStatusCodes: [429, 500, 502, 503, 504],
+};
+
+/**
+ * Sleep for specified milliseconds
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Calculate exponential backoff delay with jitter
+ */
+function calculateBackoffDelay(
+  attempt: number,
+  baseDelayMs: number,
+  maxDelayMs: number
+): number {
+  const exponentialDelay = baseDelayMs * Math.pow(2, attempt);
+  const jitter = Math.random() * baseDelayMs * 0.5;
+  return Math.min(exponentialDelay + jitter, maxDelayMs);
+}
+
 /**
  * Claude API client with tool-use support
  */
 export class ClaudeClient {
   private client: Anthropic;
   private config: LlmConfig;
+  private retryConfig: RetryConfig;
 
-  constructor(config: LlmConfig) {
+  constructor(config: LlmConfig, retryConfig?: Partial<RetryConfig>) {
     this.config = config;
+    this.retryConfig = { ...DEFAULT_RETRY_CONFIG, ...retryConfig };
     this.client = new Anthropic({
       apiKey: config.apiKey,
     });
@@ -66,104 +97,231 @@ export class ClaudeClient {
     options?: {
       forceTool?: string;
       maxTokens?: number;
+      skipRetry?: boolean;
     }
   ): Promise<LlmResponse<T>> {
     const startTime = Date.now();
+    let lastError: Error | undefined;
+    let totalUsage: TokenUsage = { inputTokens: 0, outputTokens: 0, costUsd: 0 };
 
-    try {
-      // Convert tool definitions to Anthropic format
-      const anthropicTools: Anthropic.Tool[] = tools.map((tool) => ({
-        name: tool.name,
-        description: tool.description,
-        input_schema: tool.input_schema as Anthropic.Tool.InputSchema,
-      }));
+    for (let attempt = 0; attempt <= this.retryConfig.maxRetries; attempt++) {
+      try {
+        // Convert tool definitions to Anthropic format
+        const anthropicTools: Anthropic.Tool[] = tools.map((tool) => ({
+          name: tool.name,
+          description: tool.description,
+          input_schema: tool.input_schema as Anthropic.Tool.InputSchema,
+        }));
 
-      // Build tool_choice - force specific tool if requested
-      const toolChoice: Anthropic.ToolChoice = options?.forceTool
-        ? { type: 'tool', name: options.forceTool }
-        : { type: 'auto' };
+        // Build tool_choice - force specific tool if requested
+        const toolChoice: Anthropic.ToolChoice = options?.forceTool
+          ? { type: 'tool', name: options.forceTool }
+          : { type: 'auto' };
 
-      // Make API call
-      const response = await this.client.messages.create({
-        model: this.config.model,
-        max_tokens: options?.maxTokens ?? this.config.maxTokens ?? 4096,
-        temperature: this.config.temperature ?? 0,
-        system: systemPrompt,
-        messages: [
-          {
-            role: 'user',
-            content: userMessage,
-          },
-        ],
-        tools: anthropicTools,
-        tool_choice: toolChoice,
-      });
+        // Make API call
+        const response = await this.client.messages.create({
+          model: this.config.model,
+          max_tokens: options?.maxTokens ?? this.config.maxTokens ?? 4096,
+          temperature: this.config.temperature ?? 0,
+          system: systemPrompt,
+          messages: [
+            {
+              role: 'user',
+              content: userMessage,
+            },
+          ],
+          tools: anthropicTools,
+          tool_choice: toolChoice,
+        });
 
-      // Calculate token usage
-      const usage = this.calculateUsage(response.usage);
-      const durationMs = Date.now() - startTime;
+        // Calculate token usage
+        const usage = this.calculateUsage(response.usage);
+        totalUsage = this.mergeUsage(totalUsage, usage);
+        const durationMs = Date.now() - startTime;
 
-      // Extract tool use from response
-      const toolUseBlock = response.content.find(
-        (block): block is Anthropic.ToolUseBlock => block.type === 'tool_use'
-      );
+        // Extract tool use from response
+        const toolUseBlock = response.content.find(
+          (block): block is Anthropic.ToolUseBlock => block.type === 'tool_use'
+        );
 
-      if (!toolUseBlock) {
-        // Model didn't use a tool - this shouldn't happen with tool_choice set
-        const textContent = response.content
-          .filter((block): block is Anthropic.TextBlock => block.type === 'text')
-          .map((block) => block.text)
-          .join('\n');
+        if (!toolUseBlock) {
+          // Model didn't use a tool - this shouldn't happen with tool_choice set
+          const textContent = response.content
+            .filter((block): block is Anthropic.TextBlock => block.type === 'text')
+            .map((block) => block.text)
+            .join('\n');
 
+          return {
+            success: false,
+            error: `Model did not use a tool. Response: ${textContent.slice(0, 200)}`,
+            usage: totalUsage,
+            durationMs,
+          };
+        }
+
+        // Return successful response with parsed tool input
         return {
-          success: false,
-          error: `Model did not use a tool. Response: ${textContent.slice(0, 200)}`,
-          usage,
+          success: true,
+          data: toolUseBlock.input as T,
+          toolName: toolUseBlock.name,
+          usage: totalUsage,
           durationMs,
+          stopReason: response.stop_reason,
+          retriesUsed: attempt,
         };
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+
+        // Check if error is retryable
+        const isRetryable = this.isRetryableError(error);
+        const shouldRetry = isRetryable && !options?.skipRetry && attempt < this.retryConfig.maxRetries;
+
+        if (shouldRetry) {
+          const delay = this.getRetryDelay(error, attempt);
+          await sleep(delay);
+          continue;
+        }
+
+        // Not retryable or out of retries
+        const durationMs = Date.now() - startTime;
+        return this.handleError(error, totalUsage, durationMs, attempt);
       }
+    }
 
-      // Return successful response with parsed tool input
-      return {
-        success: true,
-        data: toolUseBlock.input as T,
-        toolName: toolUseBlock.name,
-        usage,
-        durationMs,
-        stopReason: response.stop_reason,
-      };
-    } catch (error) {
-      const durationMs = Date.now() - startTime;
+    // Should not reach here, but TypeScript needs it
+    const durationMs = Date.now() - startTime;
+    return {
+      success: false,
+      error: lastError?.message ?? 'Unknown error after retries',
+      usage: totalUsage,
+      durationMs,
+      retriesUsed: this.retryConfig.maxRetries,
+    };
+  }
 
-      // Handle specific Anthropic errors
-      if (error instanceof Anthropic.APIError) {
-        return {
-          success: false,
-          error: `Claude API error: ${error.message} (status: ${error.status})`,
-          usage: { inputTokens: 0, outputTokens: 0, costUsd: 0 },
-          durationMs,
-        };
+  /**
+   * Check if an error is retryable
+   */
+  private isRetryableError(error: unknown): boolean {
+    if (error instanceof Anthropic.RateLimitError) {
+      return true;
+    }
+    if (error instanceof Anthropic.APIError) {
+      return this.retryConfig.retryableStatusCodes.includes(error.status);
+    }
+    if (error instanceof Anthropic.APIConnectionError) {
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Get retry delay, respecting Retry-After header if present
+   */
+  private getRetryDelay(error: unknown, attempt: number): number {
+    // Check for Retry-After header in rate limit errors
+    if (error instanceof Anthropic.RateLimitError) {
+      const retryAfter = (error as { headers?: { 'retry-after'?: string } }).headers?.['retry-after'];
+      if (retryAfter) {
+        const retryAfterMs = parseInt(retryAfter, 10) * 1000;
+        if (!isNaN(retryAfterMs) && retryAfterMs > 0) {
+          return Math.min(retryAfterMs, this.retryConfig.maxDelayMs);
+        }
       }
+    }
 
-      // Handle rate limiting
-      if (error instanceof Anthropic.RateLimitError) {
-        return {
-          success: false,
-          error: 'Rate limited by Claude API. Will retry.',
-          usage: { inputTokens: 0, outputTokens: 0, costUsd: 0 },
-          durationMs,
-          retryable: true,
-        };
-      }
+    // Fall back to exponential backoff
+    return calculateBackoffDelay(
+      attempt,
+      this.retryConfig.baseDelayMs,
+      this.retryConfig.maxDelayMs
+    );
+  }
 
-      // Handle other errors
+  /**
+   * Handle error and return appropriate LlmResponse
+   */
+  private handleError(
+    error: unknown,
+    usage: TokenUsage,
+    durationMs: number,
+    retriesUsed: number
+  ): LlmResponse<never> {
+    if (error instanceof Anthropic.RateLimitError) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        usage: { inputTokens: 0, outputTokens: 0, costUsd: 0 },
+        error: 'Rate limited by Claude API after all retries exhausted.',
+        usage,
         durationMs,
+        retryable: true,
+        retriesUsed,
       };
     }
+
+    if (error instanceof Anthropic.AuthenticationError) {
+      return {
+        success: false,
+        error: 'Claude API authentication failed. Check API key.',
+        usage,
+        durationMs,
+        retryable: false,
+        retriesUsed,
+      };
+    }
+
+    if (error instanceof Anthropic.BadRequestError) {
+      return {
+        success: false,
+        error: `Claude API bad request: ${error.message}`,
+        usage,
+        durationMs,
+        retryable: false,
+        retriesUsed,
+      };
+    }
+
+    if (error instanceof Anthropic.APIError) {
+      return {
+        success: false,
+        error: `Claude API error: ${error.message} (status: ${error.status})`,
+        usage,
+        durationMs,
+        retryable: this.retryConfig.retryableStatusCodes.includes(error.status),
+        retriesUsed,
+      };
+    }
+
+    if (error instanceof Anthropic.APIConnectionError) {
+      return {
+        success: false,
+        error: `Claude API connection error: ${error.message}`,
+        usage,
+        durationMs,
+        retryable: true,
+        retriesUsed,
+      };
+    }
+
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      usage,
+      durationMs,
+      retriesUsed,
+    };
+  }
+
+  /**
+   * Merge token usage from multiple attempts
+   */
+  private mergeUsage(existing: TokenUsage, newUsage: TokenUsage): TokenUsage {
+    return {
+      inputTokens: existing.inputTokens + newUsage.inputTokens,
+      outputTokens: existing.outputTokens + newUsage.outputTokens,
+      cacheReadTokens: (existing.cacheReadTokens ?? 0) + (newUsage.cacheReadTokens ?? 0) || undefined,
+      cacheWriteTokens: (existing.cacheWriteTokens ?? 0) + (newUsage.cacheWriteTokens ?? 0) || undefined,
+      costUsd: existing.costUsd + newUsage.costUsd,
+    };
   }
 
   /**

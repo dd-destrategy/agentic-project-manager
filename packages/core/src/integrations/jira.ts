@@ -24,7 +24,7 @@ export interface JiraConfig {
 /**
  * Rate limiter for Jira API (100 requests/minute)
  */
-class RateLimiter {
+export class RateLimiter {
   private timestamps: number[] = [];
   private readonly maxRequests: number;
   private readonly windowMs: number;
@@ -69,6 +69,14 @@ class RateLimiter {
     if (waitTime > 0) {
       await new Promise((resolve) => setTimeout(resolve, waitTime));
     }
+  }
+
+  /**
+   * Get current request count in window
+   */
+  getCurrentCount(): number {
+    this.pruneOldTimestamps();
+    return this.timestamps.length;
   }
 
   private pruneOldTimestamps(): void {
@@ -121,21 +129,54 @@ export interface JiraIssue {
       key: string;
       name: string;
     };
+    comment?: {
+      comments: JiraComment[];
+      total: number;
+    };
   };
   changelog?: {
-    histories: Array<{
-      id: string;
-      created: string;
-      items: Array<{
-        field: string;
-        fieldtype: string;
-        from: string | null;
-        fromString: string | null;
-        to: string | null;
-        toString: string | null;
-      }>;
-    }>;
+    histories: JiraChangelogHistory[];
   };
+}
+
+/**
+ * Jira changelog history entry
+ */
+export interface JiraChangelogHistory {
+  id: string;
+  created: string;
+  author?: {
+    displayName: string;
+    emailAddress?: string;
+  };
+  items: JiraChangelogItem[];
+}
+
+/**
+ * Jira changelog item
+ */
+export interface JiraChangelogItem {
+  field: string;
+  fieldtype: string;
+  from: string | null;
+  fromString: string | null;
+  to: string | null;
+  toString: string | null;
+}
+
+/**
+ * Jira comment
+ */
+export interface JiraComment {
+  id: string;
+  self: string;
+  author: {
+    displayName: string;
+    emailAddress?: string;
+  };
+  body: unknown;
+  created: string;
+  updated: string;
 }
 
 /**
@@ -174,16 +215,61 @@ interface JiraBoardSprintsResponse {
 }
 
 /**
+ * Jira project from API response
+ */
+export interface JiraProject {
+  id: string;
+  key: string;
+  name: string;
+  self: string;
+  projectTypeKey: string;
+}
+
+/**
+ * Jira board from API response
+ */
+export interface JiraBoard {
+  id: number;
+  name: string;
+  type: 'scrum' | 'kanban';
+  self: string;
+  location?: {
+    projectId: number;
+    projectKey: string;
+    projectName: string;
+  };
+}
+
+/**
+ * Jira webhook event payload
+ */
+export interface JiraWebhookEvent {
+  webhookEvent: string;
+  timestamp: number;
+  issue?: JiraIssue;
+  comment?: JiraComment;
+  changelog?: {
+    id: string;
+    items: JiraChangelogItem[];
+  };
+  sprint?: JiraSprint;
+  user?: {
+    displayName: string;
+    emailAddress?: string;
+  };
+}
+
+/**
  * Jira Cloud API client
  */
 export class JiraClient implements SignalSource {
   readonly source: IntegrationSource = 'jira';
-  private config: JiraConfig;
-  private authHeader: string;
-  private rateLimiter: RateLimiter;
-  private lastError: Error | null = null;
-  private consecutiveErrors: number = 0;
-  private readonly maxConsecutiveErrors: number = 3;
+  protected config: JiraConfig;
+  protected authHeader: string;
+  protected rateLimiter: RateLimiter;
+  protected lastError: Error | null = null;
+  protected consecutiveErrors: number = 0;
+  protected readonly maxConsecutiveErrors: number = 3;
 
   constructor(config: JiraConfig) {
     this.config = config;
@@ -196,7 +282,7 @@ export class JiraClient implements SignalSource {
   /**
    * Make an authenticated request to Jira API with rate limiting
    */
-  private async request<T>(
+  protected async request<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
@@ -331,14 +417,11 @@ export class JiraClient implements SignalSource {
     }
 
     // Sort by updated timestamp to ensure consistent ordering
-    signals.sort((a, b) =>
-      a.timestamp.localeCompare(b.timestamp)
-    );
+    signals.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
 
     // New checkpoint is the latest issue update time, or now if no issues
-    const newCheckpoint = signals.length > 0
-      ? signals[signals.length - 1].timestamp
-      : now;
+    const newCheckpoint =
+      signals.length > 0 ? signals[signals.length - 1].timestamp : now;
 
     return {
       signals,
@@ -356,6 +439,47 @@ export class JiraClient implements SignalSource {
   }
 
   /**
+   * Fetch issue changelog
+   */
+  async fetchIssueChangelog(
+    issueKey: string,
+    since?: string
+  ): Promise<JiraChangelogHistory[]> {
+    const data = await this.request<{
+      values: JiraChangelogHistory[];
+      maxResults: number;
+      startAt: number;
+      total: number;
+    }>(`/rest/api/3/issue/${issueKey}/changelog`);
+
+    const histories = since
+      ? data.values.filter((h) => h.created > since)
+      : data.values;
+
+    return histories;
+  }
+
+  /**
+   * Fetch all accessible projects
+   */
+  async fetchProjects(): Promise<JiraProject[]> {
+    const data = await this.request<{ values: JiraProject[] }>(
+      '/rest/api/3/project/search'
+    );
+    return data.values;
+  }
+
+  /**
+   * Fetch boards for a project
+   */
+  async fetchBoardsForProject(projectKey: string): Promise<JiraBoard[]> {
+    const data = await this.request<{ values: JiraBoard[] }>(
+      `/rest/agile/1.0/board?projectKeyOrId=${encodeURIComponent(projectKey)}`
+    );
+    return data.values;
+  }
+
+  /**
    * Fetch active sprint for a board
    */
   async fetchActiveSprint(boardId: string): Promise<JiraSprint | null> {
@@ -364,6 +488,20 @@ export class JiraClient implements SignalSource {
     );
 
     return data.values.length > 0 ? data.values[0] : null;
+  }
+
+  /**
+   * Fetch all sprints for a board
+   */
+  async fetchSprintsForBoard(
+    boardId: string,
+    state?: 'active' | 'closed' | 'future'
+  ): Promise<JiraSprint[]> {
+    const stateParam = state ? `?state=${state}` : '';
+    const data = await this.request<JiraBoardSprintsResponse>(
+      `/rest/agile/1.0/board/${boardId}/sprint${stateParam}`
+    );
+    return data.values;
   }
 
   /**
@@ -422,10 +560,7 @@ export class JiraClient implements SignalSource {
   /**
    * Transition an issue to a new status
    */
-  async transitionIssue(
-    issueKey: string,
-    transitionId: string
-  ): Promise<void> {
+  async transitionIssue(issueKey: string, transitionId: string): Promise<void> {
     await this.request(`/rest/api/3/issue/${issueKey}/transitions`, {
       method: 'POST',
       body: JSON.stringify({
@@ -489,10 +624,12 @@ export class JiraClient implements SignalSource {
   getRateLimitStatus(): {
     canMakeRequest: boolean;
     waitTimeMs: number;
+    currentCount: number;
   } {
     return {
       canMakeRequest: this.rateLimiter.canMakeRequest(),
       waitTimeMs: this.rateLimiter.getWaitTime(),
+      currentCount: this.rateLimiter.getCurrentCount(),
     };
   }
 
@@ -502,13 +639,20 @@ export class JiraClient implements SignalSource {
   resetRateLimiter(): void {
     this.rateLimiter.reset();
   }
+
+  /**
+   * Get base URL (for webhook configuration)
+   */
+  getBaseUrl(): string {
+    return this.config.baseUrl;
+  }
 }
 
 /**
  * Format a timestamp for Jira JQL query
  * Jira expects: "yyyy-MM-dd HH:mm"
  */
-function formatJiraTimestamp(isoTimestamp: string): string {
+export function formatJiraTimestamp(isoTimestamp: string): string {
   const date = new Date(isoTimestamp);
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -538,7 +682,9 @@ export async function createJiraClientForProject(
   getSecret: (secretId: string) => Promise<string>
 ): Promise<JiraClient> {
   // Retrieve credentials from secrets manager
-  const credentials = JSON.parse(await getSecret('/agentic-pm/jira/credentials')) as {
+  const credentials = JSON.parse(
+    await getSecret('/agentic-pm/jira/credentials')
+  ) as {
     baseUrl: string;
     email: string;
     apiToken: string;

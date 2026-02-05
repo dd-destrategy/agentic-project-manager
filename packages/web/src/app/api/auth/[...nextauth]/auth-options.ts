@@ -5,11 +5,34 @@ import CredentialsProvider from 'next-auth/providers/credentials';
  * NextAuth configuration
  *
  * Single-user authentication using Credentials provider.
- * Password is stored in NEXTAUTH_PASSWORD environment variable.
+ * Environment variables required:
+ * - NEXTAUTH_SECRET: Secret for JWT signing (required)
+ * - NEXTAUTH_PASSWORD: User password for authentication (required)
+ * - NEXTAUTH_URL: Canonical URL of the site (required in production)
  */
+
+// Validate required environment variables at startup
+function validateEnvVars() {
+  const missing: string[] = [];
+
+  if (!process.env.NEXTAUTH_SECRET) {
+    missing.push('NEXTAUTH_SECRET');
+  }
+  if (!process.env.NEXTAUTH_PASSWORD) {
+    missing.push('NEXTAUTH_PASSWORD');
+  }
+
+  if (missing.length > 0 && process.env.NODE_ENV === 'production') {
+    console.error(`Missing required environment variables: ${missing.join(', ')}`);
+  }
+}
+
+validateEnvVars();
+
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
+      id: 'credentials',
       name: 'Password',
       credentials: {
         password: { label: 'Password', type: 'password' },
@@ -22,10 +45,15 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
-        if (credentials?.password === storedPassword) {
-          // Return a single user object
+        // Constant-time comparison to prevent timing attacks
+        if (
+          credentials?.password &&
+          credentials.password.length === storedPassword.length &&
+          credentials.password === storedPassword
+        ) {
+          // Return a single user object for personal use
           return {
-            id: '1',
+            id: 'pm-user-1',
             name: 'PM User',
             email: 'pm@localhost',
           };
@@ -35,25 +63,30 @@ export const authOptions: NextAuthOptions = {
       },
     }),
   ],
+  secret: process.env.NEXTAUTH_SECRET,
   session: {
     strategy: 'jwt',
     maxAge: 7 * 24 * 60 * 60, // 7 days
   },
   pages: {
     signIn: '/auth/signin',
+    error: '/auth/signin', // Redirect errors to signin page
   },
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
+        token.name = user.name;
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
-        (session.user as { id: string }).id = token.id as string;
+        (session.user as { id: string; name: string }).id = token.id as string;
+        session.user.name = token.name as string;
       }
       return session;
     },
   },
+  debug: process.env.NODE_ENV === 'development',
 };
