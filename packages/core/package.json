@@ -1,0 +1,71 @@
+{
+  "name": "@agentic-pm/core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shared business logic for Agentic PM",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./signals": {
+      "types": "./dist/signals/index.d.ts",
+      "import": "./dist/signals/index.js"
+    },
+    "./triage": {
+      "types": "./dist/triage/index.d.ts",
+      "import": "./dist/triage/index.js"
+    },
+    "./reasoning": {
+      "types": "./dist/reasoning/index.d.ts",
+      "import": "./dist/reasoning/index.js"
+    },
+    "./execution": {
+      "types": "./dist/execution/index.d.ts",
+      "import": "./dist/execution/index.js"
+    },
+    "./artefacts": {
+      "types": "./dist/artefacts/index.d.ts",
+      "import": "./dist/artefacts/index.js"
+    },
+    "./llm": {
+      "types": "./dist/llm/index.d.ts",
+      "import": "./dist/llm/index.js"
+    },
+    "./db": {
+      "types": "./dist/db/index.d.ts",
+      "import": "./dist/db/index.js"
+    },
+    "./integrations": {
+      "types": "./dist/integrations/index.d.ts",
+      "import": "./dist/integrations/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "lint": "eslint src --ext .ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist coverage"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.0",
+    "@aws-sdk/client-dynamodb": "^3.500.0",
+    "@aws-sdk/client-secrets-manager": "^3.500.0",
+    "@aws-sdk/client-ses": "^3.500.0",
+    "@aws-sdk/lib-dynamodb": "^3.500.0",
+    "ulid": "^2.3.0",
+    "zod": "^3.22.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "eslint": "^8.56.0",
+    "typescript": "^5.3.0",
+    "vitest": "^2.1.0"
+  }
+}

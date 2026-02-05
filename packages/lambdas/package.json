@@ -1,0 +1,30 @@
+{
+  "name": "@agentic-pm/lambdas",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Lambda function handlers for Agentic PM",
+  "type": "module",
+  "scripts": {
+    "build": "tsc && node scripts/bundle.js",
+    "dev": "tsc --watch",
+    "lint": "eslint src --ext .ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist coverage"
+  },
+  "dependencies": {
+    "@agentic-pm/core": "workspace:*",
+    "@aws-sdk/client-dynamodb": "^3.500.0",
+    "@aws-sdk/client-secrets-manager": "^3.500.0",
+    "@aws-sdk/lib-dynamodb": "^3.500.0"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.131",
+    "@types/node": "^20.11.0",
+    "esbuild": "^0.20.0",
+    "eslint": "^8.56.0",
+    "typescript": "^5.3.0",
+    "vitest": "^2.1.0"
+  }
+}

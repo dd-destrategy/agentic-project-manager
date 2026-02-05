@@ -25,3 +25,25 @@ out/
 
 # Vercel
 .vercel/
+
+# Build outputs
+dist/
+*.tsbuildinfo
+
+# Turborepo
+.turbo/
+
+# AWS CDK
+cdk.out/
+*.cdk.staging/
+
+# Test coverage
+coverage/
+
+# Lambda bundles
+packages/lambdas/dist/
+*.zip
+
+# Local development
+.localstack/
+.dynamodb/
