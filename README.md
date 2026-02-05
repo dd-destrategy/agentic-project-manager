@@ -4,21 +4,22 @@ A fully autonomous personal project management assistant. Monitors Jira and Outl
 
 ## Status
 
-**Pre-implementation.** Specification complete. Next steps: validation spikes, then Phase 1 build.
+**Pre-implementation.** Specification complete. Next steps: validation spikes (S1-S5), then Phase 1 build.
 
 ## Architecture
 
 ```
-Browser → Vercel Pro (Next.js, SSR) → Neon PostgreSQL (free tier) ← Hetzner VPS (~$4/mo, agent process)
-                                                                      ├── Jira Cloud API
-                                                                      ├── MS Graph API (Outlook)
-                                                                      ├── Claude API (Haiku/Sonnet)
-                                                                      └── Resend (notifications)
+Browser → AWS Amplify (Next.js, SSR) → DynamoDB (single-table) ← Step Functions + Lambda
+                                                                    ├── Jira Cloud API
+                                                                    ├── MS Graph API (Outlook)
+                                                                    ├── Claude API (Haiku/Sonnet)
+                                                                    └── Amazon SES (notifications)
 ```
 
-- **Budget ceiling:** $35/month total (Vercel Pro $20 + VPS $4 + LLM ~$7 + buffer)
+- **Budget ceiling:** $15/month total (AWS ~$5-8 + LLM ~$7)
 - **Single user** — no multi-tenancy, no RBAC
 - **LLM strategy:** Haiku 4.5 for triage (70%), Sonnet 4.5 for complex reasoning (30%)
+- **Critical:** Lambda runs OUTSIDE VPC to avoid NAT Gateway costs ($33/month)
 
 ## Key Documents
 
@@ -29,15 +30,19 @@ Browser → Vercel Pro (Next.js, SSR) → Neon PostgreSQL (free tier) ← Hetzne
 | [`REVIEW-product-ideation.md`](REVIEW-product-ideation.md) | 29-specialist product review |
 | [`ANALYSIS-review-synthesis.md`](ANALYSIS-review-synthesis.md) | Synthesised analysis of the review |
 | [`analysis-outputs/`](analysis-outputs/) | Raw analysis outputs (7 files) |
+| [`aws-migration-analysis/`](aws-migration-analysis/) | AWS architecture analysis (6 files) |
 
 ## Tech Stack
 
-| Component | Technology |
-|-----------|-----------|
-| Frontend | Next.js (App Router), shadcn/ui, TanStack Query |
-| Agent runtime | Node.js, pm2, Caddy |
-| Database | Neon PostgreSQL, Drizzle ORM |
-| LLM | Claude API (tool-use for structured outputs) |
-| Auth | NextAuth.js + Credentials |
-| Notifications | Resend |
-| Hosting | Vercel Pro (frontend), Hetzner VPS (agent) |
+| Component | Technology | Monthly Cost |
+|-----------|-----------|--------------|
+| Frontend | AWS Amplify, Next.js (App Router), shadcn/ui | ~$0.50 |
+| Agent runtime | AWS Step Functions + Lambda | ~$1 |
+| Database | DynamoDB (on-demand, single-table) | ~$0.25 |
+| Scheduling | EventBridge Scheduler | ~$0 |
+| Secrets | AWS Secrets Manager | ~$2 |
+| Notifications | Amazon SES | ~$0 |
+| Monitoring | CloudWatch | ~$1-2 |
+| LLM | Claude API (tool-use) | ~$7 |
+| Auth | NextAuth.js + Credentials | — |
+| **Total** | | **~$11-13** |
