@@ -5,14 +5,15 @@
  * and verifies integration connectivity.
  */
 
-import type { Context } from 'aws-lambda';
-import { ulid } from 'ulid';
 import {
   DynamoDBClient,
   ProjectRepository,
   EventRepository,
   AgentConfigRepository,
 } from '@agentic-pm/core/db';
+import type { Context } from 'aws-lambda';
+import { ulid } from 'ulid';
+
 import { logger, getEnv } from '../shared/context.js';
 import type { AgentCycleInput, HeartbeatOutput, IntegrationStatus } from '../shared/types.js';
 

@@ -5,16 +5,8 @@
  * merge logic, and conflict resolution.
  */
 
-import type {
-  ArtefactUpdateInput,
-  ArtefactUpdateResult,
-  ArtefactMergeInput,
-  MergeStrategy,
-  ArtefactDiff,
-} from './types.js';
-import { validateArtefactContent } from './validator.js';
-import { ArtefactRepository } from '../db/repositories/artefact.js';
 import { DynamoDBClient } from '../db/client.js';
+import { ArtefactRepository } from '../db/repositories/artefact.js';
 import type {
   ArtefactContent,
   ArtefactType,
@@ -29,6 +21,15 @@ import type {
   BacklogHighlight,
   RefinementCandidate,
 } from '../types/index.js';
+
+import type {
+  ArtefactUpdateInput,
+  ArtefactUpdateResult,
+  ArtefactMergeInput,
+  MergeStrategy,
+  ArtefactDiff,
+} from './types.js';
+import { validateArtefactContent } from './validator.js';
 
 /** Default DynamoDB client instance */
 let defaultDb: DynamoDBClient | null = null;

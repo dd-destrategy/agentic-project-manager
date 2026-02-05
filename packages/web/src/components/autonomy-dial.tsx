@@ -80,7 +80,7 @@ export function AutonomyDial({
       <div className="relative">
         {/* Background Track */}
         <div className="flex h-12 rounded-lg border bg-muted/30 p-1">
-          {AUTONOMY_LEVELS.map((config, index) => {
+          {AUTONOMY_LEVELS.map((config, _index) => {
             const isActive = config.level === value;
             const Icon = config.icon;
 

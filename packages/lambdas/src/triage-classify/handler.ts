@@ -8,13 +8,14 @@
  * Reference: solution-design/06-prompt-library.md Section 2.2
  */
 
-import type { Context } from 'aws-lambda';
+import { createHaikuClient } from '@agentic-pm/core/llm';
+import { classifySignalBatch } from '@agentic-pm/core/triage';
 import {
   SecretsManagerClient,
   GetSecretValueCommand,
 } from '@aws-sdk/client-secrets-manager';
-import { classifySignalBatch } from '@agentic-pm/core/triage';
-import { createHaikuClient } from '@agentic-pm/core/llm';
+import type { Context } from 'aws-lambda';
+
 import { logger, getEnv } from '../shared/context.js';
 import type { TriageSanitiseOutput, TriageClassifyOutput } from '../shared/types.js';
 

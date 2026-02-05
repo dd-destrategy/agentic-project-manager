@@ -11,6 +11,7 @@
 
 import type { RawSignal, IntegrationSource, Project } from '../types/index.js';
 import { parseJiraCredentials } from '../types/index.js';
+
 import type { IntegrationHealthCheck, SignalSource } from './types.js';
 
 /**
@@ -424,8 +425,8 @@ export class JiraClient implements SignalSource {
     signals.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
 
     // New checkpoint is the latest issue update time, or now if no issues
-    const newCheckpoint =
-      signals.length > 0 ? signals[signals.length - 1].timestamp : now;
+    const lastSignal = signals[signals.length - 1];
+    const newCheckpoint = lastSignal ? lastSignal.timestamp : now;
 
     return {
       signals,
@@ -491,7 +492,7 @@ export class JiraClient implements SignalSource {
       `/rest/agile/1.0/board/${boardId}/sprint?state=active`
     );
 
-    return data.values.length > 0 ? data.values[0] : null;
+    return data.values[0] ?? null;
   }
 
   /**
@@ -682,7 +683,7 @@ export function createJiraClient(config: {
  * Create a Jira client for a project
  */
 export async function createJiraClientForProject(
-  project: Project,
+  _project: Project,
   getSecret: (secretId: string) => Promise<string>
 ): Promise<JiraClient> {
   // Retrieve credentials from secrets manager

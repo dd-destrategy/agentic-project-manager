@@ -6,6 +6,7 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk';
+
 import type {
   LlmConfig,
   LlmResponse,
@@ -166,7 +167,7 @@ export class ClaudeClient {
           toolName: toolUseBlock.name,
           usage: totalUsage,
           durationMs,
-          stopReason: response.stop_reason,
+          stopReason: response.stop_reason ?? undefined,
           retriesUsed: attempt,
         };
       } catch (error) {
@@ -207,7 +208,7 @@ export class ClaudeClient {
       return true;
     }
     if (error instanceof Anthropic.APIError) {
-      return this.retryConfig.retryableStatusCodes.includes(error.status);
+      return this.retryConfig.retryableStatusCodes.includes(error.status ?? 0);
     }
     if (error instanceof Anthropic.APIConnectionError) {
       return true;
@@ -286,7 +287,7 @@ export class ClaudeClient {
         error: `Claude API error: ${error.message} (status: ${error.status})`,
         usage,
         durationMs,
-        retryable: this.retryConfig.retryableStatusCodes.includes(error.status),
+        retryable: this.retryConfig.retryableStatusCodes.includes(error.status ?? 0),
         retriesUsed,
       };
     }
@@ -436,7 +437,7 @@ export class ClaudeClient {
           toolName: toolUseBlock.name,
           usage: totalUsage,
           durationMs,
-          stopReason: response.stop_reason,
+          stopReason: response.stop_reason ?? undefined,
           retriesUsed: attempt,
         };
       } catch (error) {
@@ -504,7 +505,7 @@ export class ClaudeClient {
         data: textContent,
         usage,
         durationMs,
-        stopReason: response.stop_reason,
+        stopReason: response.stop_reason ?? undefined,
       };
     } catch (error) {
       const durationMs = Date.now() - startTime;

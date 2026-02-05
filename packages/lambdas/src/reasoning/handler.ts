@@ -6,18 +6,19 @@
  * This Lambda has NO access to integration credentials.
  */
 
-import type { Context } from 'aws-lambda';
-import { logger, getEnv } from '../shared/context.js';
-import type { TriageClassifyOutput, ReasoningOutput, ProposedAction } from '../shared/types.js';
-import { DynamoDBClient } from '@agentic-pm/core/db/client';
+import type { ClassifiedSignal, Artefact } from '@agentic-pm/core';
 import { ArtefactRepository } from '@agentic-pm/core/db';
+import { DynamoDBClient } from '@agentic-pm/core/db/client';
 import {
   performReasoning,
   requiresComplexReasoning,
   type ReasoningInput,
   type ReasoningOutput as CoreReasoningOutput,
 } from '@agentic-pm/core/reasoning';
-import type { ClassifiedSignal, Artefact } from '@agentic-pm/core';
+import type { Context } from 'aws-lambda';
+
+import { logger, getEnv } from '../shared/context.js';
+import type { TriageClassifyOutput, ReasoningOutput, ProposedAction } from '../shared/types.js';
 
 // Initialise clients outside handler for connection reuse (cold start optimization)
 let dbClient: DynamoDBClient | null = null;

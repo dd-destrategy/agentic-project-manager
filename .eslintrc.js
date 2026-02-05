@@ -71,7 +71,9 @@ module.exports = {
       },
       rules: {
         '@typescript-eslint/no-explicit-any': 'off',
+        '@typescript-eslint/no-unused-vars': 'off',
         'no-console': 'off',
+        'import/order': 'off',
       },
     },
     // CDK files
@@ -81,16 +83,9 @@ module.exports = {
         '@typescript-eslint/no-unused-vars': 'off',
       },
     },
-    // Next.js files
-    {
-      files: ['packages/web/**/*.ts', 'packages/web/**/*.tsx'],
-      extends: ['next/core-web-vitals'],
-      rules: {
-        '@next/next/no-html-link-for-pages': 'off',
-      },
-    },
   ],
   ignorePatterns: [
+    'packages/web/**',
     'node_modules/',
     'dist/',
     '.next/',

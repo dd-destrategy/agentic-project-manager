@@ -8,13 +8,14 @@
  */
 
 import { ulid } from 'ulid';
-import type { NormalisedSignal, RawSignal, SignalType } from '../types/index.js';
+
 import type {
   JiraIssue,
   JiraChangelogHistory,
   JiraChangelogItem,
   JiraWebhookEvent,
 } from '../integrations/jira.js';
+import type { NormalisedSignal, RawSignal, SignalType } from '../types/index.js';
 
 /**
  * Normalise a raw Jira signal into one or more NormalisedSignal objects
@@ -32,9 +33,9 @@ export function normaliseJiraSignal(
   const isWebhook = 'webhookEvent' in payload;
 
   if (isWebhook) {
-    return normaliseWebhookEvent(payload as JiraWebhookEvent, projectId, raw.timestamp);
+    return normaliseWebhookEvent(payload as unknown as JiraWebhookEvent, projectId, raw.timestamp);
   } else {
-    return normaliseApiResponse(payload as JiraIssue, projectId, raw.timestamp);
+    return normaliseApiResponse(payload as unknown as JiraIssue, projectId, raw.timestamp);
   }
 }
 
@@ -54,9 +55,9 @@ export function normaliseJiraSignalExpanded(
   const isWebhook = 'webhookEvent' in payload;
 
   if (isWebhook) {
-    return [normaliseWebhookEvent(payload as JiraWebhookEvent, projectId, raw.timestamp)];
+    return [normaliseWebhookEvent(payload as unknown as JiraWebhookEvent, projectId, raw.timestamp)];
   } else {
-    return normaliseApiResponseExpanded(payload as JiraIssue, projectId, raw.timestamp);
+    return normaliseApiResponseExpanded(payload as unknown as JiraIssue, projectId, raw.timestamp);
   }
 }
 
@@ -241,7 +242,9 @@ function determineSignalTypeFromIssue(issue: JiraIssue): SignalType {
   // Check the most recent changelog entry
   if (changelog.length > 0) {
     const latestChange = changelog[changelog.length - 1];
-    return determineSignalTypeFromChangelog(latestChange.items);
+    if (latestChange) {
+      return determineSignalTypeFromChangelog(latestChange.items);
+    }
   }
 
   return 'ticket_updated';
@@ -387,7 +390,9 @@ function extractChangelogSummary(
   // Default to first change
   if (items.length > 0) {
     const firstItem = items[0];
-    return `${issueKey} ${firstItem.field} changed`;
+    if (firstItem) {
+      return `${issueKey} ${firstItem.field} changed`;
+    }
   }
 
   return `${issueKey} updated`;

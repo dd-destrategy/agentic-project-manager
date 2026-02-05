@@ -4,8 +4,8 @@
  * Types for complex multi-source reasoning using Claude Sonnet.
  */
 
-import type { Artefact, ClassifiedSignal } from '../types/index.js';
 import type { TokenUsage } from '../llm/types.js';
+import type { Artefact, ClassifiedSignal } from '../types/index.js';
 
 /**
  * Input for complex reasoning

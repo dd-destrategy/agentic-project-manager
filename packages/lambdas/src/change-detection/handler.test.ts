@@ -72,12 +72,15 @@ vi.mock('../shared/context.js', () => ({
   }),
 }));
 
-import { handler } from './handler.js';
-import type { HeartbeatOutput } from '../shared/types.js';
 import type { Context } from 'aws-lambda';
+
 import { JiraClient } from '@agentic-pm/core/integrations/jira';
 import { CheckpointRepository } from '@agentic-pm/core/db/repositories/checkpoint';
 import { ProjectRepository } from '@agentic-pm/core/db/repositories/project';
+
+import type { HeartbeatOutput } from '../shared/types.js';
+
+import { handler } from './handler.js';
 
 // Mock Lambda context
 const mockContext: Context = {

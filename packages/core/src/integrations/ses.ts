@@ -7,6 +7,7 @@ import {
   SendEmailCommand,
   type SendEmailCommandInput,
 } from '@aws-sdk/client-ses';
+
 import type { IntegrationHealthCheck } from './types.js';
 
 /**

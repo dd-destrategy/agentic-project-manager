@@ -30,6 +30,7 @@ import {
   type BatchGetCommandInput,
   type BatchWriteCommandInput,
 } from '@aws-sdk/lib-dynamodb';
+
 import { TABLE_NAME } from '../constants.js';
 
 /** Maximum number of retries for transient errors */

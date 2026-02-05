@@ -6,6 +6,7 @@
  */
 
 import { z } from 'zod';
+
 import {
   // Primitive schemas
   ProjectStatusSchema,
@@ -447,25 +448,3 @@ export function parseSESConfig(data: unknown): SESConfig {
   return SESConfigSchema.parse(data);
 }
 
-// ============================================================================
-// Re-export schemas for direct access
-// ============================================================================
-
-export {
-  ProjectSchema,
-  ArtefactSchema,
-  EventSchema,
-  EscalationSchema,
-  AgentActionSchema,
-  NormalisedSignalSchema,
-  SanitisedSignalSchema,
-  ClassifiedSignalSchema,
-  JiraCredentialsSchema,
-  OutlookCredentialsSchema,
-  SESConfigSchema,
-  DiscriminatedArtefactContentSchema,
-  DeliveryStateContentSchema,
-  RaidLogContentSchema,
-  BacklogSummaryContentSchema,
-  DecisionLogContentSchema,
-};

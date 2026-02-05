@@ -6,8 +6,8 @@
  * described in SPEC section 5.4.
  */
 
-import type { ActionType, AutonomyLevel } from '../types/index.js';
 import { AUTONOMY_LEVEL_VALUE } from '../constants.js';
+import type { AutonomyLevel } from '../types/index.js';
 
 /**
  * Decision boundary categories

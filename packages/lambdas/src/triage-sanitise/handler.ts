@@ -8,8 +8,9 @@
  * Reference: solution-design/06-prompt-library.md Section 6.2
  */
 
-import type { Context } from 'aws-lambda';
 import { sanitiseSignalBatch, detectThreats } from '@agentic-pm/core/triage';
+import type { Context } from 'aws-lambda';
+
 import { logger } from '../shared/context.js';
 import type { NormaliseOutput, TriageSanitiseOutput } from '../shared/types.js';
 

@@ -6,6 +6,7 @@
  */
 
 import { ulid } from 'ulid';
+
 import { KEY_PREFIX, GSI1_PREFIX, TTL } from '../../constants.js';
 import type { Event, EventType, EventSeverity } from '../../types/index.js';
 import { DynamoDBClient } from '../client.js';

@@ -5,9 +5,6 @@
  * Runs once per day (first cycle after configured digest time, default 8am).
  */
 
-import type { Context } from 'aws-lambda';
-import { logger, getEnv } from '../shared/context.js';
-import type { ArtefactUpdateOutput } from '../shared/types.js';
 import {
   DynamoDBClient,
   ProjectRepository,
@@ -16,7 +13,11 @@ import {
   CONFIG_KEYS,
 } from '@agentic-pm/core/db';
 import { SESClient } from '@agentic-pm/core/integrations';
-import type { Project, Event, EventType } from '@agentic-pm/core/types';
+import type { Project, Event } from '@agentic-pm/core/types';
+import type { Context } from 'aws-lambda';
+
+import { logger, getEnv } from '../shared/context.js';
+import type { ArtefactUpdateOutput } from '../shared/types.js';
 
 /**
  * Housekeeping output

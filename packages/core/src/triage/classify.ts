@@ -7,6 +7,9 @@
  * Reference: solution-design/06-prompt-library.md Section 2.2
  */
 
+import type { ClaudeClient } from '../llm/client.js';
+import { BATCH_CLASSIFY_SIGNALS_TOOL, type ClassifySignalOutput } from '../llm/tools.js';
+import type { TokenUsage } from '../llm/types.js';
 import type {
   ClassifiedSignal,
   SanitisedSignal,
@@ -14,9 +17,6 @@ import type {
   SignalCategory,
   RecommendedAction,
 } from '../types/index.js';
-import type { ClaudeClient } from '../llm/client.js';
-import type { TokenUsage } from '../llm/types.js';
-import { BATCH_CLASSIFY_SIGNALS_TOOL, type ClassifySignalOutput } from '../llm/tools.js';
 
 /**
  * System prompt for triage classification

@@ -7,6 +7,12 @@
  */
 
 import type { DynamoDBClient } from '../db/client.js';
+import { EventRepository } from '../db/repositories/event.js';
+import {
+  GraduationStateRepository,
+  DEFAULT_HOLD_TIMES,
+  type GraduationState,
+} from '../db/repositories/graduation-state.js';
 import {
   HeldActionRepository,
   type HeldAction,
@@ -15,13 +21,6 @@ import {
   type EmailStakeholderPayload,
   type JiraStatusChangePayload,
 } from '../db/repositories/held-action.js';
-import {
-  GraduationStateRepository,
-  DEFAULT_HOLD_TIMES,
-  GRADUATION_HOLD_TIMES,
-  type GraduationState,
-} from '../db/repositories/graduation-state.js';
-import { EventRepository } from '../db/repositories/event.js';
 
 /**
  * Result of processing the hold queue

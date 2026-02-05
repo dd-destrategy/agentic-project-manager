@@ -4,13 +4,13 @@
  * Validates artefact content against Zod schemas.
  */
 
-import type { ArtefactContent, ArtefactType } from '../types/index.js';
 import {
   BacklogSummaryContentSchema,
   DecisionLogContentSchema,
   DeliveryStateContentSchema,
   RaidLogContentSchema,
 } from '../schemas/index.js';
+import type { ArtefactContent, ArtefactType } from '../types/index.js';
 
 /**
  * Validation result

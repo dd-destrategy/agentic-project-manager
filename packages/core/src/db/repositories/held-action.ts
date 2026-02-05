@@ -7,8 +7,8 @@
  */
 
 import { ulid } from 'ulid';
-import { KEY_PREFIX, GSI1_PREFIX, TTL } from '../../constants.js';
-import type { ActionType } from '../../types/index.js';
+
+import { KEY_PREFIX, TTL } from '../../constants.js';
 import { DynamoDBClient } from '../client.js';
 import type { QueryOptions, QueryResult } from '../types.js';
 
@@ -244,7 +244,7 @@ export class HeldActionRepository {
       createdAt,
     };
 
-    await this.db.put(item);
+    await this.db.put(item as unknown as Record<string, unknown>);
 
     return this.toHeldAction(item);
   }

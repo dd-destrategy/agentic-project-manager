@@ -5,28 +5,29 @@
  * Triggered by EventBridge every 1 minute.
  */
 
-import type { Context, ScheduledEvent } from 'aws-lambda';
-import { logger, getEnv } from '../shared/context.js';
+import {
+  parseJiraCredentials,
+  parseSESConfig,
+} from '@agentic-pm/core';
 import { DynamoDBClient } from '@agentic-pm/core/db/client';
+import type {
+  EmailStakeholderPayload,
+  JiraStatusChangePayload,
+} from '@agentic-pm/core/db/repositories/held-action';
 import {
   HoldQueueService,
   type ActionExecutor,
   type HoldQueueProcessingResult,
 } from '@agentic-pm/core/execution/hold-queue';
-import type {
-  EmailStakeholderPayload,
-  JiraStatusChangePayload,
-} from '@agentic-pm/core/db/repositories/held-action';
-import { SESClient } from '@agentic-pm/core/integrations/ses';
 import { JiraClient } from '@agentic-pm/core/integrations/jira';
-import {
-  parseJiraCredentials,
-  parseSESConfig,
-} from '@agentic-pm/core';
+import { SESClient } from '@agentic-pm/core/integrations/ses';
 import {
   SecretsManagerClient,
   GetSecretValueCommand,
 } from '@aws-sdk/client-secrets-manager';
+import type { Context, ScheduledEvent } from 'aws-lambda';
+
+import { logger, getEnv } from '../shared/context.js';
 
 interface HoldQueueOutput {
   processed: number;

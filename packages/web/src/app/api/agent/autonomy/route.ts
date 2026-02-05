@@ -27,7 +27,7 @@ interface AutonomySettingsResponse {
  * In-memory store for development/demo purposes
  * In production, this would use DynamoDB via AgentConfigRepository
  */
-let autonomySettings: AutonomySettingsResponse = {
+const autonomySettings: AutonomySettingsResponse = {
   autonomyLevel: 'monitoring',
   dryRun: false,
   lastLevelChange: undefined,

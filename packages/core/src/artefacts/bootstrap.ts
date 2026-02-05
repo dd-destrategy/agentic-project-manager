@@ -5,6 +5,9 @@
  * Creates DeliveryState, RAIDLog, BacklogSummary, and empty DecisionLog.
  */
 
+import { DynamoDBClient } from '../db/client.js';
+import { ArtefactRepository } from '../db/repositories/artefact.js';
+import type { JiraIssue, JiraSprint } from '../integrations/jira.js';
 import type {
   DeliveryStateContent,
   RaidLogContent,
@@ -18,9 +21,6 @@ import type {
   ArtefactType,
   Artefact,
 } from '../types/index.js';
-import type { JiraIssue, JiraSprint } from '../integrations/jira.js';
-import { ArtefactRepository } from '../db/repositories/artefact.js';
-import { DynamoDBClient } from '../db/client.js';
 
 /**
  * Input for artefact bootstrap
@@ -162,7 +162,7 @@ function generateDeliveryState(input: BootstrapInput, now: string): DeliveryStat
  * Generate RAIDLog from Jira data
  */
 function generateRaidLog(input: BootstrapInput, now: string): RaidLogContent {
-  const { issues, projectKey } = input;
+  const { issues, projectKey: _projectKey } = input;
   const items: RaidItem[] = [];
 
   // Find issues that indicate risks, blockers, or dependencies
@@ -329,11 +329,11 @@ function calculatePriorityCounts(issues: JiraIssue[]): {
   for (const issue of issues) {
     const priority = issue.fields.priority?.name ?? 'Medium';
 
-    if (PRIORITY_MAPPINGS.critical.includes(priority)) {
+    if (PRIORITY_MAPPINGS.critical.includes(priority as typeof PRIORITY_MAPPINGS.critical[number])) {
       counts.critical++;
-    } else if (PRIORITY_MAPPINGS.high.includes(priority)) {
+    } else if (PRIORITY_MAPPINGS.high.includes(priority as typeof PRIORITY_MAPPINGS.high[number])) {
       counts.high++;
-    } else if (PRIORITY_MAPPINGS.medium.includes(priority)) {
+    } else if (PRIORITY_MAPPINGS.medium.includes(priority as typeof PRIORITY_MAPPINGS.medium[number])) {
       counts.medium++;
     } else {
       counts.low++;
@@ -393,7 +393,7 @@ function determineOverallStatus(
 /**
  * Generate blockers from blocked issues
  */
-function generateBlockers(blockedIssues: JiraIssue[], now: string): Blocker[] {
+function generateBlockers(blockedIssues: JiraIssue[], _now: string): Blocker[] {
   return blockedIssues.slice(0, 10).map((issue) => ({
     id: issue.key,
     description: issue.fields.summary,
@@ -512,8 +512,9 @@ function generateNextActions(
 
   if (blockedIssues.length > 0) {
     actions.push(`Resolve ${blockedIssues.length} blocked issue${blockedIssues.length > 1 ? 's' : ''}`);
-    if (blockedIssues.length > 0) {
-      actions.push(`Review blocker: ${blockedIssues[0].key} - ${blockedIssues[0].fields.summary.slice(0, 50)}`);
+    const firstBlocked = blockedIssues[0];
+    if (firstBlocked) {
+      actions.push(`Review blocker: ${firstBlocked.key} - ${firstBlocked.fields.summary.slice(0, 50)}`);
     }
   }
 
@@ -533,7 +534,7 @@ function generateNextActions(
  */
 function generateHighlights(
   issues: JiraIssue[],
-  sprint: JiraSprint | null
+  _sprint: JiraSprint | null
 ): BacklogHighlight[] {
   const highlights: BacklogHighlight[] = [];
   const now = Date.now();
@@ -640,13 +641,13 @@ function findRefinementCandidates(issues: JiraIssue[]): Array<{
 function mapPriorityToSeverity(
   priority: string
 ): 'critical' | 'high' | 'medium' | 'low' {
-  if (PRIORITY_MAPPINGS.critical.includes(priority)) {
+  if (PRIORITY_MAPPINGS.critical.includes(priority as typeof PRIORITY_MAPPINGS.critical[number])) {
     return 'critical';
   }
-  if (PRIORITY_MAPPINGS.high.includes(priority)) {
+  if (PRIORITY_MAPPINGS.high.includes(priority as typeof PRIORITY_MAPPINGS.high[number])) {
     return 'high';
   }
-  if (PRIORITY_MAPPINGS.medium.includes(priority)) {
+  if (PRIORITY_MAPPINGS.medium.includes(priority as typeof PRIORITY_MAPPINGS.medium[number])) {
     return 'medium';
   }
   return 'low';
@@ -657,12 +658,12 @@ function mapPriorityToSeverity(
  */
 function mapPriorityToBlockerSeverity(priority: string): 'high' | 'medium' | 'low' {
   if (
-    PRIORITY_MAPPINGS.critical.includes(priority) ||
-    PRIORITY_MAPPINGS.high.includes(priority)
+    PRIORITY_MAPPINGS.critical.includes(priority as typeof PRIORITY_MAPPINGS.critical[number]) ||
+    PRIORITY_MAPPINGS.high.includes(priority as typeof PRIORITY_MAPPINGS.high[number])
   ) {
     return 'high';
   }
-  if (PRIORITY_MAPPINGS.medium.includes(priority)) {
+  if (PRIORITY_MAPPINGS.medium.includes(priority as typeof PRIORITY_MAPPINGS.medium[number])) {
     return 'medium';
   }
   return 'low';

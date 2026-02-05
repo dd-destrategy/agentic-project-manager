@@ -14,12 +14,13 @@
 
 import type { RawSignal, IntegrationSource } from '../types/index.js';
 import { parseOutlookCredentials } from '../types/index.js';
-import type { IntegrationHealthCheck, SignalSource } from './types.js';
+
 import {
   GraphClient,
   type AzureADConfig,
   type GraphResponse,
 } from './graph-client.js';
+import type { IntegrationHealthCheck, SignalSource } from './types.js';
 
 /**
  * Configuration for Outlook client
@@ -168,7 +169,6 @@ export class OutlookClient implements SignalSource {
     signals: RawSignal[];
     newCheckpoint: string;
   }> {
-    const userId = this.graphClient.getUserId();
     const now = new Date().toISOString();
     const signals: RawSignal[] = [];
 
@@ -265,7 +265,7 @@ export class OutlookClient implements SignalSource {
     const maxPages = 20; // Safety limit
 
     while (currentEndpoint && pageCount < maxPages) {
-      const response = await this.graphClient.get<GraphResponse<GraphMessage>>(
+      const response: GraphResponse<GraphMessage> = await this.graphClient.get<GraphResponse<GraphMessage>>(
         currentEndpoint
       );
 
@@ -309,7 +309,7 @@ export class OutlookClient implements SignalSource {
     } catch {
       // Try regex extraction as fallback
       const match = deltaLink.match(/\$deltatoken=([^&]+)/);
-      return match ? decodeURIComponent(match[1]) : null;
+      return match && match[1] ? decodeURIComponent(match[1]) : null;
     }
   }
 

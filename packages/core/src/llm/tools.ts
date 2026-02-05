@@ -7,7 +7,7 @@
  * Reference: solution-design/06-prompt-library.md Section 3
  */
 
-import type { ToolDefinition, JsonSchema } from './types.js';
+import type { ToolDefinition } from './types.js';
 
 // ============================================================================
 // Triage Tools
@@ -403,6 +403,7 @@ export const UPDATE_RAID_LOG_TOOL: ToolDefinition = {
             changes: {
               type: 'object',
               description: 'Object containing only the fields being changed',
+              properties: {},
             },
             change_reason: { type: 'string', description: 'Why this item is being modified' },
           },
@@ -572,7 +573,7 @@ export const UPDATE_DECISION_LOG_TOOL: ToolDefinition = {
           type: 'object',
           properties: {
             id: { type: 'string' },
-            changes: { type: 'object' },
+            changes: { type: 'object', properties: {} },
             change_reason: { type: 'string' },
           },
           required: ['id', 'changes', 'change_reason'],

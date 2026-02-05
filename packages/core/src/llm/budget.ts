@@ -12,8 +12,9 @@
  * - Hard ceiling: 100% ($0.23) - complete stop
  */
 
-import { DynamoDBClient } from '../db/client.js';
 import { DAILY_LLM_BUDGET_USD, MONTHLY_LLM_BUDGET_USD, KEY_PREFIX } from '../constants.js';
+import { DynamoDBClient } from '../db/client.js';
+
 import type {
   BudgetState,
   BudgetRecord,
@@ -117,7 +118,6 @@ export class BudgetTracker {
   private currentDate: string;
   private currentMonth: string;
   private usageHistory: UsageEntry[] = [];
-  private lastSyncedAt: string | null = null;
 
   constructor(db?: DynamoDBClient) {
     this.db = db ?? null;
@@ -347,7 +347,6 @@ export class BudgetTracker {
       if (dailyRecord) {
         this.dailySpend = dailyRecord.dailySpendUsd;
         this.usageHistory = dailyRecord.usageHistory ?? [];
-        this.lastSyncedAt = dailyRecord.lastUpdated;
       } else {
         this.dailySpend = 0;
         this.usageHistory = [];
@@ -396,7 +395,7 @@ export class BudgetTracker {
         usageHistory: this.usageHistory.slice(-100), // Keep last 100 entries
       };
 
-      await this.db.put(dailyRecord);
+      await this.db.put(dailyRecord as unknown as Record<string, unknown>);
 
       // Save monthly budget record (separate for aggregation)
       const monthlyRecord: BudgetRecord = {
@@ -410,9 +409,7 @@ export class BudgetTracker {
         usageHistory: [], // Don't store full history in monthly record
       };
 
-      await this.db.put(monthlyRecord);
-
-      this.lastSyncedAt = now;
+      await this.db.put(monthlyRecord as unknown as Record<string, unknown>);
     } catch (error) {
       // Log error but don't throw - budget tracking should not break agent
       console.error('Failed to save budget to DynamoDB:', error);

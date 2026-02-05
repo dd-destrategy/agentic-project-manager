@@ -10,6 +10,7 @@
 
 import { KEY_PREFIX } from '../../constants.js';
 import { DynamoDBClient } from '../client.js';
+
 import type { HeldActionType } from './held-action.js';
 
 /**
@@ -144,7 +145,7 @@ export class GraduationStateRepository {
       ...state,
     };
 
-    await this.db.put(item);
+    await this.db.put(item as unknown as Record<string, unknown>);
   }
 
   /**

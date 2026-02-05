@@ -127,8 +127,8 @@ function EventItem({ event }: { event: Event }) {
   const Icon = eventTypeIcons[event.eventType] ?? AlertCircle;
   const severityClass = severityStyles[event.severity];
 
-  // Format event type for display
-  const formatEventType = (type: EventType): string => {
+  // Format event type for display (for future use)
+  const _formatEventType = (type: EventType): string => {
     return type
       .split('_')
       .map((word) => word.charAt(0).toUpperCase() + word.slice(1))

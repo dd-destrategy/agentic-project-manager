@@ -90,6 +90,7 @@ export const INJECTION_PATTERNS: Array<{ pattern: RegExp; threat: string }> = [
  */
 const UNICODE_PATTERNS: Array<{ pattern: RegExp; threat: string }> = [
   // Zero-width characters (often used to hide content)
+  // eslint-disable-next-line no-misleading-character-class
   { pattern: /[\u200B\u200C\u200D\u2060\uFEFF]/g, threat: 'unicode_obfuscation' },
   // Right-to-left override
   { pattern: /[\u202A-\u202E\u2066-\u2069]/g, threat: 'unicode_obfuscation' },

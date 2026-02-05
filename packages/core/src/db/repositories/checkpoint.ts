@@ -56,7 +56,7 @@ export class CheckpointRepository {
    * Get all checkpoints for a specific integration across all projects
    */
   async getAllForIntegration(
-    integration: IntegrationSource
+    _integration: IntegrationSource
   ): Promise<AgentCheckpoint[]> {
     // This requires a scan or GSI - for now, return empty
     // In production, you might want a GSI on integration type

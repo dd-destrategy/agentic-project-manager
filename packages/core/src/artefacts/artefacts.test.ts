@@ -1084,7 +1084,7 @@ describe('Golden Scenario: Full Artefact Lifecycle', () => {
       ],
     };
 
-    let diff1 = calculateDiff('raid_log', currentContent, update1);
+    const diff1 = calculateDiff('raid_log', currentContent, update1);
     expect(diff1.changes.length).toBe(1);
     expect(diff1.changes[0].changeType).toBe('added');
 
@@ -1101,7 +1101,7 @@ describe('Golden Scenario: Full Artefact Lifecycle', () => {
       ],
     };
 
-    let diff2 = calculateDiff('raid_log', currentContent, update2);
+    const diff2 = calculateDiff('raid_log', currentContent, update2);
     expect(diff2.changes.length).toBe(1);
     expect(diff2.changes[0].changeType).toBe('modified');
 
@@ -1126,7 +1126,7 @@ describe('Golden Scenario: Full Artefact Lifecycle', () => {
       ],
     };
 
-    let diff3 = calculateDiff('raid_log', currentContent, update3);
+    const diff3 = calculateDiff('raid_log', currentContent, update3);
     expect(diff3.changes.length).toBe(1);
     expect(diff3.changes[0].changeType).toBe('added');
 

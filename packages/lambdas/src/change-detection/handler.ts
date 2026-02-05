@@ -11,17 +11,18 @@
  * 4. Return hasChanges: false if no changes detected (skips LLM processing)
  */
 
-import type { Context } from 'aws-lambda';
 import { parseJiraCredentials } from '@agentic-pm/core';
+import type { Project } from '@agentic-pm/core';
 import { DynamoDBClient } from '@agentic-pm/core/db/client';
-import { JiraClient } from '@agentic-pm/core/integrations/jira';
 import { CheckpointRepository } from '@agentic-pm/core/db/repositories/checkpoint';
 import { ProjectRepository } from '@agentic-pm/core/db/repositories/project';
-import type { Project } from '@agentic-pm/core';
+import { JiraClient } from '@agentic-pm/core/integrations/jira';
 import {
   SecretsManagerClient,
   GetSecretValueCommand,
 } from '@aws-sdk/client-secrets-manager';
+import type { Context } from 'aws-lambda';
+
 import { logger, getEnv } from '../shared/context.js';
 import type {
   HeartbeatOutput,

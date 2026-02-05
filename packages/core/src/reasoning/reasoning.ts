@@ -13,11 +13,11 @@
 
 import { createSonnetClient, ClaudeClient } from '../llm/client.js';
 import type { ToolDefinition, LlmResponse } from '../llm/types.js';
+
 import type {
   ReasoningInput,
   ReasoningOutput,
   ProposedArtefactUpdate,
-  ReasoningContext,
   SignalPattern,
 } from './types.js';
 
@@ -112,6 +112,7 @@ const COMPLEX_REASONING_TOOL: ToolDefinition = {
             changes: {
               type: 'object',
               description: 'The specific changes to make',
+              properties: {},
             },
             rationale: {
               type: 'string',

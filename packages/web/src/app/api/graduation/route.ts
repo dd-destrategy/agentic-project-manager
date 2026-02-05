@@ -46,7 +46,7 @@ interface GraduationEvidence {
  * In-memory store for development/demo purposes
  * In production, this would use DynamoDB
  */
-let graduationState: GraduationEvidence = {
+const graduationState: GraduationEvidence = {
   currentLevel: 1,
   targetLevel: 2,
   actionStates: [

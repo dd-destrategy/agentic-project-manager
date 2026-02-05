@@ -8,11 +8,12 @@
  * Sprint 3: Full normalisation with Jira and Outlook transformers.
  */
 
+import type { NormalisedSignal, IntegrationSource, SignalType } from '@agentic-pm/core';
 import type { Context } from 'aws-lambda';
 import { ulid } from 'ulid';
+
 import { logger } from '../shared/context.js';
 import type { ChangeDetectionOutput, NormaliseOutput, RawSignalBatch } from '../shared/types.js';
-import type { NormalisedSignal, IntegrationSource, SignalType } from '@agentic-pm/core';
 
 /**
  * Normalise a single raw signal from any integration source

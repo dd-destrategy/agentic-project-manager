@@ -125,7 +125,7 @@ export function ArtefactDiff({ current, previous, className }: ArtefactDiffProps
 /**
  * Inline diff line component for rendering individual diff lines
  */
-function DiffLine({
+function _DiffLine({
   type,
   content,
 }: {

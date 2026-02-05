@@ -6,19 +6,6 @@
  * Zod schemas, and stores with previousVersion for one-deep undo.
  */
 
-import type { Context } from 'aws-lambda';
-import { logger, getEnv } from '../shared/context.js';
-import type { ExecuteOutput, ArtefactUpdateOutput } from '../shared/types.js';
-import {
-  DynamoDBClient,
-  ArtefactRepository,
-  ProjectRepository,
-} from '@agentic-pm/core';
-import {
-  createHaikuClient,
-  getToolsForLambda,
-  ARTEFACT_UPDATE_SYSTEM_PROMPT,
-} from '@agentic-pm/core';
 import type {
   UpdateDeliveryStateOutput,
   UpdateRaidLogOutput,
@@ -34,7 +21,18 @@ import type {
   RaidItem,
   Decision,
 } from '@agentic-pm/core';
-import { validateArtefactContent } from '@agentic-pm/core';
+import {
+  DynamoDBClient,
+  ArtefactRepository,
+  createHaikuClient,
+  getToolsForLambda,
+  ARTEFACT_UPDATE_SYSTEM_PROMPT,
+  validateArtefactContent,
+} from '@agentic-pm/core';
+import type { Context } from 'aws-lambda';
+
+import { logger, getEnv } from '../shared/context.js';
+import type { ExecuteOutput, ArtefactUpdateOutput } from '../shared/types.js';
 
 // Initialise clients outside handler for connection reuse (cold start optimization)
 let dbClient: DynamoDBClient | null = null;
@@ -354,7 +352,7 @@ async function processArtefactUpdate(
   artefactType: ArtefactType,
   toolOutput: unknown,
   currentArtefact: Artefact | undefined,
-  signals: ClassifiedSignal[]
+  _signals: ClassifiedSignal[]
 ): Promise<{ success: boolean; version?: number; error?: string }> {
   try {
     // Convert and validate based on artefact type

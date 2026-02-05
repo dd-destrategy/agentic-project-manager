@@ -19,7 +19,7 @@ export {
 export {
   checkConfidence,
   computeConfidence,
-  canAutoExecute,
+  canAutoExecute as canAutoExecuteWithConfidence,
   getBlockingReasons,
   formatConfidenceForDisplay,
 } from './confidence.js';
@@ -36,7 +36,7 @@ export {
   AUTONOMY_LEVEL_PERMISSIONS,
   validateAction,
   isProhibitedAction,
-  canAutoExecute,
+  canAutoExecute as isAutoExecuteAction,
   requiresHoldQueue,
   requiresApproval,
   getBoundaryCategory,

@@ -6,6 +6,7 @@
  */
 
 import { ulid } from 'ulid';
+
 import { KEY_PREFIX, GSI1_PREFIX, TTL } from '../../constants.js';
 import type {
   Escalation,
@@ -188,7 +189,7 @@ export class EscalationRepository {
       expiresAt,
     };
 
-    await this.db.put(item);
+    await this.db.put(item as unknown as Record<string, unknown>);
 
     return this.toEscalation(item);
   }

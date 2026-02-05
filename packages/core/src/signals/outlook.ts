@@ -9,8 +9,9 @@
  */
 
 import { ulid } from 'ulid';
-import type { NormalisedSignal, RawSignal, SignalType } from '../types/index.js';
+
 import type { GraphMessage, EmailAddress } from '../integrations/outlook.js';
+import type { NormalisedSignal, RawSignal, SignalType } from '../types/index.js';
 
 /**
  * Normalise a raw Outlook signal into a NormalisedSignal object
@@ -307,7 +308,7 @@ export function matchesMonitoredAddresses(
  * Useful for categorising emails by project context.
  */
 export function extractKeywords(signal: NormalisedSignal): string[] {
-  const raw = signal.raw as GraphMessage;
+  const raw = signal.raw as unknown as GraphMessage;
   const keywords: string[] = [];
 
   // Extract from subject

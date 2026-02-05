@@ -6,12 +6,9 @@
  */
 
 import type { ActionType, AutonomyLevel, DryRunResult } from '../types/index.js';
+
+import { validateAction, isProhibitedAction } from './boundaries.js';
 import type { ExecutionInput, ExecutionResult, ExecutionConfig } from './types.js';
-import {
-  validateAction,
-  isProhibitedAction,
-  isActionAllowedAtLevel,
-} from './boundaries.js';
 
 /**
  * Execute an action based on decision boundaries, autonomy level, and dry-run mode
@@ -24,7 +21,7 @@ export async function executeAction(
   input: ExecutionInput,
   config?: ExecutionConfig
 ): Promise<ExecutionResult | DryRunResult> {
-  const { actionType, projectId, details, confidence } = input;
+  const { actionType, projectId, details } = input;
   const autonomyLevel = config?.autonomyLevel ?? 'monitoring';
   const dryRun = config?.dryRun ?? false;
 

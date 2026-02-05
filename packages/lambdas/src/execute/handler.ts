@@ -6,6 +6,7 @@
  */
 
 import type { Context } from 'aws-lambda';
+
 import { logger } from '../shared/context.js';
 import type { ReasoningOutput, ExecuteOutput } from '../shared/types.js';
 
@@ -29,9 +30,9 @@ export async function handler(
   // 2. Write action events to DynamoDB
   // 3. Update GSI1 for held actions
 
-  let executed = 0;
-  let held = 0;
-  let escalations = 0;
+  const executed = 0;
+  const held = 0;
+  const escalations = 0;
 
   for (const action of event.proposedActions) {
     // Stub: Log each action

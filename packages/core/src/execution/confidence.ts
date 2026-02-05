@@ -13,6 +13,7 @@
  * Auto-execution is ONLY allowed when ALL four dimensions pass.
  */
 
+import { DECISION_BOUNDARIES } from '../constants.js';
 import type {
   ActionType,
   AgentAction,
@@ -21,7 +22,6 @@ import type {
   ConfidenceScore,
   DimensionScore,
 } from '../types/index.js';
-import { DECISION_BOUNDARIES } from '../constants.js';
 
 /**
  * Input for confidence scoring with reasoning context
