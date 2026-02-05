@@ -5,5 +5,24 @@
  * that require deeper analysis than the Haiku triage can provide.
  */
 
-export { performReasoning } from './reasoning.js';
-export type { ReasoningInput, ReasoningOutput } from './types.js';
+export {
+  performReasoning,
+  performReasoningWithClient,
+  performBatchReasoning,
+  requiresComplexReasoning,
+} from './reasoning.js';
+
+export type {
+  ReasoningInput,
+  ReasoningOutput,
+  ReasoningContext,
+  RecentAction,
+  ProposedArtefactUpdate,
+  SignalPattern,
+  RiskAssessment,
+  ReasoningTransparency,
+  SourceSignalSummary,
+  ConfidenceDetails,
+  DimensionDetail,
+  ReasoningResult,
+} from './types.js';

@@ -16,7 +16,19 @@ export {
 } from './execute.js';
 
 // Confidence scoring
-export { checkConfidence } from './confidence.js';
+export {
+  checkConfidence,
+  computeConfidence,
+  canAutoExecute,
+  getBlockingReasons,
+  formatConfidenceForDisplay,
+} from './confidence.js';
+
+export type {
+  ConfidenceInput,
+  ConfidenceDisplay,
+  DimensionDisplay,
+} from './confidence.js';
 
 // Decision boundaries
 export {

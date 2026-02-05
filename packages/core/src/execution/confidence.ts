@@ -3,6 +3,14 @@
  *
  * Four-dimensional confidence scoring that is NEVER based on LLM self-reporting.
  * All dimensions are computed deterministically.
+ *
+ * The four dimensions are:
+ * 1. Source Agreement - Do multiple sources corroborate the signal?
+ * 2. Boundary Compliance - Is the action within defined decision boundaries?
+ * 3. Schema Validity - Did Claude return valid structured output?
+ * 4. Precedent Match - Has this type of action succeeded before?
+ *
+ * Auto-execution is ONLY allowed when ALL four dimensions pass.
  */
 
 import type {
@@ -14,6 +22,24 @@ import type {
   DimensionScore,
 } from '../types/index.js';
 import { DECISION_BOUNDARIES } from '../constants.js';
+
+/**
+ * Input for confidence scoring with reasoning context
+ */
+export interface ConfidenceInput {
+  /** The type of action being proposed */
+  actionType: ActionType;
+  /** Signals supporting this action */
+  signals: ClassifiedSignal[];
+  /** Historical actions of similar type */
+  precedents: AgentAction[];
+  /** Whether the action passed schema validation */
+  schemaValid: boolean;
+  /** Optional: LLM rationale for the action */
+  llmRationale?: string;
+  /** Optional: Project ID for context */
+  projectId?: string;
+}
 
 /**
  * Compute confidence score for a proposed action
@@ -37,7 +63,7 @@ export function checkConfidence(
     precedentMatch: computePrecedentMatch(actionType, precedents),
   };
 
-  // All dimensions must pass for overall pass
+  // All dimensions must pass for overall pass (auto-execute eligibility)
   const pass = Object.values(dimensions).every((d) => d.pass);
 
   return {
@@ -45,6 +71,149 @@ export function checkConfidence(
     dimensions,
     scoredAt: new Date().toISOString(),
   };
+}
+
+/**
+ * Compute confidence score with extended input
+ *
+ * @param input - Structured confidence input
+ * @returns Multi-dimensional confidence score with rationale
+ */
+export function computeConfidence(input: ConfidenceInput): ConfidenceScore {
+  return checkConfidence(
+    input.actionType,
+    input.signals,
+    input.precedents,
+    input.schemaValid
+  );
+}
+
+/**
+ * Check if an action can be auto-executed based on confidence score
+ *
+ * Auto-execution requires ALL four dimensions to pass:
+ * - Multiple sources agreeing (at least 1 source)
+ * - Action within decision boundaries
+ * - Valid schema from LLM
+ * - Historical precedent of success
+ *
+ * @param confidence - The confidence score to check
+ * @returns true if all dimensions pass
+ */
+export function canAutoExecute(confidence: ConfidenceScore): boolean {
+  return confidence.pass;
+}
+
+/**
+ * Get a human-readable summary of why an action cannot be auto-executed
+ *
+ * @param confidence - The confidence score
+ * @returns Array of reasons why auto-execution is blocked
+ */
+export function getBlockingReasons(confidence: ConfidenceScore): string[] {
+  const reasons: string[] = [];
+
+  if (!confidence.dimensions.sourceAgreement.pass) {
+    reasons.push(`Source agreement failed: ${confidence.dimensions.sourceAgreement.evidence}`);
+  }
+  if (!confidence.dimensions.boundaryCompliance.pass) {
+    reasons.push(`Boundary compliance failed: ${confidence.dimensions.boundaryCompliance.evidence}`);
+  }
+  if (!confidence.dimensions.schemaValidity.pass) {
+    reasons.push(`Schema validity failed: ${confidence.dimensions.schemaValidity.evidence}`);
+  }
+  if (!confidence.dimensions.precedentMatch.pass) {
+    reasons.push(`Precedent match failed: ${confidence.dimensions.precedentMatch.evidence}`);
+  }
+
+  return reasons;
+}
+
+/**
+ * Format confidence score for display in activity feed
+ *
+ * @param confidence - The confidence score
+ * @returns Formatted display object
+ */
+export function formatConfidenceForDisplay(confidence: ConfidenceScore): ConfidenceDisplay {
+  const { dimensions } = confidence;
+
+  return {
+    canAutoExecute: confidence.pass,
+    overallScore: calculateOverallScore(dimensions),
+    dimensions: {
+      sourceAgreement: {
+        label: 'Source Agreement',
+        pass: dimensions.sourceAgreement.pass,
+        score: dimensions.sourceAgreement.score,
+        evidence: dimensions.sourceAgreement.evidence,
+        description: 'Do multiple sources corroborate?',
+      },
+      boundaryCompliance: {
+        label: 'Boundary Compliance',
+        pass: dimensions.boundaryCompliance.pass,
+        score: dimensions.boundaryCompliance.score,
+        evidence: dimensions.boundaryCompliance.evidence,
+        description: 'Is action within defined boundaries?',
+      },
+      schemaValidity: {
+        label: 'Schema Validity',
+        pass: dimensions.schemaValidity.pass,
+        score: dimensions.schemaValidity.score,
+        evidence: dimensions.schemaValidity.evidence,
+        description: 'Did Claude return valid structured output?',
+      },
+      precedentMatch: {
+        label: 'Precedent Match',
+        pass: dimensions.precedentMatch.pass,
+        score: dimensions.precedentMatch.score,
+        evidence: dimensions.precedentMatch.evidence,
+        description: 'Has this type of action succeeded before?',
+      },
+    },
+    blockingReasons: getBlockingReasons(confidence),
+    scoredAt: confidence.scoredAt,
+  };
+}
+
+/**
+ * Display format for confidence score
+ */
+export interface ConfidenceDisplay {
+  canAutoExecute: boolean;
+  overallScore: number;
+  dimensions: {
+    sourceAgreement: DimensionDisplay;
+    boundaryCompliance: DimensionDisplay;
+    schemaValidity: DimensionDisplay;
+    precedentMatch: DimensionDisplay;
+  };
+  blockingReasons: string[];
+  scoredAt: string;
+}
+
+/**
+ * Display format for a single dimension
+ */
+export interface DimensionDisplay {
+  label: string;
+  pass: boolean;
+  score: number;
+  evidence: string;
+  description: string;
+}
+
+/**
+ * Calculate overall score as average of dimension scores
+ */
+function calculateOverallScore(dimensions: ConfidenceDimensions): number {
+  const scores = [
+    dimensions.sourceAgreement.score,
+    dimensions.boundaryCompliance.score,
+    dimensions.schemaValidity.score,
+    dimensions.precedentMatch.score,
+  ];
+  return scores.reduce((sum, s) => sum + s, 0) / scores.length;
 }
 
 /**
