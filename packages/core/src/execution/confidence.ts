@@ -13,7 +13,6 @@
  * Auto-execution is ONLY allowed when ALL four dimensions pass.
  */
 
-import { DECISION_BOUNDARIES } from '../constants.js';
 import type {
   ActionType,
   AgentAction,
@@ -22,6 +21,8 @@ import type {
   ConfidenceScore,
   DimensionScore,
 } from '../types/index.js';
+
+import { DECISION_BOUNDARIES } from './boundaries.js';
 
 /**
  * Input for confidence scoring with reasoning context
@@ -114,16 +115,24 @@ export function getBlockingReasons(confidence: ConfidenceScore): string[] {
   const reasons: string[] = [];
 
   if (!confidence.dimensions.sourceAgreement.pass) {
-    reasons.push(`Source agreement failed: ${confidence.dimensions.sourceAgreement.evidence}`);
+    reasons.push(
+      `Source agreement failed: ${confidence.dimensions.sourceAgreement.evidence}`
+    );
   }
   if (!confidence.dimensions.boundaryCompliance.pass) {
-    reasons.push(`Boundary compliance failed: ${confidence.dimensions.boundaryCompliance.evidence}`);
+    reasons.push(
+      `Boundary compliance failed: ${confidence.dimensions.boundaryCompliance.evidence}`
+    );
   }
   if (!confidence.dimensions.schemaValidity.pass) {
-    reasons.push(`Schema validity failed: ${confidence.dimensions.schemaValidity.evidence}`);
+    reasons.push(
+      `Schema validity failed: ${confidence.dimensions.schemaValidity.evidence}`
+    );
   }
   if (!confidence.dimensions.precedentMatch.pass) {
-    reasons.push(`Precedent match failed: ${confidence.dimensions.precedentMatch.evidence}`);
+    reasons.push(
+      `Precedent match failed: ${confidence.dimensions.precedentMatch.evidence}`
+    );
   }
 
   return reasons;
@@ -135,7 +144,9 @@ export function getBlockingReasons(confidence: ConfidenceScore): string[] {
  * @param confidence - The confidence score
  * @returns Formatted display object
  */
-export function formatConfidenceForDisplay(confidence: ConfidenceScore): ConfidenceDisplay {
+export function formatConfidenceForDisplay(
+  confidence: ConfidenceScore
+): ConfidenceDisplay {
   const { dimensions } = confidence;
 
   return {
@@ -239,10 +250,18 @@ function computeSourceAgreement(signals: ClassifiedSignal[]): DimensionScore {
  * Boundary Compliance: Is action within defined boundaries?
  */
 function computeBoundaryCompliance(actionType: ActionType): DimensionScore {
-  const canAuto = (DECISION_BOUNDARIES.canAutoExecute as readonly string[]).includes(actionType);
-  const needsHold = (DECISION_BOUNDARIES.requireHoldQueue as readonly string[]).includes(actionType);
-  const needsApproval = (DECISION_BOUNDARIES.requireApproval as readonly string[]).includes(actionType);
-  const prohibited = (DECISION_BOUNDARIES.neverDo as readonly string[]).includes(actionType);
+  const canAuto = (
+    DECISION_BOUNDARIES.autoExecute as readonly string[]
+  ).includes(actionType);
+  const needsHold = (
+    DECISION_BOUNDARIES.requireHoldQueue as readonly string[]
+  ).includes(actionType);
+  const needsApproval = (
+    DECISION_BOUNDARIES.requireApproval as readonly string[]
+  ).includes(actionType);
+  const prohibited = (
+    DECISION_BOUNDARIES.neverDo as readonly string[]
+  ).includes(actionType);
 
   if (prohibited) {
     return {
