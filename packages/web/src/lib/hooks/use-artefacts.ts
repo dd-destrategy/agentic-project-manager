@@ -8,6 +8,7 @@ interface Artefact {
   projectId: string;
   type: ArtefactType;
   content: string;
+  previousVersion?: string;
   version: number;
   updatedAt: string;
   createdAt: string;

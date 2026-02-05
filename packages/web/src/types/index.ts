@@ -328,3 +328,80 @@ export interface AutonomySettingsUpdateRequest {
   autonomyLevel?: AutonomyLevel;
   dryRun?: boolean;
 }
+
+// ============================================================================
+// Held Action Types (Hold Queue)
+// ============================================================================
+
+/**
+ * Held action types that can be queued
+ */
+export type HeldActionType = 'email_stakeholder' | 'jira_status_change';
+
+/**
+ * Held action status
+ */
+export type HeldActionStatus = 'pending' | 'approved' | 'cancelled' | 'executed';
+
+/**
+ * Email stakeholder payload
+ */
+export interface EmailStakeholderPayload {
+  to: string[];
+  subject: string;
+  bodyText: string;
+  bodyHtml?: string;
+  context?: string;
+}
+
+/**
+ * Jira status change payload
+ */
+export interface JiraStatusChangePayload {
+  issueKey: string;
+  transitionId: string;
+  transitionName: string;
+  fromStatus: string;
+  toStatus: string;
+  reason?: string;
+}
+
+/**
+ * Union of all held action payload types
+ */
+export type HeldActionPayload = EmailStakeholderPayload | JiraStatusChangePayload;
+
+/**
+ * Held action entity
+ */
+export interface HeldAction {
+  id: string;
+  projectId: string;
+  actionType: HeldActionType;
+  payload: HeldActionPayload;
+  heldUntil: string;
+  status: HeldActionStatus;
+  createdAt: string;
+  approvedAt?: string;
+  cancelledAt?: string;
+  executedAt?: string;
+  cancelReason?: string;
+  /** User who approved/cancelled (if applicable) */
+  decidedBy?: string;
+}
+
+/**
+ * Held actions API response
+ */
+export interface HeldActionsResponse {
+  heldActions: HeldAction[];
+  count: number;
+}
+
+/**
+ * Held action approve/cancel response
+ */
+export interface HeldActionResponse {
+  heldAction: HeldAction;
+  success: boolean;
+}

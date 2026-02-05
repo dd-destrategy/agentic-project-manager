@@ -8,6 +8,7 @@ interface Artefact {
   projectId: string;
   type: ArtefactType;
   content: string;
+  previousVersion?: string;
   version: number;
   updatedAt: string;
   createdAt: string;
@@ -55,6 +56,14 @@ export async function GET(
           blockers: ['Waiting for API documentation from vendor'],
           highlights: ['Login flow completed ahead of schedule'],
         }),
+        previousVersion: JSON.stringify({
+          sprintName: 'Sprint 12',
+          sprintGoal: 'Complete authentication flow and API integration',
+          velocity: { current: 28, average: 34, trend: 'up' },
+          burndown: { planned: 45, actual: 32, remaining: 13 },
+          blockers: ['Waiting for API documentation from vendor', 'Design review pending'],
+          highlights: [],
+        }),
         version: 5,
         updatedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
         createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
@@ -90,6 +99,36 @@ export async function GET(
               id: 'D1',
               description: 'Design system components from Platform team',
               status: 'resolved',
+            },
+          ],
+        }),
+        previousVersion: JSON.stringify({
+          risks: [
+            {
+              id: 'R1',
+              description: 'Third-party API may have rate limits',
+              probability: 'high',
+              impact: 'high',
+              mitigation: 'TBD',
+              status: 'open',
+            },
+          ],
+          assumptions: [
+            { id: 'A1', description: 'Backend team will maintain API backwards compatibility' },
+          ],
+          issues: [
+            {
+              id: 'I1',
+              description: 'API documentation incomplete',
+              assignee: 'Unassigned',
+              status: 'open',
+            },
+          ],
+          dependencies: [
+            {
+              id: 'D1',
+              description: 'Design system components from Platform team',
+              status: 'pending',
             },
           ],
         }),

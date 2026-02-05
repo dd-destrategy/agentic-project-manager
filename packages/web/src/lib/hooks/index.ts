@@ -7,6 +7,7 @@
 export { useAgentStatus, formatLastHeartbeat } from './use-agent-status';
 export { useEvents, useInfiniteEvents, formatEventTime } from './use-events';
 export { useProjects, getTotalPendingEscalations, formatLastActivity } from './use-projects';
+export { useProject, getHealthVariant, formatHealthStatus } from './use-project';
 export {
   useArtefacts,
   parseArtefactContent,
@@ -28,3 +29,20 @@ export {
   formatEscalationTime,
   getRiskLevelVariant,
 } from './use-escalations';
+export {
+  useHeldActions,
+  usePendingHeldActions,
+  usePendingHeldActionCount,
+  useApproveHeldAction,
+  useCancelHeldAction,
+  formatTimeRemaining,
+  getActionTypeLabel,
+  getActionTypeIcon,
+  isEmailPayload,
+  isJiraPayload,
+} from './use-held-actions';
+export {
+  useGraduationEvidence,
+  useConfirmGraduation,
+} from './use-graduation';
+export { useBudgetStatus } from './use-budget';

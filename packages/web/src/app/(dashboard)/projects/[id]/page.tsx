@@ -1,0 +1,241 @@
+'use client';
+
+import { useState, use } from 'react';
+import Link from 'next/link';
+import {
+  ArrowLeft,
+  Loader2,
+  AlertCircle,
+  Clock,
+  GitCompare,
+  FileText,
+} from 'lucide-react';
+import { useProject, getHealthVariant, formatHealthStatus } from '@/lib/hooks/use-project';
+import { useArtefacts, formatArtefactType, getArtefactByType } from '@/lib/hooks/use-artefacts';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ArtefactViewer } from '@/components/artefact-viewer';
+import { ArtefactDiff } from '@/components/artefact-diff';
+import type { ArtefactType } from '@/types';
+
+const ARTEFACT_TYPES: ArtefactType[] = [
+  'delivery_state',
+  'raid_log',
+  'backlog_summary',
+  'decision_log',
+];
+
+/**
+ * Format timestamp for display
+ */
+function formatDate(timestamp: string): string {
+  const date = new Date(timestamp);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / (1000 * 60));
+
+  if (diffMins < 1) {
+    return 'Just now';
+  } else if (diffMins < 60) {
+    return `${diffMins} minutes ago`;
+  } else {
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) {
+      return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    }
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays < 7) {
+      return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+    }
+    return date.toLocaleDateString('en-GB', {
+      day: 'numeric',
+      month: 'short',
+      year: diffDays > 365 ? 'numeric' : undefined,
+    });
+  }
+}
+
+/**
+ * Project Detail Page
+ *
+ * Displays project information and artefacts with tabs for each artefact type.
+ * Includes diff view functionality to compare current vs previous versions.
+ */
+export default function ProjectDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = use(params);
+  const { data: projectData, isLoading: projectLoading, error: projectError } = useProject(id);
+  const { data: artefactsData, isLoading: artefactsLoading } = useArtefacts(id);
+
+  const [showDiff, setShowDiff] = useState(false);
+  const [activeTab, setActiveTab] = useState<ArtefactType>('delivery_state');
+
+  const project = projectData?.project;
+  const artefacts = artefactsData?.artefacts;
+
+  if (projectLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (projectError || !project) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-center">
+        <AlertCircle className="mb-4 h-12 w-12 text-destructive" />
+        <h3 className="text-lg font-medium">Project not found</h3>
+        <p className="mt-1 text-sm text-muted-foreground">
+          This project may have been deleted or you don&apos;t have access to it.
+        </p>
+        <Link href="/dashboard" className="mt-4">
+          <Button variant="outline">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Dashboard
+          </Button>
+        </Link>
+      </div>
+    );
+  }
+
+  const currentArtefact = getArtefactByType(artefacts, activeTab);
+  const hasPreviousVersion = currentArtefact?.previousVersion !== undefined;
+
+  return (
+    <div className="space-y-6">
+      {/* Header with back button */}
+      <div className="flex items-center gap-4">
+        <Link href="/dashboard">
+          <Button variant="ghost" size="sm">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back
+          </Button>
+        </Link>
+      </div>
+
+      {/* Project title and health status */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">{project.name}</h1>
+          {project.description && (
+            <p className="mt-1 text-muted-foreground">{project.description}</p>
+          )}
+        </div>
+        <div className="flex items-center gap-3">
+          <Badge variant="outline" className="text-xs">
+            {project.sourceProjectKey}
+          </Badge>
+          <Badge variant={getHealthVariant(project.healthStatus)}>
+            {formatHealthStatus(project.healthStatus)}
+          </Badge>
+          {project.pendingEscalations > 0 && (
+            <Badge variant="warning">
+              {project.pendingEscalations} Escalation{project.pendingEscalations > 1 ? 's' : ''}
+            </Badge>
+          )}
+        </div>
+      </div>
+
+      {/* Project meta info */}
+      <Card>
+        <CardContent className="py-4">
+          <div className="grid gap-4 text-sm sm:grid-cols-3">
+            <div>
+              <span className="text-muted-foreground">Source:</span>
+              <span className="ml-2 font-medium capitalize">{project.source}</span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Autonomy Level:</span>
+              <span className="ml-2 font-medium capitalize">{project.autonomyLevel}</span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Last Updated:</span>
+              <span className="ml-2 font-medium">{formatDate(project.updatedAt)}</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Artefacts tabs */}
+      <Tabs
+        defaultValue="delivery_state"
+        value={activeTab}
+        onValueChange={(value) => {
+          setActiveTab(value as ArtefactType);
+          setShowDiff(false); // Reset diff view when changing tabs
+        }}
+      >
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <TabsList>
+            {ARTEFACT_TYPES.map((type) => (
+              <TabsTrigger key={type} value={type}>
+                {formatArtefactType(type)}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+
+          {/* Diff toggle button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowDiff(!showDiff)}
+            disabled={!hasPreviousVersion}
+            className="self-start sm:self-auto"
+          >
+            {showDiff ? (
+              <>
+                <FileText className="mr-2 h-4 w-4" />
+                Show Current
+              </>
+            ) : (
+              <>
+                <GitCompare className="mr-2 h-4 w-4" />
+                Show Changes
+              </>
+            )}
+          </Button>
+        </div>
+
+        {ARTEFACT_TYPES.map((type) => {
+          const artefact = getArtefactByType(artefacts, type);
+
+          return (
+            <TabsContent key={type} value={type} className="mt-4">
+              {artefactsLoading ? (
+                <Card>
+                  <CardContent className="flex items-center justify-center py-12">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  </CardContent>
+                </Card>
+              ) : showDiff && artefact ? (
+                <ArtefactDiff
+                  current={artefact.content}
+                  previous={artefact.previousVersion}
+                />
+              ) : (
+                <ArtefactViewer artefact={artefact} isLoading={artefactsLoading} />
+              )}
+
+              {/* Last updated info */}
+              {artefact && (
+                <p className="mt-3 flex items-center gap-1 text-sm text-muted-foreground">
+                  <Clock className="h-3 w-3" />
+                  Last updated: {formatDate(artefact.updatedAt)}
+                  <span className="ml-2">
+                    (v{artefact.version})
+                  </span>
+                </p>
+              )}
+            </TabsContent>
+          );
+        })}
+      </Tabs>
+    </div>
+  );
+}

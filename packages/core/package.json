@@ -58,6 +58,38 @@
     "./integrations/jira": {
       "types": "./dist/integrations/jira.d.ts",
       "import": "./dist/integrations/jira.js"
+    },
+    "./integrations/ses": {
+      "types": "./dist/integrations/ses.d.ts",
+      "import": "./dist/integrations/ses.js"
+    },
+    "./db/client": {
+      "types": "./dist/db/client.d.ts",
+      "import": "./dist/db/client.js"
+    },
+    "./db/repositories/held-action": {
+      "types": "./dist/db/repositories/held-action.d.ts",
+      "import": "./dist/db/repositories/held-action.js"
+    },
+    "./db/repositories/graduation-state": {
+      "types": "./dist/db/repositories/graduation-state.d.ts",
+      "import": "./dist/db/repositories/graduation-state.js"
+    },
+    "./db/repositories/escalation": {
+      "types": "./dist/db/repositories/escalation.d.ts",
+      "import": "./dist/db/repositories/escalation.js"
+    },
+    "./execution/hold-queue": {
+      "types": "./dist/execution/hold-queue.d.ts",
+      "import": "./dist/execution/hold-queue.js"
+    },
+    "./execution/boundaries": {
+      "types": "./dist/execution/boundaries.d.ts",
+      "import": "./dist/execution/boundaries.js"
+    },
+    "./execution/confidence": {
+      "types": "./dist/execution/confidence.d.ts",
+      "import": "./dist/execution/confidence.js"
     }
   },
   "scripts": {
