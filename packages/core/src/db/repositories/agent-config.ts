@@ -8,6 +8,9 @@
 import { KEY_PREFIX } from '../../constants.js';
 import type {
   AgentConfig,
+  AutonomyLevel,
+  AutonomySettings,
+  AutonomyChangeAcknowledgement,
   BudgetStatus,
   WorkingHours,
   LlmSplit,
@@ -34,6 +37,18 @@ export const CONFIG_KEYS = {
   DEGRADATION_TIER: 'degradation_tier',
   LAST_HEARTBEAT: 'last_heartbeat',
   LAST_HOUSEKEEPING: 'last_housekeeping',
+  // Autonomy settings
+  AUTONOMY_LEVEL: 'autonomy_level',
+  DRY_RUN: 'dry_run',
+  LAST_AUTONOMY_CHANGE: 'last_autonomy_change',
+  PENDING_ACKNOWLEDGEMENT: 'pending_acknowledgement',
+  // Daily digest settings
+  DIGEST_EMAIL: 'digest_email',
+  DIGEST_TIME: 'digest_time',
+  DASHBOARD_URL: 'dashboard_url',
+  // Aliases for budget limits (for convenience)
+  DAILY_BUDGET_LIMIT: 'budget_ceiling_daily_usd',
+  MONTHLY_BUDGET_LIMIT: 'budget_ceiling_monthly_usd',
 } as const;
 
 /**
@@ -52,6 +67,8 @@ export const DEFAULT_CONFIG: AgentConfig = {
     haikuPercent: 70,
     sonnetPercent: 30,
   },
+  autonomyLevel: 'monitoring',
+  dryRun: false,
 };
 
 /**
@@ -125,6 +142,12 @@ export class AgentConfigRepository {
       llmSplit:
         (configMap.get(CONFIG_KEYS.LLM_SPLIT) as LlmSplit) ??
         DEFAULT_CONFIG.llmSplit,
+      autonomyLevel:
+        (configMap.get(CONFIG_KEYS.AUTONOMY_LEVEL) as AutonomyLevel) ??
+        DEFAULT_CONFIG.autonomyLevel,
+      dryRun:
+        (configMap.get(CONFIG_KEYS.DRY_RUN) as boolean) ??
+        DEFAULT_CONFIG.dryRun,
     };
   }
 
@@ -439,5 +462,130 @@ export class AgentConfigRepository {
     const currentHour = now.getHours();
 
     return currentHour >= startHour;
+  }
+
+  // ============================================================================
+  // Autonomy Settings
+  // ============================================================================
+
+  /**
+   * Get current autonomy settings
+   */
+  async getAutonomySettings(): Promise<AutonomySettings> {
+    const [autonomyLevel, dryRun, lastLevelChange, pendingAcknowledgement] =
+      await Promise.all([
+        this.getValue<AutonomyLevel>(CONFIG_KEYS.AUTONOMY_LEVEL),
+        this.getValue<boolean>(CONFIG_KEYS.DRY_RUN),
+        this.getValue<string>(CONFIG_KEYS.LAST_AUTONOMY_CHANGE),
+        this.getValue<AutonomyChangeAcknowledgement>(CONFIG_KEYS.PENDING_ACKNOWLEDGEMENT),
+      ]);
+
+    return {
+      autonomyLevel: autonomyLevel ?? DEFAULT_CONFIG.autonomyLevel,
+      dryRun: dryRun ?? DEFAULT_CONFIG.dryRun,
+      lastLevelChange: lastLevelChange ?? undefined,
+      pendingAcknowledgement: pendingAcknowledgement ?? undefined,
+    };
+  }
+
+  /**
+   * Get current autonomy level
+   */
+  async getAutonomyLevel(): Promise<AutonomyLevel> {
+    const level = await this.getValue<AutonomyLevel>(CONFIG_KEYS.AUTONOMY_LEVEL);
+    return level ?? DEFAULT_CONFIG.autonomyLevel;
+  }
+
+  /**
+   * Set autonomy level with acknowledgement tracking
+   *
+   * When the autonomy level changes, creates a pending acknowledgement
+   * that the agent must confirm before the new level takes effect.
+   */
+  async setAutonomyLevel(newLevel: AutonomyLevel): Promise<AutonomySettings> {
+    const currentLevel = await this.getAutonomyLevel();
+    const now = new Date().toISOString();
+
+    // If level is changing, create pending acknowledgement
+    if (currentLevel !== newLevel) {
+      const acknowledgement: AutonomyChangeAcknowledgement = {
+        fromLevel: currentLevel,
+        toLevel: newLevel,
+        requestedAt: now,
+        acknowledged: false,
+      };
+
+      await Promise.all([
+        this.setValue(CONFIG_KEYS.AUTONOMY_LEVEL, newLevel),
+        this.setValue(CONFIG_KEYS.LAST_AUTONOMY_CHANGE, now),
+        this.setValue(CONFIG_KEYS.PENDING_ACKNOWLEDGEMENT, acknowledgement),
+      ]);
+    }
+
+    return this.getAutonomySettings();
+  }
+
+  /**
+   * Acknowledge an autonomy level change (called by the agent)
+   */
+  async acknowledgeAutonomyChange(): Promise<AutonomySettings> {
+    const pending = await this.getValue<AutonomyChangeAcknowledgement>(
+      CONFIG_KEYS.PENDING_ACKNOWLEDGEMENT
+    );
+
+    if (pending && !pending.acknowledged) {
+      const acknowledged: AutonomyChangeAcknowledgement = {
+        ...pending,
+        acknowledged: true,
+        acknowledgedAt: new Date().toISOString(),
+      };
+      await this.setValue(CONFIG_KEYS.PENDING_ACKNOWLEDGEMENT, acknowledged);
+    }
+
+    return this.getAutonomySettings();
+  }
+
+  /**
+   * Clear pending acknowledgement (after agent has processed it)
+   */
+  async clearPendingAcknowledgement(): Promise<void> {
+    await this.setValue(CONFIG_KEYS.PENDING_ACKNOWLEDGEMENT, null);
+  }
+
+  /**
+   * Check if there's a pending autonomy change that needs acknowledgement
+   */
+  async hasPendingAcknowledgement(): Promise<boolean> {
+    const pending = await this.getValue<AutonomyChangeAcknowledgement>(
+      CONFIG_KEYS.PENDING_ACKNOWLEDGEMENT
+    );
+    return pending !== null && !pending.acknowledged;
+  }
+
+  /**
+   * Get dry-run mode setting
+   */
+  async getDryRun(): Promise<boolean> {
+    const dryRun = await this.getValue<boolean>(CONFIG_KEYS.DRY_RUN);
+    return dryRun ?? DEFAULT_CONFIG.dryRun;
+  }
+
+  /**
+   * Set dry-run mode
+   *
+   * When enabled, the agent logs actions but doesn't execute them.
+   */
+  async setDryRun(enabled: boolean): Promise<void> {
+    await this.setValue(CONFIG_KEYS.DRY_RUN, enabled);
+  }
+
+  /**
+   * Toggle dry-run mode
+   */
+  async toggleDryRun(): Promise<boolean> {
+    const current = await this.getDryRun();
+    const newValue = !current;
+    await this.setDryRun(newValue);
+    return newValue;
   }
 }

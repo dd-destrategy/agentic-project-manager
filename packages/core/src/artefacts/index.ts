@@ -12,6 +12,7 @@ export {
   setDynamoDBClient,
 } from './updater.js';
 export { validateArtefactContent } from './validator.js';
+export { bootstrapArtefactsFromJira } from './bootstrap.js';
 export type {
   ArtefactUpdateResult,
   ArtefactUpdateInput,
@@ -22,3 +23,4 @@ export type {
   LlmArtefactUpdateInput,
   LlmArtefactUpdateResult,
 } from './types.js';
+export type { BootstrapInput, BootstrapResult } from './bootstrap.js';

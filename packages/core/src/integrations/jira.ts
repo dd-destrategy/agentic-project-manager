@@ -58,6 +58,9 @@ export class RateLimiter {
       return 0;
     }
     const oldestInWindow = this.timestamps[0];
+    if (oldestInWindow === undefined) {
+      return 0;
+    }
     return oldestInWindow + this.windowMs - Date.now();
   }
 

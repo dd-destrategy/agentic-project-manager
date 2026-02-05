@@ -15,6 +15,10 @@
       "types": "./dist/signals/index.d.ts",
       "import": "./dist/signals/index.js"
     },
+    "./signals/jira": {
+      "types": "./dist/signals/jira.d.ts",
+      "import": "./dist/signals/jira.js"
+    },
     "./triage": {
       "types": "./dist/triage/index.d.ts",
       "import": "./dist/triage/index.js"
@@ -39,9 +43,21 @@
       "types": "./dist/db/index.d.ts",
       "import": "./dist/db/index.js"
     },
+    "./db/repositories/checkpoint": {
+      "types": "./dist/db/repositories/checkpoint.d.ts",
+      "import": "./dist/db/repositories/checkpoint.js"
+    },
+    "./db/repositories/project": {
+      "types": "./dist/db/repositories/project.d.ts",
+      "import": "./dist/db/repositories/project.js"
+    },
     "./integrations": {
       "types": "./dist/integrations/index.d.ts",
       "import": "./dist/integrations/index.js"
+    },
+    "./integrations/jira": {
+      "types": "./dist/integrations/jira.d.ts",
+      "import": "./dist/integrations/jira.js"
     }
   },
   "scripts": {

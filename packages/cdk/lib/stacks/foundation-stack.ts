@@ -105,23 +105,40 @@ export class FoundationStack extends cdk.Stack {
   }
 
   private createRoles(): AgenticPMRoles {
-    // Triage Lambda Role - RESTRICTED: LLM access only
+    // =========================================================================
+    // Triage Lambda Role - SECURITY BOUNDARY
+    // =========================================================================
+    // This role implements IAM isolation for the two-stage triage architecture.
+    // Triage Lambdas (sanitise, classify, reasoning) process untrusted external
+    // content and MUST NOT have access to integration credentials.
+    //
+    // Defence Layer 1: Even if prompt injection succeeds in the triage stage,
+    // the Lambda cannot access Jira/Outlook/SES to take external actions.
+    //
+    // Reference: solution-design/06-prompt-library.md Section 6.2
+    // =========================================================================
     const triageLambdaRole = new iam.Role(this, 'TriageLambdaRole', {
       roleName: 'agentic-pm-triage-role',
       assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
-      description: 'Role for Triage Lambda - LLM access only',
+      description: 'Role for Triage Lambda - LLM access only, NO integration credentials',
     });
 
+    // ALLOWED: LLM API key for Claude calls
     this.secrets.llmApiKey.grantRead(triageLambdaRole);
+
+    // ALLOWED: DynamoDB for state management
     this.table.grantReadWriteData(triageLambdaRole);
 
+    // ALLOWED: Basic Lambda execution (CloudWatch logs)
     triageLambdaRole.addManagedPolicy(
       iam.ManagedPolicy.fromAwsManagedPolicyName(
         'service-role/AWSLambdaBasicExecutionRole'
       )
     );
 
-    // Explicit deny for integration secrets
+    // DENIED: Integration secrets (Jira, Graph API)
+    // This is the critical security boundary - explicit deny prevents access
+    // even if the role somehow acquires additional permissions
     triageLambdaRole.addToPolicy(
       new iam.PolicyStatement({
         effect: iam.Effect.DENY,
@@ -130,6 +147,16 @@ export class FoundationStack extends cdk.Stack {
           this.secrets.jiraApiToken.secretArn,
           this.secrets.graphCredentials.secretArn,
         ],
+      })
+    );
+
+    // DENIED: SES email sending
+    // Triage Lambdas must not be able to send emails
+    triageLambdaRole.addToPolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.DENY,
+        actions: ['ses:SendEmail', 'ses:SendRawEmail', 'ses:SendBulkEmail'],
+        resources: ['*'],
       })
     );
 

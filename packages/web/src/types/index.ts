@@ -194,6 +194,48 @@ export interface EscalationsResponse {
   count: number;
 }
 
+/**
+ * 24-hour activity statistics response
+ */
+export interface ActivityStatsResponse {
+  /** Statistics for the last 24 hours */
+  last24Hours: ActivityStats;
+  /** Statistics for today (since midnight) */
+  today: ActivityStats;
+  /** Comparison with previous period */
+  comparison: ActivityComparison;
+}
+
+export interface ActivityStats {
+  /** Total agent cycles run */
+  cyclesRun: number;
+  /** Total signals detected */
+  signalsDetected: number;
+  /** Actions taken autonomously */
+  actionsTaken: number;
+  /** Actions held for review */
+  actionsHeld: number;
+  /** Artefacts updated */
+  artefactsUpdated: number;
+  /** Escalations created */
+  escalationsCreated: number;
+  /** Escalations resolved */
+  escalationsResolved: number;
+  /** Total LLM cost in USD */
+  llmCostUsd: number;
+  /** Total tokens used */
+  tokensUsed: number;
+}
+
+export interface ActivityComparison {
+  /** Change in cycles from previous period */
+  cyclesChange: number;
+  /** Change in signals from previous period */
+  signalsChange: number;
+  /** Change in actions from previous period */
+  actionsChange: number;
+}
+
 // ============================================================================
 // UI Helper Types
 // ============================================================================
@@ -239,3 +281,50 @@ export const autonomyLevelConfig: Record<AutonomyLevel, { label: string; descrip
   artefact: { label: 'Artefact', description: 'Update artefacts autonomously' },
   tactical: { label: 'Tactical', description: 'Send communications via hold queue' },
 };
+
+// ============================================================================
+// Autonomy Settings Types
+// ============================================================================
+
+/**
+ * Autonomy settings for UI and API
+ */
+export interface AutonomySettings {
+  /** Current autonomy level */
+  autonomyLevel: AutonomyLevel;
+  /** Whether dry-run mode is enabled */
+  dryRun: boolean;
+  /** Timestamp of last autonomy level change */
+  lastLevelChange?: string;
+  /** Acknowledgement required for level change */
+  pendingAcknowledgement?: AutonomyChangeAcknowledgement;
+}
+
+/**
+ * Acknowledgement for autonomy level change
+ */
+export interface AutonomyChangeAcknowledgement {
+  /** Previous autonomy level */
+  fromLevel: AutonomyLevel;
+  /** New autonomy level */
+  toLevel: AutonomyLevel;
+  /** When the change was requested */
+  requestedAt: string;
+  /** Whether the agent has acknowledged the change */
+  acknowledged: boolean;
+  /** When the agent acknowledged */
+  acknowledgedAt?: string;
+}
+
+/**
+ * Autonomy settings API response
+ */
+export interface AutonomySettingsResponse extends AutonomySettings {}
+
+/**
+ * Autonomy settings update request
+ */
+export interface AutonomySettingsUpdateRequest {
+  autonomyLevel?: AutonomyLevel;
+  dryRun?: boolean;
+}

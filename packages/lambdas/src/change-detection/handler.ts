@@ -13,9 +13,9 @@
 
 import type { Context } from 'aws-lambda';
 import { DynamoDBClient } from '@agentic-pm/core';
-import { JiraClient, type JiraConfig } from '@agentic-pm/core/integrations/jira.js';
-import { CheckpointRepository } from '@agentic-pm/core/db/repositories/checkpoint.js';
-import { ProjectRepository } from '@agentic-pm/core/db/repositories/project.js';
+import { JiraClient, type JiraConfig } from '@agentic-pm/core/integrations/jira';
+import { CheckpointRepository } from '@agentic-pm/core/db/repositories/checkpoint';
+import { ProjectRepository } from '@agentic-pm/core/db/repositories/project';
 import type { Project } from '@agentic-pm/core';
 import {
   SecretsManagerClient,

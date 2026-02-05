@@ -2,7 +2,7 @@
  * Execution module types
  */
 
-import type { ActionType, ConfidenceScore } from '../types/index.js';
+import type { ActionType, AutonomyLevel, ConfidenceScore } from '../types/index.js';
 
 /**
  * Result of executing an action
@@ -20,6 +20,10 @@ export interface ExecutionResult {
   error?: string;
   /** Details about what was done */
   details?: Record<string, unknown>;
+  /** Whether an escalation is required for this action */
+  escalationRequired?: boolean;
+  /** Reason for the result (e.g., why it was held) */
+  reason?: string;
 }
 
 /**
@@ -30,4 +34,16 @@ export interface ExecutionInput {
   projectId: string;
   details: Record<string, unknown>;
   confidence?: ConfidenceScore;
+}
+
+/**
+ * Configuration for action execution
+ */
+export interface ExecutionConfig {
+  /** Current autonomy level */
+  autonomyLevel: AutonomyLevel;
+  /** Whether dry-run mode is enabled */
+  dryRun: boolean;
+  /** Hold queue duration in minutes (default: 30) */
+  holdQueueMinutes?: number;
 }

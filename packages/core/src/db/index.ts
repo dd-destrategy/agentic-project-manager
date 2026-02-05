@@ -10,4 +10,10 @@ export { EventRepository } from './repositories/event.js';
 export type { CreateEventOptions, EventQueryOptions } from './repositories/event.js';
 export { ArtefactRepository } from './repositories/artefact.js';
 export { AgentConfigRepository, CONFIG_KEYS, DEFAULT_CONFIG } from './repositories/agent-config.js';
+export { EscalationRepository } from './repositories/escalation.js';
+export type {
+  CreateEscalationOptions,
+  RecordDecisionOptions,
+  EscalationQueryOptions,
+} from './repositories/escalation.js';
 export type { QueryOptions, QueryResult } from './types.js';

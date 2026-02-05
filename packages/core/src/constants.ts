@@ -59,15 +59,37 @@ export const AUTONOMY_LEVEL_VALUE = {
   tactical: 3,
 } as const;
 
-/** Decision boundaries - what actions the agent can take at each level */
+/**
+ * Decision boundaries - what actions the agent can take
+ * Based on SPEC section 5.4
+ *
+ * Note: Full boundary logic is in execution/boundaries.ts
+ * This is kept for backwards compatibility with existing code.
+ */
 export const DECISION_BOUNDARIES = {
+  /** Actions that can be auto-executed without user intervention */
   canAutoExecute: [
     'artefact_update',
+    'heartbeat_log',
+    'notification_internal',
     'notification_sent',
     'jira_comment',
   ] as const,
-  requireHoldQueue: ['email_sent', 'jira_status_change'] as const,
-  requireApproval: ['escalation_created'] as const,
+  /** Actions that require the hold queue (30-minute delay) */
+  requireHoldQueue: [
+    'email_sent',
+    'email_stakeholder',
+    'jira_status_change',
+  ] as const,
+  /** Actions that require explicit user approval */
+  requireApproval: [
+    'escalation_created',
+    'email_external',
+    'jira_create_ticket',
+    'scope_change',
+    'milestone_change',
+  ] as const,
+  /** Actions the agent must never take */
   neverDo: [
     'delete_data',
     'share_confidential',
@@ -75,3 +97,9 @@ export const DECISION_BOUNDARIES = {
     'change_own_autonomy_level',
   ] as const,
 } as const;
+
+/** Default dry-run mode setting */
+export const DEFAULT_DRY_RUN = false;
+
+/** Default autonomy level for new projects */
+export const DEFAULT_AUTONOMY_LEVEL = 'monitoring' as const;

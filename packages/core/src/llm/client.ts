@@ -325,6 +325,148 @@ export class ClaudeClient {
   }
 
   /**
+   * Call Claude with tool-use and prompt caching support
+   *
+   * This method allows separating cacheable prefix from variable suffix
+   * to optimise costs through Claude's prompt caching feature.
+   *
+   * @param systemPrompt - System prompt (cached)
+   * @param cacheablePrefix - User message prefix that can be cached
+   * @param variableSuffix - User message suffix that changes each call
+   * @param tools - Available tools with JSON schemas
+   * @param options - Optional parameters
+   * @returns LLM response with parsed tool output
+   */
+  async callWithToolsCached<T>(
+    systemPrompt: string,
+    cacheablePrefix: string,
+    variableSuffix: string,
+    tools: ToolDefinition[],
+    options?: {
+      forceTool?: string;
+      maxTokens?: number;
+      skipRetry?: boolean;
+    }
+  ): Promise<LlmResponse<T>> {
+    const startTime = Date.now();
+    let lastError: Error | undefined;
+    let totalUsage: TokenUsage = { inputTokens: 0, outputTokens: 0, costUsd: 0 };
+
+    for (let attempt = 0; attempt <= this.retryConfig.maxRetries; attempt++) {
+      try {
+        // Convert tool definitions to Anthropic format
+        const anthropicTools: Anthropic.Tool[] = tools.map((tool) => ({
+          name: tool.name,
+          description: tool.description,
+          input_schema: tool.input_schema as Anthropic.Tool.InputSchema,
+        }));
+
+        // Build tool_choice - force specific tool if requested
+        const toolChoice: Anthropic.ToolChoice = options?.forceTool
+          ? { type: 'tool', name: options.forceTool }
+          : { type: 'auto' };
+
+        // Build user message with cache control
+        // The cacheable prefix is marked as ephemeral for caching
+        const userContent: Anthropic.MessageCreateParams['messages'][0]['content'] = [
+          {
+            type: 'text',
+            text: cacheablePrefix,
+            cache_control: { type: 'ephemeral' },
+          } as Anthropic.TextBlockParam & { cache_control: { type: 'ephemeral' } },
+          {
+            type: 'text',
+            text: variableSuffix,
+          },
+        ];
+
+        // Build system prompt with cache control
+        const systemContent: Anthropic.MessageCreateParams['system'] = [
+          {
+            type: 'text',
+            text: systemPrompt,
+            cache_control: { type: 'ephemeral' },
+          } as Anthropic.TextBlockParam & { cache_control: { type: 'ephemeral' } },
+        ];
+
+        // Make API call with caching enabled
+        const response = await this.client.messages.create({
+          model: this.config.model,
+          max_tokens: options?.maxTokens ?? this.config.maxTokens ?? 4096,
+          temperature: this.config.temperature ?? 0,
+          system: systemContent,
+          messages: [
+            {
+              role: 'user',
+              content: userContent,
+            },
+          ],
+          tools: anthropicTools,
+          tool_choice: toolChoice,
+        });
+
+        // Calculate token usage (includes cache metrics)
+        const usage = this.calculateUsage(response.usage);
+        totalUsage = this.mergeUsage(totalUsage, usage);
+        const durationMs = Date.now() - startTime;
+
+        // Extract tool use from response
+        const toolUseBlock = response.content.find(
+          (block): block is Anthropic.ToolUseBlock => block.type === 'tool_use'
+        );
+
+        if (!toolUseBlock) {
+          const textContent = response.content
+            .filter((block): block is Anthropic.TextBlock => block.type === 'text')
+            .map((block) => block.text)
+            .join('\n');
+
+          return {
+            success: false,
+            error: `Model did not use a tool. Response: ${textContent.slice(0, 200)}`,
+            usage: totalUsage,
+            durationMs,
+          };
+        }
+
+        // Return successful response with parsed tool input
+        return {
+          success: true,
+          data: toolUseBlock.input as T,
+          toolName: toolUseBlock.name,
+          usage: totalUsage,
+          durationMs,
+          stopReason: response.stop_reason,
+          retriesUsed: attempt,
+        };
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+
+        const isRetryable = this.isRetryableError(error);
+        const shouldRetry = isRetryable && !options?.skipRetry && attempt < this.retryConfig.maxRetries;
+
+        if (shouldRetry) {
+          const delay = this.getRetryDelay(error, attempt);
+          await sleep(delay);
+          continue;
+        }
+
+        const durationMs = Date.now() - startTime;
+        return this.handleError(error, totalUsage, durationMs, attempt);
+      }
+    }
+
+    const durationMs = Date.now() - startTime;
+    return {
+      success: false,
+      error: lastError?.message ?? 'Unknown error after retries',
+      usage: totalUsage,
+      durationMs,
+      retriesUsed: this.retryConfig.maxRetries,
+    };
+  }
+
+  /**
    * Simple text completion without tools (for internal use only)
    * Prefer callWithTools for all structured outputs.
    */

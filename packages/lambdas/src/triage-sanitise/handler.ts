@@ -3,10 +3,13 @@
  *
  * First stage of triage: Strip/neutralise untrusted content from signals.
  * This is a SECURITY function - this Lambda has NO access to integration credentials.
+ *
+ * Defence Layer 2: Two-stage triage architecture
+ * Reference: solution-design/06-prompt-library.md Section 6.2
  */
 
 import type { Context } from 'aws-lambda';
-import { sanitiseSignal } from '@agentic-pm/core/triage';
+import { sanitiseSignalBatch, detectThreats } from '@agentic-pm/core/triage';
 import { logger } from '../shared/context.js';
 import type { NormaliseOutput, TriageSanitiseOutput } from '../shared/types.js';
 
@@ -20,19 +23,36 @@ export async function handler(
     signalCount: event.signals.length,
   });
 
-  // Sanitise each signal to prevent prompt injection
-  const signals = event.signals.map((signal) => sanitiseSignal(signal));
+  // Sanitise all signals in batch
+  const result = sanitiseSignalBatch(event.signals);
 
-  const sanitisationCount = signals.filter(
-    (s) => s.sanitisationNotes && s.sanitisationNotes.length > 0
-  ).length;
+  // Log threat detection statistics
+  if (result.stats.threatsDetected > 0) {
+    logger.warn('Potential injection threats detected', {
+      threatsDetected: result.stats.threatsDetected,
+      requiresReview: result.stats.requiresReview,
+    });
+  }
+
+  // Log any signals requiring human review
+  for (const signal of result.signals) {
+    const threatCheck = detectThreats(signal.sanitisedSummary);
+    if (threatCheck.requiresHumanReview) {
+      logger.warn('Signal flagged for human review', {
+        signalId: signal.id,
+        reason: threatCheck.reviewReason,
+      });
+    }
+  }
 
   logger.info('Triage sanitisation completed', {
-    sanitisedCount: signals.length,
-    signalsModified: sanitisationCount,
+    total: result.stats.total,
+    modified: result.stats.modified,
+    threatsDetected: result.stats.threatsDetected,
+    requiresReview: result.stats.requiresReview,
   });
 
   return {
-    signals,
+    signals: result.signals,
   };
 }

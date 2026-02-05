@@ -13,3 +13,18 @@ export {
   getArtefactByType,
   formatArtefactType,
 } from './use-artefacts';
+export {
+  useActivityStats,
+  formatCompactNumber,
+  formatChange,
+  getChangeClassName,
+} from './use-activity-stats';
+export {
+  useEscalations,
+  usePendingEscalations,
+  usePendingEscalationCount,
+  useEscalation,
+  useRecordDecision,
+  formatEscalationTime,
+  getRiskLevelVariant,
+} from './use-escalations';

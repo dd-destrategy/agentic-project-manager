@@ -39,4 +39,11 @@ export type {
   ClassifySignalOutput,
   BatchClassifySignalsOutput,
   CreateEscalationOutput,
+  UpdateDeliveryStateOutput,
+  UpdateRaidLogOutput,
+  UpdateBacklogSummaryOutput,
+  UpdateDecisionLogOutput,
+  ArtefactUpdateToolOutput,
+  DraftCommunicationOutput,
 } from './tools.js';
+export { ARTEFACT_UPDATE_SYSTEM_PROMPT } from './tools.js';

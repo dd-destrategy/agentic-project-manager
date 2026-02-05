@@ -1,41 +1,74 @@
 'use client';
 
 import Link from 'next/link';
-import { AlertCircle } from 'lucide-react';
+import { usePendingEscalationCount } from '@/lib/hooks';
+import { AlertCircle, ArrowRight, Bell } from 'lucide-react';
 
 /**
  * Escalation banner component
  *
- * Shows prominent alert when there are pending escalations.
+ * Shows prominent alert when there are pending escalations requiring attention.
+ * Uses TanStack Query with 30-second polling to fetch real escalation data.
  */
 export function EscalationBanner() {
-  // TODO: Implement with TanStack Query in Sprint 5
-  const pendingCount = 0;
+  const { count: pendingCount, isLoading } = usePendingEscalationCount();
 
-  if (pendingCount === 0) {
+  // Don't show banner while loading or if no escalations
+  if (isLoading || pendingCount === 0) {
     return null;
   }
 
   return (
-    <div className="flex items-center justify-between rounded-lg border border-yellow-200 bg-yellow-50 p-4">
-      <div className="flex items-center gap-3">
-        <AlertCircle className="h-5 w-5 text-yellow-600" />
-        <div>
-          <p className="font-medium text-yellow-800">
-            {pendingCount} escalation{pendingCount !== 1 ? 's' : ''} need your attention
-          </p>
-          <p className="text-sm text-yellow-700">
-            The agent needs your input to proceed
-          </p>
+    <div
+      className="relative overflow-hidden rounded-lg border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 p-4"
+      role="alert"
+      aria-live="polite"
+    >
+      {/* Animated attention indicator */}
+      <div className="absolute -right-4 -top-4 h-24 w-24 animate-pulse rounded-full bg-amber-200/50" />
+
+      <div className="relative flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          {/* Icon with notification badge */}
+          <div className="relative">
+            <div className="rounded-full bg-amber-100 p-2">
+              <Bell className="h-5 w-5 text-[#d97706]" />
+            </div>
+            <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-[#d97706] text-xs font-bold text-white">
+              {pendingCount > 9 ? '9+' : pendingCount}
+            </span>
+          </div>
+
+          <div>
+            <p className="font-semibold text-amber-900">
+              {pendingCount} escalation{pendingCount !== 1 ? 's' : ''} need
+              {pendingCount === 1 ? 's' : ''} your attention
+            </p>
+            <p className="text-sm text-amber-700">
+              The agent is waiting for your input to proceed with{' '}
+              {pendingCount === 1 ? 'a decision' : 'these decisions'}
+            </p>
+          </div>
         </div>
+
+        <Link
+          href="/escalations"
+          className="flex items-center gap-2 rounded-md bg-[#d97706] px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2"
+        >
+          Review Now
+          <ArrowRight className="h-4 w-4" />
+        </Link>
       </div>
 
-      <Link
-        href="/escalations"
-        className="rounded-md bg-yellow-600 px-4 py-2 text-sm font-medium text-white hover:bg-yellow-700"
-      >
-        Review
-      </Link>
+      {/* Urgency indicator for multiple escalations */}
+      {pendingCount > 1 && (
+        <div className="mt-3 flex items-center gap-2 text-xs text-amber-700">
+          <AlertCircle className="h-3.5 w-3.5" />
+          <span>
+            Multiple decisions pending - review to prevent workflow delays
+          </span>
+        </div>
+      )}
     </div>
   );
 }

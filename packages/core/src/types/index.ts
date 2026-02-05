@@ -451,6 +451,56 @@ export interface AgentConfig {
   holdQueueMinutes: number;
   workingHours: WorkingHours;
   llmSplit: LlmSplit;
+  /** Global autonomy level for the agent */
+  autonomyLevel: AutonomyLevel;
+  /** Whether dry-run mode is enabled (log but don't execute) */
+  dryRun: boolean;
+}
+
+/**
+ * Autonomy settings for UI and API
+ */
+export interface AutonomySettings {
+  /** Current autonomy level */
+  autonomyLevel: AutonomyLevel;
+  /** Whether dry-run mode is enabled */
+  dryRun: boolean;
+  /** Timestamp of last autonomy level change */
+  lastLevelChange?: string;
+  /** Acknowledgement required for level change */
+  pendingAcknowledgement?: AutonomyChangeAcknowledgement;
+}
+
+/**
+ * Acknowledgement for autonomy level change
+ */
+export interface AutonomyChangeAcknowledgement {
+  /** Previous autonomy level */
+  fromLevel: AutonomyLevel;
+  /** New autonomy level */
+  toLevel: AutonomyLevel;
+  /** When the change was requested */
+  requestedAt: string;
+  /** Whether the agent has acknowledged the change */
+  acknowledged: boolean;
+  /** When the agent acknowledged */
+  acknowledgedAt?: string;
+}
+
+/**
+ * Dry-run execution result
+ */
+export interface DryRunResult {
+  /** The action that would have been executed */
+  actionType: string;
+  /** Whether execution was skipped due to dry-run */
+  executed: false;
+  /** Reason for not executing */
+  reason: 'dry_run';
+  /** What would have happened */
+  wouldExecute: boolean;
+  /** Details about what would have been done */
+  plannedAction?: Record<string, unknown>;
 }
 
 export interface WorkingHours {

@@ -1,23 +1,46 @@
+'use client';
+
 import { AgentStatus } from '@/components/agent-status';
 import { ActivityFeed } from '@/components/activity-feed';
 import { ProjectCards } from '@/components/project-cards';
 import { EscalationBanner } from '@/components/escalation-banner';
+import { EscalationSummary } from '@/components/escalation-summary';
+import { ActivityStats } from '@/components/activity-stats';
 
+/**
+ * Mission Control Dashboard
+ *
+ * Primary dashboard showing real-time agent status, project health,
+ * escalations requiring attention, and 24-hour activity statistics.
+ */
 export default function DashboardPage() {
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Mission Control</h1>
+        <div>
+          <h1 className="text-2xl font-bold">Mission Control</h1>
+          <p className="text-sm text-muted-foreground">
+            Real-time agent monitoring and project health
+          </p>
+        </div>
         <AgentStatus />
       </div>
 
+      {/* Escalation Banner - shown prominently when escalations need attention */}
       <EscalationBanner />
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2">
+      {/* Main Grid Layout */}
+      <div className="grid grid-cols-12 gap-6">
+        {/* Left Column - Projects (8 cols) */}
+        <div className="col-span-12 lg:col-span-8">
           <ProjectCards />
         </div>
-        <div>
+
+        {/* Right Column - Status & Stats (4 cols) */}
+        <div className="col-span-12 lg:col-span-4 space-y-6">
+          <EscalationSummary />
+          <ActivityStats />
           <ActivityFeed />
         </div>
       </div>
