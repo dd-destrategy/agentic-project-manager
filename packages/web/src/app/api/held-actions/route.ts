@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
+
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options';
 import type { HeldActionsResponse, HeldAction } from '@/types';
 
@@ -23,7 +24,10 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const status = searchParams.get('status') as HeldAction['status'] | null;
     const projectId = searchParams.get('projectId');
-    const limit = Math.min(parseInt(searchParams.get('limit') || '50', 10), 100);
+    const limit = Math.min(
+      parseInt(searchParams.get('limit') || '50', 10),
+      100
+    );
 
     // TODO: Replace with real DynamoDB queries when agent runtime is deployed
     // For now, return mock data for frontend development
@@ -100,11 +104,15 @@ Agentic PM`,
 
     // Filter by status (default to pending)
     const filterStatus = status ?? 'pending';
-    let filteredActions = mockHeldActions.filter((a) => a.status === filterStatus);
+    let filteredActions = mockHeldActions.filter(
+      (a) => a.status === filterStatus
+    );
 
     // Filter by projectId if specified
     if (projectId) {
-      filteredActions = filteredActions.filter((a) => a.projectId === projectId);
+      filteredActions = filteredActions.filter(
+        (a) => a.projectId === projectId
+      );
     }
 
     // Apply limit
@@ -132,6 +140,12 @@ Agentic PM`,
  */
 export async function HEAD() {
   try {
+    // Verify authentication
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return new NextResponse(null, { status: 401 });
+    }
+
     // TODO: Replace with real DynamoDB query
     const pendingCount = 3;
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
+
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options';
 import type { EscalationsResponse, Escalation } from '@/types';
 
@@ -23,7 +24,10 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const status = searchParams.get('status') as Escalation['status'] | null;
     const projectId = searchParams.get('projectId');
-    const limit = Math.min(parseInt(searchParams.get('limit') || '20', 10), 100);
+    const limit = Math.min(
+      parseInt(searchParams.get('limit') || '20', 10),
+      100
+    );
 
     // TODO: Replace with real DynamoDB queries when agent runtime is deployed
     // For now, return mock data for frontend development
@@ -40,7 +44,9 @@ export async function GET(request: NextRequest) {
               source: 'jira',
               type: 'sprint_scope_changed',
               summary: 'Sprint backlog increased from 34 to 47 points',
-              timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+              timestamp: new Date(
+                Date.now() - 2 * 60 * 60 * 1000
+              ).toISOString(),
             },
           ],
           relevantArtefacts: [
@@ -57,7 +63,8 @@ export async function GET(request: NextRequest) {
           {
             id: 'opt-1',
             label: 'Accept scope increase',
-            description: 'Proceed with the expanded scope and adjust expectations',
+            description:
+              'Proceed with the expanded scope and adjust expectations',
             pros: [
               'Addresses urgent business priorities',
               'Shows flexibility to stakeholders',
@@ -72,7 +79,8 @@ export async function GET(request: NextRequest) {
           {
             id: 'opt-2',
             label: 'Negotiate scope reduction',
-            description: 'Work with PO to defer lower priority items to next sprint',
+            description:
+              'Work with PO to defer lower priority items to next sprint',
             pros: [
               'Maintains sustainable pace',
               'Protects sprint commitment',
@@ -87,11 +95,9 @@ export async function GET(request: NextRequest) {
           {
             id: 'opt-3',
             label: 'Split the sprint',
-            description: 'Complete original scope, then start mini-sprint for new items',
-            pros: [
-              'Honours original commitment',
-              'Addresses new priorities',
-            ],
+            description:
+              'Complete original scope, then start mini-sprint for new items',
+            pros: ['Honours original commitment', 'Addresses new priorities'],
             cons: [
               'Additional planning overhead',
               'Complicates metrics tracking',
@@ -117,13 +123,16 @@ export async function GET(request: NextRequest) {
               source: 'jira',
               type: 'ticket_status_changed',
               summary: 'PROJ-234 has been "Blocked" for 5 days',
-              timestamp: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+              timestamp: new Date(
+                Date.now() - 5 * 24 * 60 * 60 * 1000
+              ).toISOString(),
             },
           ],
           relevantArtefacts: [
             {
               artefactType: 'raid_log',
-              excerpt: 'Risk R-12: Third-party dependency delays (Status: Open)',
+              excerpt:
+                'Risk R-12: Third-party dependency delays (Status: Open)',
             },
           ],
         },
@@ -131,11 +140,9 @@ export async function GET(request: NextRequest) {
           {
             id: 'opt-1',
             label: 'Escalate to leadership',
-            description: 'Raise with engineering leadership to expedite security review',
-            pros: [
-              'May unblock quickly',
-              'Visibility to leadership',
-            ],
+            description:
+              'Raise with engineering leadership to expedite security review',
+            pros: ['May unblock quickly', 'Visibility to leadership'],
             cons: [
               'Uses escalation capital',
               'May create friction with security team',
@@ -146,10 +153,7 @@ export async function GET(request: NextRequest) {
             id: 'opt-2',
             label: 'Implement mock integration',
             description: 'Build mock service to allow parallel development',
-            pros: [
-              'Unblocks dependent work',
-              'No external dependencies',
-            ],
+            pros: ['Unblocks dependent work', 'No external dependencies'],
             cons: [
               'Additional development effort',
               'Risk of integration issues later',
@@ -196,12 +200,18 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * GET /api/escalations/count
+ * HEAD /api/escalations
  *
  * Returns count of pending escalations (for badge display).
  */
 export async function HEAD() {
   try {
+    // Verify authentication
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return new NextResponse(null, { status: 401 });
+    }
+
     // TODO: Replace with real DynamoDB query
     const pendingCount = 2;
 

@@ -1,3 +1,5 @@
+import { timingSafeEqual } from 'crypto';
+
 import type { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 
@@ -23,7 +25,9 @@ function validateEnvVars() {
   }
 
   if (missing.length > 0 && process.env.NODE_ENV === 'production') {
-    console.error(`Missing required environment variables: ${missing.join(', ')}`);
+    console.error(
+      `Missing required environment variables: ${missing.join(', ')}`
+    );
   }
 }
 
@@ -46,17 +50,22 @@ export const authOptions: NextAuthOptions = {
         }
 
         // Constant-time comparison to prevent timing attacks
-        if (
-          credentials?.password &&
-          credentials.password.length === storedPassword.length &&
-          credentials.password === storedPassword
-        ) {
-          // Return a single user object for personal use
-          return {
-            id: 'pm-user-1',
-            name: 'PM User',
-            email: 'pm@localhost',
-          };
+        if (credentials?.password) {
+          const inputBuffer = Buffer.from(credentials.password);
+          const storedBuffer = Buffer.from(storedPassword);
+
+          // Ensure same length for timingSafeEqual, then compare
+          if (
+            inputBuffer.length === storedBuffer.length &&
+            timingSafeEqual(inputBuffer, storedBuffer)
+          ) {
+            // Return a single user object for personal use
+            return {
+              id: 'pm-user-1',
+              name: 'PM User',
+              email: 'pm@localhost',
+            };
+          }
         }
 
         return null;
