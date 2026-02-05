@@ -1,14 +1,18 @@
 # TypeScript Review: Agentic PM Workbench
 
-**Branch:** `claude/setup-monorepo-structure-V2G3w`
-**Reviewer:** Claude (Opus 4.5)
-**Date:** 2026-02-05
+**Branch:** `claude/setup-monorepo-structure-V2G3w` **Reviewer:** Claude (Opus
+4.5) **Date:** 2026-02-05
 
 ---
 
 ## Executive Summary
 
-The Agentic PM Workbench demonstrates **strong TypeScript practices** with comprehensive type definitions, strict mode enforcement, and proper Zod schema validation. The codebase avoids `any` types entirely and uses `unknown` appropriately for dynamic data boundaries. However, there are opportunities to improve type safety through Zod inference, better discriminated unions, and consistent compiler settings across packages.
+The Agentic PM Workbench demonstrates **strong TypeScript practices** with
+comprehensive type definitions, strict mode enforcement, and proper Zod schema
+validation. The codebase avoids `any` types entirely and uses `unknown`
+appropriately for dynamic data boundaries. However, there are opportunities to
+improve type safety through Zod inference, better discriminated unions, and
+consistent compiler settings across packages.
 
 **Type Safety Score: 8/10**
 
@@ -18,11 +22,15 @@ The Agentic PM Workbench demonstrates **strong TypeScript practices** with compr
 
 ### 1. Zero `any` Types
 
-The codebase contains **no explicit `any` types** in application code. This is an exemplary practice that ensures all data flows are type-checked. The team has consistently used `unknown` for truly dynamic data (e.g., `rawPayload: unknown`) and `Record<string, unknown>` for flexible objects.
+The codebase contains **no explicit `any` types** in application code. This is
+an exemplary practice that ensures all data flows are type-checked. The team has
+consistently used `unknown` for truly dynamic data (e.g., `rawPayload: unknown`)
+and `Record<string, unknown>` for flexible objects.
 
 ### 2. Strict Mode Configuration
 
-The base TypeScript configuration (`tsconfig.base.json`) enables all strict mode options:
+The base TypeScript configuration (`tsconfig.base.json`) enables all strict mode
+options:
 
 ```json
 {
@@ -42,15 +50,19 @@ The base TypeScript configuration (`tsconfig.base.json`) enables all strict mode
 }
 ```
 
-The inclusion of `noUncheckedIndexedAccess` is particularly commendable, as it catches potential `undefined` access in arrays and records.
+The inclusion of `noUncheckedIndexedAccess` is particularly commendable, as it
+catches potential `undefined` access in arrays and records.
 
 ### 3. Comprehensive Type Definitions
 
-Core types in `/packages/core/src/types/index.ts` (530+ lines) provide thorough coverage:
+Core types in `/packages/core/src/types/index.ts` (530+ lines) provide thorough
+coverage:
 
-- **Primitive types:** Well-defined string literal unions (`ProjectStatus`, `EventType`, etc.)
+- **Primitive types:** Well-defined string literal unions (`ProjectStatus`,
+  `EventType`, etc.)
 - **Entity interfaces:** Complete definitions for all domain objects
-- **Generic types:** Proper use of generics (`Artefact<T extends ArtefactContent>`)
+- **Generic types:** Proper use of generics
+  (`Artefact<T extends ArtefactContent>`)
 - **JSDoc comments:** Good documentation on public interfaces
 
 ### 4. Zod Schema Validation
@@ -69,7 +81,7 @@ Runtime validation with Zod in `/packages/core/src/schemas/index.ts` provides:
 - `QueryResult<T>` generic for paginated results
 - Type guards used correctly:
   ```typescript
-  (block): block is Anthropic.ToolUseBlock => block.type === 'tool_use'
+  (block): block is Anthropic.ToolUseBlock => block.type === 'tool_use';
   ```
 
 ---
@@ -80,11 +92,14 @@ Runtime validation with Zod in `/packages/core/src/schemas/index.ts` provides:
 
 #### 1. No Zod Type Inference (Duplication Risk)
 
-**File:** `packages/core/src/types/index.ts`, `packages/core/src/schemas/index.ts`
+**File:** `packages/core/src/types/index.ts`,
+`packages/core/src/schemas/index.ts`
 
-TypeScript types and Zod schemas are manually maintained separately. No `z.infer<typeof Schema>` usage found, creating risk of type/schema drift.
+TypeScript types and Zod schemas are manually maintained separately. No
+`z.infer<typeof Schema>` usage found, creating risk of type/schema drift.
 
 **Current (problematic):**
+
 ```typescript
 // types/index.ts
 export interface Project {
@@ -102,6 +117,7 @@ export const ProjectSchema = z.object({
 ```
 
 **Recommended:**
+
 ```typescript
 // schemas/index.ts
 export const ProjectSchema = z.object({
@@ -131,24 +147,33 @@ The CDK package disables several strict checks:
 }
 ```
 
-This creates inconsistent type safety across the monorepo. CDK code should follow the same standards.
+This creates inconsistent type safety across the monorepo. CDK code should
+follow the same standards.
 
 #### 3. Type Duplication Between Core and Web Packages
 
 **Files:** `packages/core/src/types/index.ts`, `packages/web/src/types/index.ts`
 
-The web package duplicates 408 lines of type definitions instead of importing from `@agentic-pm/core`. This creates maintenance burden and drift risk.
+The web package duplicates 408 lines of type definitions instead of importing
+from `@agentic-pm/core`. This creates maintenance burden and drift risk.
 
 **Current:**
+
 ```typescript
 // packages/web/src/types/index.ts
 export type ProjectStatus = 'active' | 'paused' | 'archived'; // Duplicated
 ```
 
 **Recommended:**
+
 ```typescript
 // packages/web/src/types/index.ts
-export type { Project, ProjectStatus, Event, Escalation } from '@agentic-pm/core';
+export type {
+  Project,
+  ProjectStatus,
+  Event,
+  Escalation,
+} from '@agentic-pm/core';
 // Add web-specific types only
 ```
 
@@ -156,17 +181,19 @@ export type { Project, ProjectStatus, Event, Escalation } from '@agentic-pm/core
 
 **File:** `packages/core/src/types/index.ts`
 
-`ArtefactContent` is a union but lacks a literal discriminator property, making narrowing unreliable:
+`ArtefactContent` is a union but lacks a literal discriminator property, making
+narrowing unreliable:
 
 ```typescript
 export type ArtefactContent =
-  | DeliveryStateContent    // Has 'overallStatus'
-  | RaidLogContent          // Has 'items'
-  | BacklogSummaryContent   // Has 'source'
-  | DecisionLogContent;     // Has 'decisions'
+  | DeliveryStateContent // Has 'overallStatus'
+  | RaidLogContent // Has 'items'
+  | BacklogSummaryContent // Has 'source'
+  | DecisionLogContent; // Has 'decisions'
 ```
 
 **Recommended:** Add explicit `type` discriminator:
+
 ```typescript
 export interface DeliveryStateContent {
   type: 'delivery_state';
@@ -181,24 +208,35 @@ Similarly for `HeldActionPayload` in web types.
 
 **Files:** Various throughout codebase
 
-Found 80+ type assertions using `as`. While some are necessary (e.g., API boundaries), others could be replaced with safer patterns:
+Found 80+ type assertions using `as`. While some are necessary (e.g., API
+boundaries), others could be replaced with safer patterns:
 
 **Problematic patterns found:**
+
 ```typescript
 // packages/core/src/signals/jira.ts
 const payload = raw.rawPayload as Record<string, unknown>;
-raw: event as unknown as Record<string, unknown>,
-
-// packages/lambdas/src/artefact-update/handler.ts
-content = convertDeliveryStateOutput(output, currentArtefact?.content as DeliveryStateContent | undefined);
+raw: (event as unknown as Record<string, unknown>,
+  // packages/lambdas/src/artefact-update/handler.ts
+  (content = convertDeliveryStateOutput(
+    output,
+    currentArtefact?.content as DeliveryStateContent | undefined
+  )));
 
 // packages/core/src/artefacts/updater.ts
-diffRaidLog(oldContent as RaidLogContent, newContent as RaidLogContent, changes);
+diffRaidLog(
+  oldContent as RaidLogContent,
+  newContent as RaidLogContent,
+  changes
+);
 ```
 
 **Recommended:** Use type guards or Zod parsing instead:
+
 ```typescript
-function isDeliveryStateContent(content: ArtefactContent): content is DeliveryStateContent {
+function isDeliveryStateContent(
+  content: ArtefactContent
+): content is DeliveryStateContent {
   return 'overallStatus' in content;
 }
 ```
@@ -214,7 +252,7 @@ export interface DynamoDBItem {
   GSI1PK?: string;
   GSI1SK?: string;
   TTL?: number;
-  [key: string]: unknown;  // Weakens type safety
+  [key: string]: unknown; // Weakens type safety
 }
 ```
 
@@ -248,13 +286,15 @@ Consider standardising on one pattern for nullable/optional fields.
 
 #### 9. JSON.parse Without Validation
 
-**Files:** `packages/core/src/integrations/outlook.ts`, `packages/lambdas/src/change-detection/handler.ts`
+**Files:** `packages/core/src/integrations/outlook.ts`,
+`packages/lambdas/src/change-detection/handler.ts`
 
 ```typescript
-const credentials = JSON.parse(secretValue) as JiraConfig;  // No runtime validation
+const credentials = JSON.parse(secretValue) as JiraConfig; // No runtime validation
 ```
 
 Should use Zod parsing for runtime safety:
+
 ```typescript
 const credentials = JiraConfigSchema.parse(JSON.parse(secretValue));
 ```
@@ -313,26 +353,30 @@ const credentials = JiraConfigSchema.parse(JSON.parse(secretValue));
 
 ## Package-by-Package Summary
 
-| Package | Strict Mode | Type Coverage | Zod Usage | Notes |
-|---------|-------------|---------------|-----------|-------|
-| `@agentic-pm/core` | Full | Excellent | Comprehensive | Source of truth for types |
-| `@agentic-pm/lambdas` | Full (inherited) | Good | Limited | Some type assertions |
-| `@agentic-pm/web` | Standard Next.js | Good | Not used | Duplicates core types |
-| `@agentic-pm/cdk` | Relaxed | Adequate | Not applicable | Needs strict mode |
+| Package               | Strict Mode      | Type Coverage | Zod Usage      | Notes                     |
+| --------------------- | ---------------- | ------------- | -------------- | ------------------------- |
+| `@agentic-pm/core`    | Full             | Excellent     | Comprehensive  | Source of truth for types |
+| `@agentic-pm/lambdas` | Full (inherited) | Good          | Limited        | Some type assertions      |
+| `@agentic-pm/web`     | Standard Next.js | Good          | Not used       | Duplicates core types     |
+| `@agentic-pm/cdk`     | Relaxed          | Adequate      | Not applicable | Needs strict mode         |
 
 ---
 
 ## Conclusion
 
-The Agentic PM Workbench has a **solid TypeScript foundation** with no `any` types, comprehensive strict mode settings, and well-structured type definitions. The main areas for improvement are:
+The Agentic PM Workbench has a **solid TypeScript foundation** with no `any`
+types, comprehensive strict mode settings, and well-structured type definitions.
+The main areas for improvement are:
 
 1. Linking Zod schemas to TypeScript types via inference
 2. Consistent compiler settings across all packages
 3. Better discriminated unions for type narrowing
 4. Reducing type assertions in favour of type guards
 
-Implementing these recommendations would raise the Type Safety Score from **8/10 to 9+/10**.
+Implementing these recommendations would raise the Type Safety Score from **8/10
+to 9+/10**.
 
 ---
 
-*Review completed using static analysis of TypeScript files, configuration inspection, and pattern matching.*
+_Review completed using static analysis of TypeScript files, configuration
+inspection, and pattern matching._
