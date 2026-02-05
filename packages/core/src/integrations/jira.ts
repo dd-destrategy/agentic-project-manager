@@ -1,8 +1,15 @@
 /**
  * Jira Cloud integration client
+ *
+ * Implements the SignalSource interface for polling Jira Cloud REST API v3.
+ * Key features:
+ * - Rate limiting (max 100 requests/minute)
+ * - Exponential backoff on errors
+ * - Delta detection via JQL updated filter
+ * - Health check via /myself endpoint
  */
 
-import type { RawSignal } from '../types/index.js';
+import type { RawSignal, IntegrationSource, Project } from '../types/index.js';
 import type { IntegrationHealthCheck, SignalSource } from './types.js';
 
 /**
@@ -15,18 +22,239 @@ export interface JiraConfig {
 }
 
 /**
+ * Rate limiter for Jira API (100 requests/minute)
+ */
+class RateLimiter {
+  private timestamps: number[] = [];
+  private readonly maxRequests: number;
+  private readonly windowMs: number;
+
+  constructor(maxRequests: number = 100, windowMs: number = 60000) {
+    this.maxRequests = maxRequests;
+    this.windowMs = windowMs;
+  }
+
+  /**
+   * Check if a request can be made
+   */
+  canMakeRequest(): boolean {
+    this.pruneOldTimestamps();
+    return this.timestamps.length < this.maxRequests;
+  }
+
+  /**
+   * Record a request
+   */
+  recordRequest(): void {
+    this.timestamps.push(Date.now());
+  }
+
+  /**
+   * Get time until next request is allowed (ms)
+   */
+  getWaitTime(): number {
+    this.pruneOldTimestamps();
+    if (this.timestamps.length < this.maxRequests) {
+      return 0;
+    }
+    const oldestInWindow = this.timestamps[0];
+    return oldestInWindow + this.windowMs - Date.now();
+  }
+
+  /**
+   * Wait until a request can be made
+   */
+  async waitForSlot(): Promise<void> {
+    const waitTime = this.getWaitTime();
+    if (waitTime > 0) {
+      await new Promise((resolve) => setTimeout(resolve, waitTime));
+    }
+  }
+
+  private pruneOldTimestamps(): void {
+    const cutoff = Date.now() - this.windowMs;
+    this.timestamps = this.timestamps.filter((t) => t > cutoff);
+  }
+
+  /**
+   * Reset the rate limiter (for testing)
+   */
+  reset(): void {
+    this.timestamps = [];
+  }
+}
+
+/**
+ * Jira issue from API response
+ */
+export interface JiraIssue {
+  id: string;
+  key: string;
+  self: string;
+  fields: {
+    summary: string;
+    status: {
+      name: string;
+      id: string;
+    };
+    priority?: {
+      name: string;
+      id: string;
+    };
+    assignee?: {
+      displayName: string;
+      emailAddress: string;
+    };
+    reporter?: {
+      displayName: string;
+      emailAddress: string;
+    };
+    labels?: string[];
+    created: string;
+    updated: string;
+    description?: unknown;
+    issuetype: {
+      name: string;
+      id: string;
+    };
+    project: {
+      key: string;
+      name: string;
+    };
+  };
+  changelog?: {
+    histories: Array<{
+      id: string;
+      created: string;
+      items: Array<{
+        field: string;
+        fieldtype: string;
+        from: string | null;
+        fromString: string | null;
+        to: string | null;
+        toString: string | null;
+      }>;
+    }>;
+  };
+}
+
+/**
+ * Jira search response
+ */
+interface JiraSearchResponse {
+  expand?: string;
+  startAt: number;
+  maxResults: number;
+  total: number;
+  issues: JiraIssue[];
+}
+
+/**
+ * Jira sprint from API response
+ */
+export interface JiraSprint {
+  id: number;
+  self: string;
+  state: 'active' | 'closed' | 'future';
+  name: string;
+  startDate?: string;
+  endDate?: string;
+  completeDate?: string;
+  goal?: string;
+}
+
+/**
+ * Jira board sprints response
+ */
+interface JiraBoardSprintsResponse {
+  maxResults: number;
+  startAt: number;
+  isLast: boolean;
+  values: JiraSprint[];
+}
+
+/**
  * Jira Cloud API client
  */
 export class JiraClient implements SignalSource {
-  readonly source = 'jira' as const;
+  readonly source: IntegrationSource = 'jira';
   private config: JiraConfig;
   private authHeader: string;
+  private rateLimiter: RateLimiter;
+  private lastError: Error | null = null;
+  private consecutiveErrors: number = 0;
+  private readonly maxConsecutiveErrors: number = 3;
 
   constructor(config: JiraConfig) {
     this.config = config;
     this.authHeader = Buffer.from(
       `${config.email}:${config.apiToken}`
     ).toString('base64');
+    this.rateLimiter = new RateLimiter(100, 60000);
+  }
+
+  /**
+   * Make an authenticated request to Jira API with rate limiting
+   */
+  private async request<T>(
+    endpoint: string,
+    options: RequestInit = {}
+  ): Promise<T> {
+    // Wait for rate limit slot
+    await this.rateLimiter.waitForSlot();
+
+    const url = `${this.config.baseUrl}${endpoint}`;
+
+    try {
+      this.rateLimiter.recordRequest();
+
+      const response = await fetch(url, {
+        ...options,
+        headers: {
+          Authorization: `Basic ${this.authHeader}`,
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          ...options.headers,
+        },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        const error = new Error(
+          `Jira API error: ${response.status} ${response.statusText} - ${errorText}`
+        );
+        this.lastError = error;
+        this.consecutiveErrors++;
+
+        // Check if we should back off
+        if (response.status === 429) {
+          // Rate limited by Jira - wait and retry
+          const retryAfter = response.headers.get('Retry-After');
+          const waitTime = retryAfter ? parseInt(retryAfter, 10) * 1000 : 60000;
+          await new Promise((resolve) => setTimeout(resolve, waitTime));
+          return this.request<T>(endpoint, options);
+        }
+
+        throw error;
+      }
+
+      // Success - reset error counter
+      this.consecutiveErrors = 0;
+      this.lastError = null;
+
+      return (await response.json()) as T;
+    } catch (error) {
+      this.lastError = error instanceof Error ? error : new Error(String(error));
+      this.consecutiveErrors++;
+
+      // Exponential backoff on network errors
+      if (this.consecutiveErrors <= this.maxConsecutiveErrors) {
+        const backoffMs = Math.min(1000 * Math.pow(2, this.consecutiveErrors), 30000);
+        await new Promise((resolve) => setTimeout(resolve, backoffMs));
+      }
+
+      throw error;
+    }
   }
 
   /**
@@ -34,14 +262,8 @@ export class JiraClient implements SignalSource {
    */
   async authenticate(): Promise<boolean> {
     try {
-      const response = await fetch(`${this.config.baseUrl}/rest/api/3/myself`, {
-        headers: {
-          Authorization: `Basic ${this.authHeader}`,
-          Accept: 'application/json',
-        },
-      });
-
-      return response.ok;
+      await this.request('/rest/api/3/myself');
+      return true;
     } catch {
       return false;
     }
@@ -49,54 +271,180 @@ export class JiraClient implements SignalSource {
 
   /**
    * Fetch issues updated since checkpoint
+   *
+   * @param checkpoint - ISO 8601 timestamp of last sync (or null for first sync)
+   * @param projectKey - Optional project key to filter issues
    */
-  async fetchDelta(checkpoint: string | null): Promise<{
+  async fetchDelta(
+    checkpoint: string | null,
+    projectKey?: string
+  ): Promise<{
     signals: RawSignal[];
     newCheckpoint: string;
   }> {
     const now = new Date().toISOString();
 
     // Build JQL query for recently updated issues
-    const jql = checkpoint
-      ? `updated >= "${checkpoint}" ORDER BY updated ASC`
+    let jql = checkpoint
+      ? `updated >= "${formatJiraTimestamp(checkpoint)}" ORDER BY updated ASC`
       : 'updated >= -1d ORDER BY updated ASC';
 
-    try {
-      const response = await fetch(
-        `${this.config.baseUrl}/rest/api/3/search?jql=${encodeURIComponent(jql)}&maxResults=100`,
-        {
-          headers: {
-            Authorization: `Basic ${this.authHeader}`,
-            Accept: 'application/json',
-          },
-        }
+    // Filter by project if specified
+    if (projectKey) {
+      jql = checkpoint
+        ? `project = "${projectKey}" AND updated >= "${formatJiraTimestamp(checkpoint)}" ORDER BY updated ASC`
+        : `project = "${projectKey}" AND updated >= -1d ORDER BY updated ASC`;
+    }
+
+    const signals: RawSignal[] = [];
+    let startAt = 0;
+    const maxResults = 50;
+    let hasMore = true;
+
+    while (hasMore) {
+      const data = await this.request<JiraSearchResponse>(
+        `/rest/api/3/search?jql=${encodeURIComponent(jql)}&startAt=${startAt}&maxResults=${maxResults}&expand=changelog`
       );
 
-      if (!response.ok) {
-        throw new Error(`Jira API error: ${response.status}`);
+      for (const issue of data.issues) {
+        // Skip issues that haven't actually changed since checkpoint
+        // (Jira JQL updated >= is inclusive)
+        if (checkpoint && issue.fields.updated <= checkpoint) {
+          continue;
+        }
+
+        signals.push({
+          source: 'jira',
+          timestamp: issue.fields.updated,
+          rawPayload: issue,
+        });
       }
 
-      const data = await response.json() as { issues?: unknown[] };
-      const issues = data.issues ?? [];
+      hasMore = startAt + data.issues.length < data.total;
+      startAt += maxResults;
 
-      const signals: RawSignal[] = issues.map((issue) => ({
-        source: 'jira' as const,
-        timestamp: now,
-        rawPayload: issue,
-      }));
-
-      return {
-        signals,
-        newCheckpoint: now,
-      };
-    } catch (error) {
-      // On error, return empty signals but keep checkpoint
-      console.error('Jira fetch error:', error);
-      return {
-        signals: [],
-        newCheckpoint: checkpoint ?? now,
-      };
+      // Safety limit to prevent infinite loops
+      if (startAt > 1000) {
+        console.warn('Jira fetch hit safety limit of 1000 issues');
+        break;
+      }
     }
+
+    // Sort by updated timestamp to ensure consistent ordering
+    signals.sort((a, b) =>
+      a.timestamp.localeCompare(b.timestamp)
+    );
+
+    // New checkpoint is the latest issue update time, or now if no issues
+    const newCheckpoint = signals.length > 0
+      ? signals[signals.length - 1].timestamp
+      : now;
+
+    return {
+      signals,
+      newCheckpoint,
+    };
+  }
+
+  /**
+   * Fetch a single issue by key
+   */
+  async fetchIssue(issueKey: string): Promise<JiraIssue> {
+    return this.request<JiraIssue>(
+      `/rest/api/3/issue/${issueKey}?expand=changelog`
+    );
+  }
+
+  /**
+   * Fetch active sprint for a board
+   */
+  async fetchActiveSprint(boardId: string): Promise<JiraSprint | null> {
+    const data = await this.request<JiraBoardSprintsResponse>(
+      `/rest/agile/1.0/board/${boardId}/sprint?state=active`
+    );
+
+    return data.values.length > 0 ? data.values[0] : null;
+  }
+
+  /**
+   * Fetch sprint issues
+   */
+  async fetchSprintIssues(sprintId: number): Promise<JiraIssue[]> {
+    const issues: JiraIssue[] = [];
+    let startAt = 0;
+    const maxResults = 50;
+    let hasMore = true;
+
+    while (hasMore) {
+      const data = await this.request<JiraSearchResponse>(
+        `/rest/agile/1.0/sprint/${sprintId}/issue?startAt=${startAt}&maxResults=${maxResults}`
+      );
+
+      issues.push(...data.issues);
+      hasMore = startAt + data.issues.length < data.total;
+      startAt += maxResults;
+
+      // Safety limit
+      if (startAt > 500) {
+        break;
+      }
+    }
+
+    return issues;
+  }
+
+  /**
+   * Add a comment to an issue
+   */
+  async addComment(issueKey: string, body: string): Promise<void> {
+    await this.request(`/rest/api/3/issue/${issueKey}/comment`, {
+      method: 'POST',
+      body: JSON.stringify({
+        body: {
+          type: 'doc',
+          version: 1,
+          content: [
+            {
+              type: 'paragraph',
+              content: [
+                {
+                  type: 'text',
+                  text: body,
+                },
+              ],
+            },
+          ],
+        },
+      }),
+    });
+  }
+
+  /**
+   * Transition an issue to a new status
+   */
+  async transitionIssue(
+    issueKey: string,
+    transitionId: string
+  ): Promise<void> {
+    await this.request(`/rest/api/3/issue/${issueKey}/transitions`, {
+      method: 'POST',
+      body: JSON.stringify({
+        transition: { id: transitionId },
+      }),
+    });
+  }
+
+  /**
+   * Get available transitions for an issue
+   */
+  async getTransitions(
+    issueKey: string
+  ): Promise<Array<{ id: string; name: string }>> {
+    const data = await this.request<{
+      transitions: Array<{ id: string; name: string }>;
+    }>(`/rest/api/3/issue/${issueKey}/transitions`);
+
+    return data.transitions;
   }
 
   /**
@@ -106,33 +454,20 @@ export class JiraClient implements SignalSource {
     const start = Date.now();
 
     try {
-      const response = await fetch(
-        `${this.config.baseUrl}/rest/api/3/serverInfo`,
-        {
-          headers: {
-            Authorization: `Basic ${this.authHeader}`,
-            Accept: 'application/json',
-          },
-        }
-      );
-
-      const latencyMs = Date.now() - start;
-
-      if (!response.ok) {
-        return {
-          healthy: false,
-          latencyMs,
-          error: `HTTP ${response.status}`,
-        };
-      }
-
-      const data = await response.json() as { version?: string };
+      const data = await this.request<{
+        version: string;
+        baseUrl: string;
+        serverTitle?: string;
+      }>('/rest/api/3/serverInfo');
 
       return {
         healthy: true,
-        latencyMs,
+        latencyMs: Date.now() - start,
         details: {
           version: data.version,
+          baseUrl: data.baseUrl,
+          serverTitle: data.serverTitle,
+          consecutiveErrors: this.consecutiveErrors,
         },
       };
     } catch (error) {
@@ -140,7 +475,74 @@ export class JiraClient implements SignalSource {
         healthy: false,
         latencyMs: Date.now() - start,
         error: error instanceof Error ? error.message : 'Unknown error',
+        details: {
+          consecutiveErrors: this.consecutiveErrors,
+          lastError: this.lastError?.message,
+        },
       };
     }
   }
+
+  /**
+   * Get the current rate limiter state (for monitoring)
+   */
+  getRateLimitStatus(): {
+    canMakeRequest: boolean;
+    waitTimeMs: number;
+  } {
+    return {
+      canMakeRequest: this.rateLimiter.canMakeRequest(),
+      waitTimeMs: this.rateLimiter.getWaitTime(),
+    };
+  }
+
+  /**
+   * Reset rate limiter (for testing)
+   */
+  resetRateLimiter(): void {
+    this.rateLimiter.reset();
+  }
+}
+
+/**
+ * Format a timestamp for Jira JQL query
+ * Jira expects: "yyyy-MM-dd HH:mm"
+ */
+function formatJiraTimestamp(isoTimestamp: string): string {
+  const date = new Date(isoTimestamp);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+
+  return `${year}-${month}-${day} ${hours}:${minutes}`;
+}
+
+/**
+ * Create a Jira client from integration config
+ */
+export function createJiraClient(config: {
+  baseUrl: string;
+  email: string;
+  apiToken: string;
+}): JiraClient {
+  return new JiraClient(config);
+}
+
+/**
+ * Create a Jira client for a project
+ */
+export async function createJiraClientForProject(
+  project: Project,
+  getSecret: (secretId: string) => Promise<string>
+): Promise<JiraClient> {
+  // Retrieve credentials from secrets manager
+  const credentials = JSON.parse(await getSecret('/agentic-pm/jira/credentials')) as {
+    baseUrl: string;
+    email: string;
+    apiToken: string;
+  };
+
+  return new JiraClient(credentials);
 }
