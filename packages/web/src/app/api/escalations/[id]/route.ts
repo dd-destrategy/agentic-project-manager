@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options';
+import { decideEscalationSchema } from '@/schemas/api';
 import type { Escalation } from '@/types';
 
 /**
@@ -193,17 +194,12 @@ export async function POST(
     const { id } = await params;
     const body = await request.json();
 
-    const { decision, notes } = body as {
-      decision: string;
-      notes?: string;
-    };
-
-    if (!decision) {
-      return NextResponse.json(
-        { error: 'Decision is required' },
-        { status: 400 }
-      );
+    const result = decideEscalationSchema.safeParse(body);
+    if (!result.success) {
+      return NextResponse.json({ error: result.error.flatten() }, { status: 400 });
     }
+
+    const { decision, notes } = result.data;
 
     // TODO: Replace with real DynamoDB update
     // For now, return mock updated escalation

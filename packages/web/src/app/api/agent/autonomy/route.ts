@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options';
+import {
+  updateAutonomySettingsSchema,
+  autonomyAcknowledgeSchema,
+} from '@/schemas/api';
 import type { AutonomyLevel } from '@/types';
 
 /**
@@ -75,20 +79,15 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { autonomyLevel, dryRun } = body as {
-      autonomyLevel?: AutonomyLevel;
-      dryRun?: boolean;
-    };
+    const result = updateAutonomySettingsSchema.safeParse(body);
+    if (!result.success) {
+      return NextResponse.json({ error: result.error.flatten() }, { status: 400 });
+    }
 
-    // Validate autonomy level if provided
+    const { autonomyLevel, dryRun } = result.data;
+
+    // Handle autonomy level change if provided
     if (autonomyLevel !== undefined) {
-      const validLevels: AutonomyLevel[] = ['monitoring', 'artefact', 'tactical'];
-      if (!validLevels.includes(autonomyLevel)) {
-        return NextResponse.json(
-          { error: 'Invalid autonomy level. Must be: monitoring, artefact, or tactical' },
-          { status: 400 }
-        );
-      }
 
       // Check if level is changing
       if (autonomyLevel !== autonomySettings.autonomyLevel) {
@@ -124,12 +123,6 @@ export async function PATCH(request: NextRequest) {
 
     // Update dry-run mode if provided
     if (dryRun !== undefined) {
-      if (typeof dryRun !== 'boolean') {
-        return NextResponse.json(
-          { error: 'Invalid dryRun value. Must be a boolean' },
-          { status: 400 }
-        );
-      }
       autonomySettings.dryRun = dryRun;
     }
 
@@ -169,7 +162,12 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { action } = body as { action?: string };
+    const result = autonomyAcknowledgeSchema.safeParse(body);
+    if (!result.success) {
+      return NextResponse.json({ error: result.error.flatten() }, { status: 400 });
+    }
+
+    const { action } = result.data;
 
     if (action === 'acknowledge') {
       if (
@@ -185,11 +183,6 @@ export async function POST(request: NextRequest) {
     } else if (action === 'clear') {
       // Clear the acknowledgement after agent has processed it
       autonomySettings.pendingAcknowledgement = undefined;
-    } else {
-      return NextResponse.json(
-        { error: 'Invalid action. Must be: acknowledge or clear' },
-        { status: 400 }
-      );
     }
 
     return NextResponse.json(autonomySettings);

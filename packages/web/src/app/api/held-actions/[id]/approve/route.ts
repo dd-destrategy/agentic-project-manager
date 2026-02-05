@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options';
+import { approveHeldActionSchema } from '@/schemas/api';
 import type { HeldAction, HeldActionResponse } from '@/types';
 
 /**
@@ -20,6 +21,20 @@ export async function POST(
     }
 
     const { id } = await params;
+    const body = await request.json();
+
+    const result = approveHeldActionSchema.safeParse(body);
+    if (!result.success) {
+      return NextResponse.json({ error: result.error.flatten() }, { status: 400 });
+    }
+
+    // Verify the actionId in the body matches the URL param
+    if (result.data.actionId !== id) {
+      return NextResponse.json(
+        { error: 'Action ID mismatch between URL and body' },
+        { status: 400 }
+      );
+    }
 
     // TODO: Replace with real DynamoDB update and action execution
     // For now, return mock updated action

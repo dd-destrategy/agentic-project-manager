@@ -1,0 +1,65 @@
+import { z } from 'zod';
+
+/**
+ * Schema for updating autonomy level
+ * Level values: 1 = monitoring, 2 = artefact, 3 = tactical
+ */
+export const updateAutonomySchema = z.object({
+  level: z.enum(['1', '2', '3']),
+});
+
+/**
+ * Schema for deciding on an escalation
+ */
+export const decideEscalationSchema = z.object({
+  decision: z.string(),
+  notes: z.string().optional(),
+});
+
+/**
+ * Schema for approving a held action
+ */
+export const approveHeldActionSchema = z.object({
+  actionId: z.string().uuid(),
+});
+
+/**
+ * Schema for confirming graduation to a higher autonomy level
+ */
+export const confirmGraduationSchema = z.object({
+  targetLevel: z.number().min(2).max(3),
+});
+
+/**
+ * Schema for cancelling a held action
+ */
+export const cancelHeldActionSchema = z.object({
+  reason: z.string().optional(),
+});
+
+/**
+ * Schema for autonomy PATCH request (existing API compatibility)
+ */
+export const updateAutonomySettingsSchema = z.object({
+  autonomyLevel: z.enum(['monitoring', 'artefact', 'tactical']).optional(),
+  dryRun: z.boolean().optional(),
+});
+
+/**
+ * Schema for autonomy acknowledgement action
+ */
+export const autonomyAcknowledgeSchema = z.object({
+  action: z.enum(['acknowledge', 'clear']),
+});
+
+export type UpdateAutonomyInput = z.infer<typeof updateAutonomySchema>;
+export type DecideEscalationInput = z.infer<typeof decideEscalationSchema>;
+export type ApproveHeldActionInput = z.infer<typeof approveHeldActionSchema>;
+export type ConfirmGraduationInput = z.infer<typeof confirmGraduationSchema>;
+export type CancelHeldActionInput = z.infer<typeof cancelHeldActionSchema>;
+export type UpdateAutonomySettingsInput = z.infer<
+  typeof updateAutonomySettingsSchema
+>;
+export type AutonomyAcknowledgeInput = z.infer<
+  typeof autonomyAcknowledgeSchema
+>;

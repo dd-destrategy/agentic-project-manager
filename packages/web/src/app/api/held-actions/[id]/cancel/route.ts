@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options';
+import { cancelHeldActionSchema } from '@/schemas/api';
 import type { HeldAction, HeldActionResponse } from '@/types';
 
 /**
@@ -23,13 +24,17 @@ export async function POST(
 
     const { id } = await params;
 
-    // Parse optional reason from body
+    // Parse and validate optional body
     let reason: string | undefined;
     try {
       const body = await request.json();
-      reason = body.reason;
+      const result = cancelHeldActionSchema.safeParse(body);
+      if (!result.success) {
+        return NextResponse.json({ error: result.error.flatten() }, { status: 400 });
+      }
+      reason = result.data.reason;
     } catch {
-      // No body provided, which is fine
+      // No body provided, which is fine for cancel
     }
 
     // TODO: Replace with real DynamoDB update
