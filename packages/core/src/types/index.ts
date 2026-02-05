@@ -274,6 +274,17 @@ export interface BudgetStatus {
   degradationTier: 0 | 1 | 2 | 3;
 }
 
+/**
+ * Spot check statistics for autonomy graduation
+ */
+export interface SpotCheckStats {
+  totalChecks: number;
+  correctCount: number;
+  incorrectCount: number;
+  accuracyRate: number;
+  lastCheckAt: string | null;
+}
+
 export interface IntegrationHealthStatus {
   name: IntegrationSource;
   status: 'healthy' | 'degraded' | 'error';

@@ -117,24 +117,19 @@ export async function POST(request: NextRequest) {
     }
 
     const { action } = result.data;
+    const configRepo = createConfigRepository();
 
     if (action === 'acknowledge') {
-      if (
-        autonomySettings.pendingAcknowledgement &&
-        !autonomySettings.pendingAcknowledgement.acknowledged
-      ) {
-        autonomySettings.pendingAcknowledgement = {
-          ...autonomySettings.pendingAcknowledgement,
-          acknowledged: true,
-          acknowledgedAt: new Date().toISOString(),
-        };
-      }
+      // Acknowledge the pending change in DynamoDB
+      await configRepo.acknowledgeAutonomyChange();
     } else if (action === 'clear') {
       // Clear the acknowledgement after agent has processed it
-      autonomySettings.pendingAcknowledgement = undefined;
+      await configRepo.clearPendingAcknowledgement();
     }
 
-    return NextResponse.json(autonomySettings);
+    // Return updated settings from DynamoDB
+    const settings = await configRepo.getAutonomySettings();
+    return NextResponse.json(settings);
   } catch (error) {
     console.error('Error processing autonomy acknowledgement:', error);
     return NextResponse.json(

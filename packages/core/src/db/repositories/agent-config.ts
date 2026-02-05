@@ -14,6 +14,7 @@ import type {
   BudgetStatus,
   WorkingHours,
   LlmSplit,
+  SpotCheckStats,
 } from '../../types/index.js';
 import { DynamoDBClient } from '../client.js';
 
@@ -42,6 +43,8 @@ export const CONFIG_KEYS = {
   DRY_RUN: 'dry_run',
   LAST_AUTONOMY_CHANGE: 'last_autonomy_change',
   PENDING_ACKNOWLEDGEMENT: 'pending_acknowledgement',
+  // Spot check statistics (autonomy graduation)
+  SPOT_CHECK_STATS: 'spot_check_stats',
   // Daily digest settings
   DIGEST_EMAIL: 'digest_email',
   DIGEST_TIME: 'digest_time',
@@ -652,5 +655,61 @@ export class AgentConfigRepository {
     const newValue = !current;
     await this.setDryRun(newValue);
     return newValue;
+  }
+
+  // ============================================================================
+  // Spot Check Statistics (for autonomy graduation)
+  // ============================================================================
+
+  /**
+   * Spot check statistics for measuring agent accuracy
+   */
+  async getSpotCheckStats(): Promise<SpotCheckStats> {
+    const stats = await this.getValue<SpotCheckStats>(CONFIG_KEYS.SPOT_CHECK_STATS);
+    return stats ?? {
+      totalChecks: 0,
+      correctCount: 0,
+      incorrectCount: 0,
+      accuracyRate: 0,
+      lastCheckAt: null,
+    };
+  }
+
+  /**
+   * Record a spot check result (for autonomy graduation)
+   */
+  async recordSpotCheck(correct: boolean): Promise<SpotCheckStats> {
+    const stats = await this.getSpotCheckStats();
+    const now = new Date().toISOString();
+
+    const updated: SpotCheckStats = {
+      totalChecks: stats.totalChecks + 1,
+      correctCount: stats.correctCount + (correct ? 1 : 0),
+      incorrectCount: stats.incorrectCount + (correct ? 0 : 1),
+      accuracyRate: 0, // will calculate below
+      lastCheckAt: now,
+    };
+
+    // Calculate accuracy rate
+    updated.accuracyRate = updated.totalChecks > 0
+      ? updated.correctCount / updated.totalChecks
+      : 0;
+
+    await this.setValue(CONFIG_KEYS.SPOT_CHECK_STATS, updated);
+    return updated;
+  }
+
+  /**
+   * Reset spot check statistics (after graduation or on demand)
+   */
+  async resetSpotCheckStats(): Promise<void> {
+    const reset: SpotCheckStats = {
+      totalChecks: 0,
+      correctCount: 0,
+      incorrectCount: 0,
+      accuracyRate: 0,
+      lastCheckAt: null,
+    };
+    await this.setValue(CONFIG_KEYS.SPOT_CHECK_STATS, reset);
   }
 }
