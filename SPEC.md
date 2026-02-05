@@ -87,9 +87,23 @@ All architectural and technology decisions are final. Do not revisit unless a bl
 
 **Infrastructure:** VPS (Hetzner, DigitalOcean, etc.), Vercel, Neon PostgreSQL, NAT Gateway, Aurora Serverless, RDS, EC2, ECS/Fargate, ElastiCache, VPC for Lambda.
 
-**Services:** Amazon Bedrock (direct Claude API preferred for cost/flexibility), Redis, Pinecone, Pusher, S3 (except for Amplify deployment artefacts), Vercel Blob, LangGraph.
+**Services:** Amazon Bedrock (direct Claude API preferred for cost/flexibility), Amazon Bedrock AgentCore Runtime (see rationale below), Redis, Pinecone, Pusher, S3 (except for Amplify deployment artefacts), Vercel Blob, LangGraph.
 
 **Features:** Multi-user auth, RBAC, Slack integration, GitHub integration, SharePoint, Calendar integration, mobile-specific builds, dark mode (MVP), i18n framework, animation library.
+
+#### Why not Amazon Bedrock AgentCore Runtime?
+
+AgentCore Runtime was evaluated in February 2026 (see `agentcore-analysis/`). Decision: **Step Functions + Lambda is the better fit.**
+
+| Factor | Step Functions + Lambda | AgentCore Runtime |
+|--------|------------------------|-------------------|
+| Monthly cost | ~$1-2 | ~$4-9 (no free tier) |
+| Use case fit | Scheduled batch polling | Interactive sessions |
+| Security isolation | Per-Lambda IAM roles | Session-level (weaker for two-stage triage) |
+| Local development | DynamoDB Local + LocalStack | Cloud-only |
+| Production maturity | 15+ years | GA October 2025, Cedar Policy in preview |
+
+AgentCore is optimised for interactive, long-running agent sessions with concurrent users. Our workbench is a scheduled batch processor (96 cycles/day, 1-5 minutes each). Revisit if we add conversational interfaces or AgentCore introduces a free tier.
 
 ---
 
