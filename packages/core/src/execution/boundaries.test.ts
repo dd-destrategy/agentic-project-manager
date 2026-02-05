@@ -19,7 +19,6 @@ import {
   getMinimumAutonomyLevel,
   getAllowedActionsAtLevel,
   compareAutonomyLevels,
-  type BoundaryCategory,
   type BoundaryValidationResult,
 } from './boundaries.js';
 import type { AutonomyLevel } from '../types/index.js';

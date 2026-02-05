@@ -410,15 +410,11 @@ describe('stripDangerousMarkup', () => {
     expect(result.content).not.toContain('data:text/html');
   });
 
-  it('should escape remaining angle brackets', () => {
+  it('should handle content without tags', () => {
     // Note: The tag pattern matches '<' followed by any chars until '>'
-    // So '1 < 2' doesn't match as a tag and brackets get escaped
     const result = stripDangerousMarkup('plain text without tags');
-    // After stripping tags (none here), angle brackets would be escaped
-    // Test with actual angle brackets in non-tag context
-    const result2 = stripDangerousMarkup('a<b test');
-    // The '<b' matches as start of a tag and gets stripped
     expect(result.content).toBeDefined();
+    expect(result.content).toBe('plain text without tags');
   });
 
   it('should return stripped=false for clean content', () => {
@@ -475,7 +471,7 @@ describe('sanitiseSignal', () => {
     expect(result.sanitised).toBe(true);
     expect(result.sanitisedSummary).toContain('[REDACTED]');
     expect(result.sanitisationNotes).toBeDefined();
-    expect(result.sanitisationNotes!.length).toBeGreaterThan(0);
+    expect(result.sanitisationNotes?.length).toBeGreaterThan(0);
   });
 
   it('should preserve clean signals', () => {
@@ -523,7 +519,8 @@ describe('sanitiseSignal', () => {
     const result = sanitiseSignal(signal);
 
     expect(result.sanitised).toBe(true);
-    expect(result.sanitisationNotes!.length).toBeGreaterThanOrEqual(2);
+    expect(result.sanitisationNotes).toBeDefined();
+    expect(result.sanitisationNotes?.length).toBeGreaterThanOrEqual(2);
   });
 });
 

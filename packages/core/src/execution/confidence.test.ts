@@ -5,7 +5,7 @@
  * Tests all dimensions: sourceAgreement, boundaryCompliance, schemaValidity, precedentMatch.
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import {
   checkConfidence,
   computeConfidence,

@@ -5,7 +5,7 @@
  * Tests tool-use invocation, retry logic, error handling, and cost calculation.
  */
 
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import Anthropic from '@anthropic-ai/sdk';
 import {
   ClaudeClient,
@@ -14,7 +14,7 @@ import {
   PRICING,
   MODEL_ALIASES,
 } from './client.js';
-import type { LlmConfig, ToolDefinition, ModelId } from './types.js';
+import type { LlmConfig, ToolDefinition } from './types.js';
 
 // ============================================================================
 // Mock Anthropic SDK

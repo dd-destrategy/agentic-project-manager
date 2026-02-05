@@ -5,7 +5,7 @@
  * Tests daily tracking, tier transitions, reset at midnight, and persistence.
  */
 
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   BudgetTracker,
   createBudgetTracker,
@@ -13,7 +13,7 @@ import {
   DEGRADATION_CONFIGS,
 } from './budget.js';
 import { DAILY_LLM_BUDGET_USD, MONTHLY_LLM_BUDGET_USD } from '../constants.js';
-import type { TokenUsage, DegradationTier, ModelId } from './types.js';
+import type { TokenUsage, DegradationTier } from './types.js';
 
 // ============================================================================
 // Mock DynamoDB Client
