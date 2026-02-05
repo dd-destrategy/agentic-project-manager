@@ -19,6 +19,22 @@ import {
 } from '@agentic-pm/core/reasoning';
 import type { ClassifiedSignal, Artefact } from '@agentic-pm/core';
 
+// Initialise clients outside handler for connection reuse (cold start optimization)
+let dbClient: DynamoDBClient | null = null;
+let artefactRepo: ArtefactRepository | null = null;
+
+function getRepositories() {
+  if (!dbClient) {
+    const env = getEnv();
+    dbClient = new DynamoDBClient(
+      { region: process.env.AWS_REGION ?? 'ap-southeast-2' },
+      env.TABLE_NAME
+    );
+    artefactRepo = new ArtefactRepository(dbClient);
+  }
+  return { artefactRepo: artefactRepo! };
+}
+
 /**
  * Convert core reasoning output to proposed actions
  */
@@ -114,12 +130,7 @@ export async function handler(
     };
   }
 
-  const env = getEnv();
-  const db = new DynamoDBClient(
-    { region: process.env.AWS_REGION ?? 'ap-southeast-2' },
-    env.TABLE_NAME
-  );
-  const artefactRepo = new ArtefactRepository(db);
+  const { artefactRepo } = getRepositories();
 
   // Filter signals that actually need complex reasoning
   const signalsNeedingReasoning = event.signals.filter((signal) =>

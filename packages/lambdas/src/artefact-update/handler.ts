@@ -36,6 +36,22 @@ import type {
 } from '@agentic-pm/core';
 import { validateArtefactContent } from '@agentic-pm/core';
 
+// Initialise clients outside handler for connection reuse (cold start optimization)
+let dbClient: DynamoDBClient | null = null;
+let artefactRepo: ArtefactRepository | null = null;
+
+function getArtefactRepository() {
+  if (!dbClient) {
+    const env = getEnv();
+    dbClient = new DynamoDBClient({ tableName: env.TABLE_NAME });
+    artefactRepo = new ArtefactRepository(dbClient);
+  }
+  return artefactRepo!;
+}
+
+// TODO: Consider provisioned concurrency for this Lambda in CDK if cold starts become problematic
+// provisioned_concurrent_executions = 1 (costs ~$3.50/month but eliminates cold starts)
+
 /**
  * Extended input for artefact update that includes classified signals
  */
@@ -54,7 +70,6 @@ export async function handler(
   context: Context
 ): Promise<ArtefactUpdateOutput> {
   logger.setContext(context);
-  const env = getEnv();
 
   logger.info('Artefact update started', {
     executed: event.executed,
@@ -71,10 +86,8 @@ export async function handler(
   }
 
   try {
-    // Initialise clients
-    const db = new DynamoDBClient({ tableName: env.TABLE_NAME });
-    const artefactRepo = new ArtefactRepository(db);
-    const projectRepo = new ProjectRepository(db);
+    // Get repository (initialised outside handler for connection reuse)
+    const artefactRepo = getArtefactRepository();
 
     // Get API key from environment or secrets manager
     const apiKey = process.env.ANTHROPIC_API_KEY;

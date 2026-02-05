@@ -242,18 +242,36 @@ export class DynamoDBClient {
       ascending?: boolean;
       exclusiveStartKey?: Record<string, unknown>;
       indexName?: string;
+      /** Projection expression to limit returned attributes (reduces read capacity) */
+      projectionExpression?: string;
+      /** Filter expression for server-side filtering (more efficient than client-side) */
+      filterExpression?: string;
+      /** Expression attribute names for projection/filter expressions */
+      expressionAttributeNames?: Record<string, string>;
+      /** Additional expression attribute values for filter expressions */
+      additionalExpressionAttributeValues?: Record<string, unknown>;
     }
   ): Promise<{ items: T[]; lastKey?: Record<string, unknown> }> {
     return this.executeWithRetry(async () => {
+      const expressionAttributeValues: Record<string, unknown> = skPrefix
+        ? { ':pk': pk, ':skPrefix': skPrefix }
+        : { ':pk': pk };
+
+      // Merge additional expression attribute values for filter expressions
+      if (options?.additionalExpressionAttributeValues) {
+        Object.assign(expressionAttributeValues, options.additionalExpressionAttributeValues);
+      }
+
       const input: QueryCommandInput = {
         TableName: this.tableName,
         IndexName: options?.indexName,
         KeyConditionExpression: skPrefix
           ? 'PK = :pk AND begins_with(SK, :skPrefix)'
           : 'PK = :pk',
-        ExpressionAttributeValues: skPrefix
-          ? { ':pk': pk, ':skPrefix': skPrefix }
-          : { ':pk': pk },
+        ExpressionAttributeValues: expressionAttributeValues,
+        ExpressionAttributeNames: options?.expressionAttributeNames,
+        ProjectionExpression: options?.projectionExpression,
+        FilterExpression: options?.filterExpression,
         ScanIndexForward: options?.ascending ?? false,
         Limit: options?.limit,
         ExclusiveStartKey: options?.exclusiveStartKey,
@@ -313,18 +331,36 @@ export class DynamoDBClient {
       limit?: number;
       ascending?: boolean;
       exclusiveStartKey?: Record<string, unknown>;
+      /** Projection expression to limit returned attributes (reduces read capacity) */
+      projectionExpression?: string;
+      /** Filter expression for server-side filtering (more efficient than client-side) */
+      filterExpression?: string;
+      /** Expression attribute names for projection/filter expressions */
+      expressionAttributeNames?: Record<string, string>;
+      /** Additional expression attribute values for filter expressions */
+      additionalExpressionAttributeValues?: Record<string, unknown>;
     }
   ): Promise<{ items: T[]; lastKey?: Record<string, unknown> }> {
     return this.executeWithRetry(async () => {
+      const expressionAttributeValues: Record<string, unknown> = options?.gsi1skPrefix
+        ? { ':pk': gsi1pk, ':skPrefix': options.gsi1skPrefix }
+        : { ':pk': gsi1pk };
+
+      // Merge additional expression attribute values for filter expressions
+      if (options?.additionalExpressionAttributeValues) {
+        Object.assign(expressionAttributeValues, options.additionalExpressionAttributeValues);
+      }
+
       const input: QueryCommandInput = {
         TableName: this.tableName,
         IndexName: 'GSI1',
         KeyConditionExpression: options?.gsi1skPrefix
           ? 'GSI1PK = :pk AND begins_with(GSI1SK, :skPrefix)'
           : 'GSI1PK = :pk',
-        ExpressionAttributeValues: options?.gsi1skPrefix
-          ? { ':pk': gsi1pk, ':skPrefix': options.gsi1skPrefix }
-          : { ':pk': gsi1pk },
+        ExpressionAttributeValues: expressionAttributeValues,
+        ExpressionAttributeNames: options?.expressionAttributeNames,
+        ProjectionExpression: options?.projectionExpression,
+        FilterExpression: options?.filterExpression,
         ScanIndexForward: options?.ascending ?? false,
         Limit: options?.limit,
         ExclusiveStartKey: options?.exclusiveStartKey,

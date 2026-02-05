@@ -1,11 +1,30 @@
 'use client';
 
+import dynamic from 'next/dynamic';
+import { Skeleton } from '@/components/ui/skeleton';
 import { AgentStatus } from '@/components/agent-status';
-import { ActivityFeed } from '@/components/activity-feed';
-import { ProjectCards } from '@/components/project-cards';
 import { EscalationBanner } from '@/components/escalation-banner';
-import { EscalationSummary } from '@/components/escalation-summary';
-import { ActivityStats } from '@/components/activity-stats';
+
+// Dynamic imports for heavy components to reduce initial bundle size
+const ActivityFeed = dynamic(
+  () => import('@/components/activity-feed').then((mod) => ({ default: mod.ActivityFeed })),
+  { loading: () => <Skeleton className="h-64" /> }
+);
+
+const ProjectCards = dynamic(
+  () => import('@/components/project-cards').then((mod) => ({ default: mod.ProjectCards })),
+  { loading: () => <Skeleton className="h-48" /> }
+);
+
+const EscalationSummary = dynamic(
+  () => import('@/components/escalation-summary').then((mod) => ({ default: mod.EscalationSummary })),
+  { loading: () => <Skeleton className="h-32" /> }
+);
+
+const ActivityStats = dynamic(
+  () => import('@/components/activity-stats').then((mod) => ({ default: mod.ActivityStats })),
+  { loading: () => <Skeleton className="h-32" /> }
+);
 
 /**
  * Mission Control Dashboard

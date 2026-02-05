@@ -2,6 +2,7 @@
 
 import { useState, use } from 'react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import {
   ArrowLeft,
   Loader2,
@@ -16,9 +17,19 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArtefactViewer } from '@/components/artefact-viewer';
-import { ArtefactDiff } from '@/components/artefact-diff';
+import { Skeleton } from '@/components/ui/skeleton';
 import type { ArtefactType } from '@/types';
+
+// Dynamic imports for heavy components to reduce initial bundle size
+const ArtefactViewer = dynamic(
+  () => import('@/components/artefact-viewer').then((mod) => ({ default: mod.ArtefactViewer })),
+  { loading: () => <Skeleton className="h-64" /> }
+);
+
+const ArtefactDiff = dynamic(
+  () => import('@/components/artefact-diff').then((mod) => ({ default: mod.ArtefactDiff })),
+  { loading: () => <Skeleton className="h-64" /> }
+);
 
 const ARTEFACT_TYPES: ArtefactType[] = [
   'delivery_state',
