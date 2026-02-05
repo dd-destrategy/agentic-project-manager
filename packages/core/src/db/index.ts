@@ -16,4 +16,17 @@ export type {
   RecordDecisionOptions,
   EscalationQueryOptions,
 } from './repositories/escalation.js';
+export { CheckpointRepository } from './repositories/checkpoint.js';
+export {
+  HeldActionRepository,
+  type HeldAction,
+  type HeldActionType,
+  type CreateHeldActionOptions,
+} from './repositories/held-action.js';
+export {
+  GraduationStateRepository,
+  DEFAULT_HOLD_TIMES,
+  GRADUATION_HOLD_TIMES,
+  type GraduationState,
+} from './repositories/graduation-state.js';
 export type { QueryOptions, QueryResult } from './types.js';

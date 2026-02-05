@@ -118,7 +118,7 @@ export class AgentStack extends cdk.Stack {
             : props.roles.agentLambdaRole,
         timeout: cdk.Duration.seconds(config.timeout),
         memorySize: 256,
-        architecture: lambda.Architecture.ARM64,
+        architecture: lambda.Architecture.ARM_64,
         environment: {
           TABLE_NAME: props.table.tableName,
           TABLE_ARN: props.table.tableArn,

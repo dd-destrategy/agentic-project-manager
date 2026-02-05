@@ -83,7 +83,7 @@ interface BudgetDigestStatus {
  * Housekeeping handler
  */
 export async function handler(
-  event: ArtefactUpdateOutput,
+  _event: ArtefactUpdateOutput,
   context: Context
 ): Promise<HousekeepingOutput> {
   logger.setContext(context);
@@ -92,17 +92,17 @@ export async function handler(
   const env = getEnv();
 
   // Initialize clients
-  const db = new DynamoDBClient(env.TABLE_NAME);
+  const db = new DynamoDBClient(undefined, env.TABLE_NAME);
   const projectRepo = new ProjectRepository(db);
   const eventRepo = new EventRepository(db);
   const configRepo = new AgentConfigRepository(db);
 
   try {
     // 1. Get configuration
-    const digestEmail = await configRepo.get<string>(CONFIG_KEYS.DIGEST_EMAIL);
-    const dashboardUrl = await configRepo.get<string>(CONFIG_KEYS.DASHBOARD_URL) ?? 'https://agentic-pm.example.com';
-    const dailyBudgetLimit = await configRepo.get<number>(CONFIG_KEYS.DAILY_BUDGET_LIMIT) ?? 0.50;
-    const monthlyBudgetLimit = await configRepo.get<number>(CONFIG_KEYS.MONTHLY_BUDGET_LIMIT) ?? 7.00;
+    const digestEmail = await configRepo.getValue<string>(CONFIG_KEYS.DIGEST_EMAIL);
+    const dashboardUrl = await configRepo.getValue<string>(CONFIG_KEYS.DASHBOARD_URL) ?? 'https://agentic-pm.example.com';
+    const dailyBudgetLimit = await configRepo.getValue<number>(CONFIG_KEYS.DAILY_BUDGET_LIMIT) ?? 0.50;
+    const monthlyBudgetLimit = await configRepo.getValue<number>(CONFIG_KEYS.MONTHLY_BUDGET_LIMIT) ?? 7.00;
     const sesFromAddress = process.env.SES_FROM_ADDRESS ?? 'noreply@agentic-pm.example.com';
 
     // 2. Get all active projects
@@ -190,7 +190,7 @@ export async function handler(
       activitySummary: activityStats,
     };
 
-    logger.info('Housekeeping completed', output);
+    logger.info('Housekeeping completed', { ...output });
 
     return output;
   } catch (error) {

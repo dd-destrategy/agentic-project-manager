@@ -4,8 +4,6 @@
     "composite": true,
     "outDir": "dist",
     "rootDir": ".",
-    "inlineSourceMap": true,
-    "inlineSources": true,
     "experimentalDecorators": true,
     "skipLibCheck": true
   },

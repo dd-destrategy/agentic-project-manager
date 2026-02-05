@@ -11,6 +11,14 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./types": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/types/index.js"
+    },
+    "./schemas": {
+      "types": "./dist/schemas/index.d.ts",
+      "import": "./dist/schemas/index.js"
+    },
     "./signals": {
       "types": "./dist/signals/index.d.ts",
       "import": "./dist/signals/index.js"

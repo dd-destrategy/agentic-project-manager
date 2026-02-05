@@ -41,7 +41,7 @@ let artefactRepo: ArtefactRepository | null = null;
 function getArtefactRepository() {
   if (!dbClient) {
     const env = getEnv();
-    dbClient = new DynamoDBClient({ tableName: env.TABLE_NAME });
+    dbClient = new DynamoDBClient(undefined, env.TABLE_NAME);
     artefactRepo = new ArtefactRepository(dbClient);
   }
   return artefactRepo!;
