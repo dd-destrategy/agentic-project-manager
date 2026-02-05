@@ -12,7 +12,8 @@ This guide synthesizes 561KB of solution design documentation into actionable de
 
 ```bash
 # 1. Clone and setup
-git clone <repo> && cd agentic-project-manager
+git clone https://github.com/user/agentic-project-manager.git
+cd agentic-project-manager
 git checkout feature/phase-1-foundation
 pnpm install
 
