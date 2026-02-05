@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@agentic-pm/core": ["packages/core/src"],
+      "@agentic-pm/core/*": ["packages/core/src/*"],
+      "@agentic-pm/lambdas": ["packages/lambdas/src"],
+      "@agentic-pm/lambdas/*": ["packages/lambdas/src/*"],
+      "@agentic-pm/web": ["packages/web/src"],
+      "@agentic-pm/web/*": ["packages/web/src/*"],
+      "@agentic-pm/cdk": ["packages/cdk/lib"],
+      "@agentic-pm/cdk/*": ["packages/cdk/lib/*"]
+    }
+  },
+  "references": [
+    { "path": "packages/core" },
+    { "path": "packages/lambdas" },
+    { "path": "packages/web" },
+    { "path": "packages/cdk" }
+  ],
+  "include": [],
+  "exclude": ["node_modules", "dist", "coverage", ".next", "cdk.out"]
+}

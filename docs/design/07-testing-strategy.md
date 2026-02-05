@@ -1,8 +1,7 @@
 # Agentic PM Workbench - Testing Strategy
 
-> **Status:** Implementation-ready
-> **Last updated:** February 2026
-> **Companion to:** SPEC.md Section 12
+> **Status:** Implementation-ready **Last updated:** February 2026 **Companion
+> to:** SPEC.md Section 12
 
 ---
 
@@ -47,31 +46,32 @@
 
 ### 1.2 Coverage Targets
 
-| Layer | Target Coverage | Rationale |
-|-------|-----------------|-----------|
-| Unit tests | 90% line coverage for `@agentic-pm/core` | Core business logic must be thoroughly tested |
-| Integration tests | All critical paths | External dependencies are the main failure mode |
-| E2E tests | Happy paths + critical error paths | Expensive to run; focus on user-facing flows |
-| LLM evaluation | 90% classification accuracy | LLM behaviour is non-deterministic; statistical validation required |
+| Layer             | Target Coverage                          | Rationale                                                           |
+| ----------------- | ---------------------------------------- | ------------------------------------------------------------------- |
+| Unit tests        | 90% line coverage for `@agentic-pm/core` | Core business logic must be thoroughly tested                       |
+| Integration tests | All critical paths                       | External dependencies are the main failure mode                     |
+| E2E tests         | Happy paths + critical error paths       | Expensive to run; focus on user-facing flows                        |
+| LLM evaluation    | 90% classification accuracy              | LLM behaviour is non-deterministic; statistical validation required |
 
 ### 1.3 Test Distribution by Module
 
-| Module | Unit | Integration | E2E | LLM Eval |
-|--------|------|-------------|-----|----------|
-| `signals/` | 40+ | 10 | - | - |
-| `triage/` | 25+ | 5 | - | 10+ |
-| `execution/` | 30+ | 8 | 2 | 5 |
-| `artefacts/` | 20+ | 5 | 3 | 10+ |
-| `llm/` | 15+ | 5 | - | - |
-| `db/` | 10+ | 15 | - | - |
-| `integrations/` | 20+ | 12 | - | - |
-| Frontend | 30+ | 10 | 5 | - |
+| Module          | Unit | Integration | E2E | LLM Eval |
+| --------------- | ---- | ----------- | --- | -------- |
+| `signals/`      | 40+  | 10          | -   | -        |
+| `triage/`       | 25+  | 5           | -   | 10+      |
+| `execution/`    | 30+  | 8           | 2   | 5        |
+| `artefacts/`    | 20+  | 5           | 3   | 10+      |
+| `llm/`          | 15+  | 5           | -   | -        |
+| `db/`           | 10+  | 15          | -   | -        |
+| `integrations/` | 20+  | 12          | -   | -        |
+| Frontend        | 30+  | 10          | 5   | -        |
 
 ---
 
 ## 2. Unit Test Specifications
 
-All unit tests run without network access, databases, or external dependencies. Use dependency injection to swap real implementations for mocks.
+All unit tests run without network access, databases, or external dependencies.
+Use dependency injection to swap real implementations for mocks.
 
 ### 2.1 signals/ Module
 
@@ -79,22 +79,22 @@ All unit tests run without network access, databases, or external dependencies. 
 
 **File:** `packages/core/src/signals/__tests__/jira.test.ts`
 
-| Test Case | Input | Expected Output | Assertions |
-|-----------|-------|-----------------|------------|
-| TC-SIG-001: Basic ticket update | Jira webhook payload with status change | `NormalisedSignal` with type `ticket_status_changed` | `source` = 'jira', `type` is correct, `timestamp` is ISO 8601, `raw` contains original payload |
-| TC-SIG-002: Sprint started | Sprint webhook payload | `NormalisedSignal` with type `sprint_started` | Contains sprint name, dates, goal |
-| TC-SIG-003: Sprint closed | Sprint close event | `NormalisedSignal` with type `sprint_closed` | Contains completion stats |
-| TC-SIG-004: Ticket blocked | Issue with blocker flag | `NormalisedSignal` with type `ticket_blocked` | `severity` elevated, blocker details in summary |
-| TC-SIG-005: Comment added | Comment webhook | `NormalisedSignal` with type `comment_added` | Author, body (truncated if >1000 chars), ticket reference |
-| TC-SIG-006: Priority changed | Priority change event | `NormalisedSignal` with type `priority_changed` | Old and new priority in detail |
-| TC-SIG-007: Assignee changed | Assignee change event | `NormalisedSignal` with type `assignee_changed` | Old and new assignee |
-| TC-SIG-008: Story points changed | Points updated | `NormalisedSignal` with type `estimate_changed` | Delta (old vs new points) |
-| TC-SIG-009: Malformed payload | Missing required fields | Throws `SignalNormalisationError` | Error includes payload identifier |
-| TC-SIG-010: Unknown event type | Unrecognised Jira event | `NormalisedSignal` with type `unknown` | Logs warning, does not throw |
-| TC-SIG-011: Batch normalisation | Array of 10 events | Array of 10 `NormalisedSignal` | Order preserved, individual errors don't fail batch |
-| TC-SIG-012: HTML stripping | Description with HTML | Sanitised plain text | No HTML tags in summary |
-| TC-SIG-013: Timestamp parsing | Various Jira date formats | Consistent ISO 8601 | Handles timezone offsets |
-| TC-SIG-014: Project key extraction | Full issue key 'MCU-142' | `project_id` extracted | Maps to internal project ID |
+| Test Case                          | Input                                   | Expected Output                                      | Assertions                                                                                     |
+| ---------------------------------- | --------------------------------------- | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| TC-SIG-001: Basic ticket update    | Jira webhook payload with status change | `NormalisedSignal` with type `ticket_status_changed` | `source` = 'jira', `type` is correct, `timestamp` is ISO 8601, `raw` contains original payload |
+| TC-SIG-002: Sprint started         | Sprint webhook payload                  | `NormalisedSignal` with type `sprint_started`        | Contains sprint name, dates, goal                                                              |
+| TC-SIG-003: Sprint closed          | Sprint close event                      | `NormalisedSignal` with type `sprint_closed`         | Contains completion stats                                                                      |
+| TC-SIG-004: Ticket blocked         | Issue with blocker flag                 | `NormalisedSignal` with type `ticket_blocked`        | `severity` elevated, blocker details in summary                                                |
+| TC-SIG-005: Comment added          | Comment webhook                         | `NormalisedSignal` with type `comment_added`         | Author, body (truncated if >1000 chars), ticket reference                                      |
+| TC-SIG-006: Priority changed       | Priority change event                   | `NormalisedSignal` with type `priority_changed`      | Old and new priority in detail                                                                 |
+| TC-SIG-007: Assignee changed       | Assignee change event                   | `NormalisedSignal` with type `assignee_changed`      | Old and new assignee                                                                           |
+| TC-SIG-008: Story points changed   | Points updated                          | `NormalisedSignal` with type `estimate_changed`      | Delta (old vs new points)                                                                      |
+| TC-SIG-009: Malformed payload      | Missing required fields                 | Throws `SignalNormalisationError`                    | Error includes payload identifier                                                              |
+| TC-SIG-010: Unknown event type     | Unrecognised Jira event                 | `NormalisedSignal` with type `unknown`               | Logs warning, does not throw                                                                   |
+| TC-SIG-011: Batch normalisation    | Array of 10 events                      | Array of 10 `NormalisedSignal`                       | Order preserved, individual errors don't fail batch                                            |
+| TC-SIG-012: HTML stripping         | Description with HTML                   | Sanitised plain text                                 | No HTML tags in summary                                                                        |
+| TC-SIG-013: Timestamp parsing      | Various Jira date formats               | Consistent ISO 8601                                  | Handles timezone offsets                                                                       |
+| TC-SIG-014: Project key extraction | Full issue key 'MCU-142'                | `project_id` extracted                               | Maps to internal project ID                                                                    |
 
 ```typescript
 // Example test structure
@@ -103,7 +103,11 @@ describe('normaliseJiraSignal', () => {
     const jiraPayload = createJiraWebhookPayload({
       webhookEvent: 'jira:issue_updated',
       issue: { key: 'MCU-142', fields: { status: { name: 'In Progress' } } },
-      changelog: { items: [{ field: 'status', fromString: 'To Do', toString: 'In Progress' }] }
+      changelog: {
+        items: [
+          { field: 'status', fromString: 'To Do', toString: 'In Progress' },
+        ],
+      },
     });
 
     const result = normaliseJiraSignal(jiraPayload, 'project-uuid-123');
@@ -124,19 +128,19 @@ describe('normaliseJiraSignal', () => {
 
 **File:** `packages/core/src/signals/__tests__/outlook.test.ts`
 
-| Test Case | Input | Expected Output | Assertions |
-|-----------|-------|-----------------|------------|
-| TC-SIG-020: New email | Graph API message delta | `NormalisedSignal` with type `email_received` | Sender, subject, recipients, has_attachments |
-| TC-SIG-021: Reply in thread | Reply message | `NormalisedSignal` with type `email_reply` | Thread ID, in_reply_to reference |
-| TC-SIG-022: Meeting invite | Calendar invite email | `NormalisedSignal` with type `meeting_invite` | Meeting time, attendees extracted |
-| TC-SIG-023: High importance | Message with importance=high | `NormalisedSignal` with elevated severity | `severity` = 'high' |
-| TC-SIG-024: External sender | Email from non-org domain | `NormalisedSignal` with `external: true` | External flag for security |
-| TC-SIG-025: Attachment handling | Email with attachments | `NormalisedSignal` with attachment metadata | List of attachment names, no content |
-| TC-SIG-026: Long email body | >5000 character body | Truncated summary | Summary <=500 chars with truncation indicator |
-| TC-SIG-027: HTML email | HTML body | Plain text summary | HTML stripped, links preserved as text |
-| TC-SIG-028: Delta token handling | Delta response with @odata.nextLink | Extracts new checkpoint | Returns newCheckpoint string |
-| TC-SIG-029: Empty delta | No new messages | Empty array | No signals, new checkpoint preserved |
-| TC-SIG-030: Malformed Graph response | Missing envelope | Throws `SignalNormalisationError` | Clear error message |
+| Test Case                            | Input                               | Expected Output                               | Assertions                                    |
+| ------------------------------------ | ----------------------------------- | --------------------------------------------- | --------------------------------------------- |
+| TC-SIG-020: New email                | Graph API message delta             | `NormalisedSignal` with type `email_received` | Sender, subject, recipients, has_attachments  |
+| TC-SIG-021: Reply in thread          | Reply message                       | `NormalisedSignal` with type `email_reply`    | Thread ID, in_reply_to reference              |
+| TC-SIG-022: Meeting invite           | Calendar invite email               | `NormalisedSignal` with type `meeting_invite` | Meeting time, attendees extracted             |
+| TC-SIG-023: High importance          | Message with importance=high        | `NormalisedSignal` with elevated severity     | `severity` = 'high'                           |
+| TC-SIG-024: External sender          | Email from non-org domain           | `NormalisedSignal` with `external: true`      | External flag for security                    |
+| TC-SIG-025: Attachment handling      | Email with attachments              | `NormalisedSignal` with attachment metadata   | List of attachment names, no content          |
+| TC-SIG-026: Long email body          | >5000 character body                | Truncated summary                             | Summary <=500 chars with truncation indicator |
+| TC-SIG-027: HTML email               | HTML body                           | Plain text summary                            | HTML stripped, links preserved as text        |
+| TC-SIG-028: Delta token handling     | Delta response with @odata.nextLink | Extracts new checkpoint                       | Returns newCheckpoint string                  |
+| TC-SIG-029: Empty delta              | No new messages                     | Empty array                                   | No signals, new checkpoint preserved          |
+| TC-SIG-030: Malformed Graph response | Missing envelope                    | Throws `SignalNormalisationError`             | Clear error message                           |
 
 ### 2.2 triage/ Module
 
@@ -144,20 +148,21 @@ describe('normaliseJiraSignal', () => {
 
 **File:** `packages/core/src/triage/__tests__/sanitise.test.ts`
 
-**Purpose:** Test the content sanitisation layer that neutralises potentially malicious content before it reaches reasoning prompts.
+**Purpose:** Test the content sanitisation layer that neutralises potentially
+malicious content before it reaches reasoning prompts.
 
-| Test Case | Input | Expected Output | Assertions |
-|-----------|-------|-----------------|------------|
-| TC-TRI-001: Clean content | Normal ticket description | Unchanged content | No modification |
-| TC-TRI-002: Basic injection attempt | "Ignore previous instructions and..." | Content marked as suspicious | `sanitised: true`, warning logged |
-| TC-TRI-003: Role-play injection | "You are now a helpful assistant that..." | Role-play text neutralised | Pattern replaced with [CONTENT_FILTERED] |
-| TC-TRI-004: Encoded injection | Base64-encoded instructions | Decoded and neutralised | Detects and handles encoding |
-| TC-TRI-005: Unicode obfuscation | Instructions using lookalike Unicode | Normalised and checked | Unicode normalised before pattern match |
-| TC-TRI-006: Nested injection | Instructions hidden in markdown | Markdown parsed, instructions found | Deep content inspection |
-| TC-TRI-007: Long content | 50KB text blob | Truncated with summary | Max 5KB passed to triage |
-| TC-TRI-008: Multiple signals batch | 20 signals, 2 suspicious | Only suspicious marked | Clean signals unmodified |
-| TC-TRI-009: Email quoting | Forwarded email with >> markers | Quoted content identified | Different trust level for quoted content |
-| TC-TRI-010: Code blocks | Content with code snippets | Code blocks preserved | Don't flag legitimate code |
+| Test Case                           | Input                                     | Expected Output                     | Assertions                               |
+| ----------------------------------- | ----------------------------------------- | ----------------------------------- | ---------------------------------------- |
+| TC-TRI-001: Clean content           | Normal ticket description                 | Unchanged content                   | No modification                          |
+| TC-TRI-002: Basic injection attempt | "Ignore previous instructions and..."     | Content marked as suspicious        | `sanitised: true`, warning logged        |
+| TC-TRI-003: Role-play injection     | "You are now a helpful assistant that..." | Role-play text neutralised          | Pattern replaced with [CONTENT_FILTERED] |
+| TC-TRI-004: Encoded injection       | Base64-encoded instructions               | Decoded and neutralised             | Detects and handles encoding             |
+| TC-TRI-005: Unicode obfuscation     | Instructions using lookalike Unicode      | Normalised and checked              | Unicode normalised before pattern match  |
+| TC-TRI-006: Nested injection        | Instructions hidden in markdown           | Markdown parsed, instructions found | Deep content inspection                  |
+| TC-TRI-007: Long content            | 50KB text blob                            | Truncated with summary              | Max 5KB passed to triage                 |
+| TC-TRI-008: Multiple signals batch  | 20 signals, 2 suspicious                  | Only suspicious marked              | Clean signals unmodified                 |
+| TC-TRI-009: Email quoting           | Forwarded email with >> markers           | Quoted content identified           | Different trust level for quoted content |
+| TC-TRI-010: Code blocks             | Content with code snippets                | Code blocks preserved               | Don't flag legitimate code               |
 
 ```typescript
 // Example sanitisation test
@@ -184,20 +189,22 @@ describe('sanitiseContent', () => {
 
 **File:** `packages/core/src/triage/__tests__/classify.test.ts`
 
-**Note:** Classification tests that involve LLM calls use mocked Claude responses. Real LLM classification is tested in the LLM Evaluation framework (Section 6).
+**Note:** Classification tests that involve LLM calls use mocked Claude
+responses. Real LLM classification is tested in the LLM Evaluation framework
+(Section 6).
 
-| Test Case | Input | Expected Output | Assertions |
-|-----------|-------|-----------------|------------|
-| TC-TRI-020: Routine update | Normal status change signal | Classification: `routine`, priority: `low` | No escalation needed |
-| TC-TRI-021: Blocker detected | Signal with blocker flag | Classification: `blocker`, priority: `high` | Triggers RAID update |
-| TC-TRI-022: Scope change indicator | New tickets mid-sprint | Classification: `scope_change`, priority: `medium` | Escalation recommended |
-| TC-TRI-023: Risk signal | "delayed", "blocked", "at risk" in content | Classification: `risk_indicator` | RAID update with risk |
-| TC-TRI-024: Stakeholder communication | Email from stakeholder | Classification: `stakeholder_comms` | May need response |
-| TC-TRI-025: Deadline approaching | Due date within 3 days | Classification: `deadline_warning` | Elevated visibility |
-| TC-TRI-026: Velocity anomaly | Sprint burn different from norm | Classification: `velocity_anomaly` | Sonnet reasoning triggered |
-| TC-TRI-027: Multiple signals correlated | 3 signals about same issue | Classification: `multi_source` | Higher confidence, Sonnet |
-| TC-TRI-028: Noise filtering | Bot-generated updates | Classification: `noise`, action: `ignore` | Not processed further |
-| TC-TRI-029: Insufficient context | Ambiguous signal | Classification: `needs_context` | Request more info |
+| Test Case                               | Input                                      | Expected Output                                    | Assertions                 |
+| --------------------------------------- | ------------------------------------------ | -------------------------------------------------- | -------------------------- |
+| TC-TRI-020: Routine update              | Normal status change signal                | Classification: `routine`, priority: `low`         | No escalation needed       |
+| TC-TRI-021: Blocker detected            | Signal with blocker flag                   | Classification: `blocker`, priority: `high`        | Triggers RAID update       |
+| TC-TRI-022: Scope change indicator      | New tickets mid-sprint                     | Classification: `scope_change`, priority: `medium` | Escalation recommended     |
+| TC-TRI-023: Risk signal                 | "delayed", "blocked", "at risk" in content | Classification: `risk_indicator`                   | RAID update with risk      |
+| TC-TRI-024: Stakeholder communication   | Email from stakeholder                     | Classification: `stakeholder_comms`                | May need response          |
+| TC-TRI-025: Deadline approaching        | Due date within 3 days                     | Classification: `deadline_warning`                 | Elevated visibility        |
+| TC-TRI-026: Velocity anomaly            | Sprint burn different from norm            | Classification: `velocity_anomaly`                 | Sonnet reasoning triggered |
+| TC-TRI-027: Multiple signals correlated | 3 signals about same issue                 | Classification: `multi_source`                     | Higher confidence, Sonnet  |
+| TC-TRI-028: Noise filtering             | Bot-generated updates                      | Classification: `noise`, action: `ignore`          | Not processed further      |
+| TC-TRI-029: Insufficient context        | Ambiguous signal                           | Classification: `needs_context`                    | Request more info          |
 
 ### 2.3 execution/ Module
 
@@ -205,21 +212,21 @@ describe('sanitiseContent', () => {
 
 **File:** `packages/core/src/execution/__tests__/boundaries.test.ts`
 
-| Test Case | Input | Expected Output | Assertions |
-|-----------|-------|-----------------|------------|
-| TC-EXE-001: Auto-execute artefact | Action: `artefact_update` | Decision: `auto_execute` | No hold, no approval |
-| TC-EXE-002: Auto-execute heartbeat | Action: `heartbeat_log` | Decision: `auto_execute` | System action, always allowed |
-| TC-EXE-003: Hold queue email | Action: `email_stakeholder` | Decision: `hold_queue`, duration: 30min | Queued for review |
-| TC-EXE-004: Hold queue Jira status | Action: `jira_status_change` | Decision: `hold_queue`, duration: 5min | Short hold |
-| TC-EXE-005: Require approval external | Action: `email_external` | Decision: `require_approval` | Escalation created |
-| TC-EXE-006: Require approval ticket create | Action: `jira_create_ticket` | Decision: `require_approval` | Must have user consent |
-| TC-EXE-007: Never do delete | Action: `delete_data` | Decision: `block` | Hard rejection, logged |
-| TC-EXE-008: Never do config change | Action: `modify_integration_config` | Decision: `block` | Agent cannot self-modify |
-| TC-EXE-009: Never do autonomy change | Action: `change_own_autonomy_level` | Decision: `block` | Only user can change |
-| TC-EXE-010: Unknown action type | Action: `some_new_action` | Decision: `require_approval` | Unknown defaults to safe |
-| TC-EXE-011: Autonomy level 1 | Any external action at Level 1 | Decision: `block` | Monitoring only |
-| TC-EXE-012: Autonomy level 2 | Email at Level 2 | Decision: `block` | Level 2 is artefact-only |
-| TC-EXE-013: Autonomy level 3 | Email at Level 3 | Decision: `hold_queue` | Level 3 allows tactical |
+| Test Case                                  | Input                               | Expected Output                         | Assertions                    |
+| ------------------------------------------ | ----------------------------------- | --------------------------------------- | ----------------------------- |
+| TC-EXE-001: Auto-execute artefact          | Action: `artefact_update`           | Decision: `auto_execute`                | No hold, no approval          |
+| TC-EXE-002: Auto-execute heartbeat         | Action: `heartbeat_log`             | Decision: `auto_execute`                | System action, always allowed |
+| TC-EXE-003: Hold queue email               | Action: `email_stakeholder`         | Decision: `hold_queue`, duration: 30min | Queued for review             |
+| TC-EXE-004: Hold queue Jira status         | Action: `jira_status_change`        | Decision: `hold_queue`, duration: 5min  | Short hold                    |
+| TC-EXE-005: Require approval external      | Action: `email_external`            | Decision: `require_approval`            | Escalation created            |
+| TC-EXE-006: Require approval ticket create | Action: `jira_create_ticket`        | Decision: `require_approval`            | Must have user consent        |
+| TC-EXE-007: Never do delete                | Action: `delete_data`               | Decision: `block`                       | Hard rejection, logged        |
+| TC-EXE-008: Never do config change         | Action: `modify_integration_config` | Decision: `block`                       | Agent cannot self-modify      |
+| TC-EXE-009: Never do autonomy change       | Action: `change_own_autonomy_level` | Decision: `block`                       | Only user can change          |
+| TC-EXE-010: Unknown action type            | Action: `some_new_action`           | Decision: `require_approval`            | Unknown defaults to safe      |
+| TC-EXE-011: Autonomy level 1               | Any external action at Level 1      | Decision: `block`                       | Monitoring only               |
+| TC-EXE-012: Autonomy level 2               | Email at Level 2                    | Decision: `block`                       | Level 2 is artefact-only      |
+| TC-EXE-013: Autonomy level 3               | Email at Level 3                    | Decision: `hold_queue`                  | Level 3 allows tactical       |
 
 ```typescript
 // Example boundary test
@@ -228,7 +235,9 @@ describe('checkDecisionBoundary', () => {
     const action: ProposedAction = {
       type: 'artefact_update',
       target: 'raid_log',
-      payload: { /* ... */ }
+      payload: {
+        /* ... */
+      },
     };
     const context = { autonomyLevel: 2 };
 
@@ -245,30 +254,30 @@ describe('checkDecisionBoundary', () => {
 
 **File:** `packages/core/src/execution/__tests__/confidence.test.ts`
 
-| Test Case | Input | Expected Output | Assertions |
-|-----------|-------|-----------------|------------|
-| TC-EXE-020: All dimensions pass | Multi-source, valid schema, boundary ok, precedent exists | `canAutoExecute: true` | All scores above threshold |
-| TC-EXE-021: Single source only | One signal, no corroboration | `sourceAgreement: 0.5` | Lower confidence |
-| TC-EXE-022: Three sources agree | Jira + Outlook + historical pattern | `sourceAgreement: 1.0` | Maximum corroboration |
-| TC-EXE-023: Invalid schema output | LLM returned malformed JSON | `schemaValidity: 0.0` | Auto-execute blocked |
-| TC-EXE-024: Boundary violation | Action outside allowlist | `boundaryCompliance: 0.0` | Hard block |
-| TC-EXE-025: No precedent | First-time action type | `precedentMatch: 0.3` | Lower confidence, needs review |
-| TC-EXE-026: Strong precedent | 10 similar successful actions | `precedentMatch: 1.0` | High confidence |
-| TC-EXE-027: Mixed signals | 2 agree, 1 disagrees | `sourceAgreement: 0.67` | Weighted average |
-| TC-EXE-028: Partial schema match | 80% of fields valid | `schemaValidity: 0.8` | May still auto-execute |
-| TC-EXE-029: Composite score | All dimensions calculated | `overallScore` computed | Weighted average, all must pass |
-| TC-EXE-030: Threshold edge case | Score exactly at threshold | Deterministic decision | No ambiguity |
+| Test Case                         | Input                                                     | Expected Output           | Assertions                      |
+| --------------------------------- | --------------------------------------------------------- | ------------------------- | ------------------------------- |
+| TC-EXE-020: All dimensions pass   | Multi-source, valid schema, boundary ok, precedent exists | `canAutoExecute: true`    | All scores above threshold      |
+| TC-EXE-021: Single source only    | One signal, no corroboration                              | `sourceAgreement: 0.5`    | Lower confidence                |
+| TC-EXE-022: Three sources agree   | Jira + Outlook + historical pattern                       | `sourceAgreement: 1.0`    | Maximum corroboration           |
+| TC-EXE-023: Invalid schema output | LLM returned malformed JSON                               | `schemaValidity: 0.0`     | Auto-execute blocked            |
+| TC-EXE-024: Boundary violation    | Action outside allowlist                                  | `boundaryCompliance: 0.0` | Hard block                      |
+| TC-EXE-025: No precedent          | First-time action type                                    | `precedentMatch: 0.3`     | Lower confidence, needs review  |
+| TC-EXE-026: Strong precedent      | 10 similar successful actions                             | `precedentMatch: 1.0`     | High confidence                 |
+| TC-EXE-027: Mixed signals         | 2 agree, 1 disagrees                                      | `sourceAgreement: 0.67`   | Weighted average                |
+| TC-EXE-028: Partial schema match  | 80% of fields valid                                       | `schemaValidity: 0.8`     | May still auto-execute          |
+| TC-EXE-029: Composite score       | All dimensions calculated                                 | `overallScore` computed   | Weighted average, all must pass |
+| TC-EXE-030: Threshold edge case   | Score exactly at threshold                                | Deterministic decision    | No ambiguity                    |
 
 ```typescript
 // Confidence scoring structure
 interface ConfidenceScore {
-  sourceAgreement: number;      // 0.0 - 1.0
-  boundaryCompliance: number;   // 0.0 or 1.0 (binary)
-  schemaValidity: number;       // 0.0 - 1.0
-  precedentMatch: number;       // 0.0 - 1.0
-  overallScore: number;         // Computed
-  canAutoExecute: boolean;      // All dimensions must pass
-  blockingDimension?: string;   // Which dimension failed
+  sourceAgreement: number; // 0.0 - 1.0
+  boundaryCompliance: number; // 0.0 or 1.0 (binary)
+  schemaValidity: number; // 0.0 - 1.0
+  precedentMatch: number; // 0.0 - 1.0
+  overallScore: number; // Computed
+  canAutoExecute: boolean; // All dimensions must pass
+  blockingDimension?: string; // Which dimension failed
 }
 ```
 
@@ -278,22 +287,22 @@ interface ConfidenceScore {
 
 **File:** `packages/core/src/artefacts/__tests__/schemas.test.ts`
 
-| Test Case | Input | Expected Output | Assertions |
-|-----------|-------|-----------------|------------|
-| TC-ART-001: Valid delivery state | Complete delivery state JSON | Validation passes | All required fields present |
-| TC-ART-002: Valid RAID log | Complete RAID log JSON | Validation passes | Items array valid |
-| TC-ART-003: Valid decision log | Complete decision log JSON | Validation passes | Decisions array valid |
-| TC-ART-004: Valid backlog summary | Complete backlog JSON | Validation passes | Summary stats valid |
-| TC-ART-005: Missing required field | Delivery state without `overall_status` | Validation fails | Error specifies missing field |
-| TC-ART-006: Invalid status value | `overall_status: "purple"` | Validation fails | Must be green/amber/red |
-| TC-ART-007: Invalid date format | `due_date: "next Tuesday"` | Validation fails | Must be ISO 8601 |
-| TC-ART-008: Invalid RAID type | `type: "question"` | Validation fails | Must be risk/assumption/issue/dependency |
-| TC-ART-009: Empty items array | RAID log with no items | Validation passes | Empty is valid |
-| TC-ART-010: Extra fields | Valid schema plus unknown fields | Validation passes | Extra fields stripped |
-| TC-ART-011: Nested validation | Invalid blocker within delivery state | Validation fails | Deep validation |
-| TC-ART-012: Type coercion | Number as string "42" | Coerced correctly | Strict mode optional |
-| TC-ART-013: Null handling | Null optional fields | Validation passes | Null vs undefined |
-| TC-ART-014: Array constraints | 1000 items in RAID log | Validation passes | No artificial limits |
+| Test Case                          | Input                                   | Expected Output   | Assertions                               |
+| ---------------------------------- | --------------------------------------- | ----------------- | ---------------------------------------- |
+| TC-ART-001: Valid delivery state   | Complete delivery state JSON            | Validation passes | All required fields present              |
+| TC-ART-002: Valid RAID log         | Complete RAID log JSON                  | Validation passes | Items array valid                        |
+| TC-ART-003: Valid decision log     | Complete decision log JSON              | Validation passes | Decisions array valid                    |
+| TC-ART-004: Valid backlog summary  | Complete backlog JSON                   | Validation passes | Summary stats valid                      |
+| TC-ART-005: Missing required field | Delivery state without `overall_status` | Validation fails  | Error specifies missing field            |
+| TC-ART-006: Invalid status value   | `overall_status: "purple"`              | Validation fails  | Must be green/amber/red                  |
+| TC-ART-007: Invalid date format    | `due_date: "next Tuesday"`              | Validation fails  | Must be ISO 8601                         |
+| TC-ART-008: Invalid RAID type      | `type: "question"`                      | Validation fails  | Must be risk/assumption/issue/dependency |
+| TC-ART-009: Empty items array      | RAID log with no items                  | Validation passes | Empty is valid                           |
+| TC-ART-010: Extra fields           | Valid schema plus unknown fields        | Validation passes | Extra fields stripped                    |
+| TC-ART-011: Nested validation      | Invalid blocker within delivery state   | Validation fails  | Deep validation                          |
+| TC-ART-012: Type coercion          | Number as string "42"                   | Coerced correctly | Strict mode optional                     |
+| TC-ART-013: Null handling          | Null optional fields                    | Validation passes | Null vs undefined                        |
+| TC-ART-014: Array constraints      | 1000 items in RAID log                  | Validation passes | No artificial limits                     |
 
 ```typescript
 // Schema validation example
@@ -326,22 +335,22 @@ describe('validateDeliveryState', () => {
 
 **File:** `packages/core/src/llm/__tests__/budget.test.ts`
 
-| Test Case | Input | Expected Output | Assertions |
-|-----------|-------|-----------------|------------|
-| TC-LLM-001: Under budget | Daily spend $0.10, limit $0.23 | `canMakeCall: true` | Call allowed |
-| TC-LLM-002: At daily limit | Daily spend $0.23, limit $0.23 | `canMakeCall: false` | Call blocked |
-| TC-LLM-003: Tier 1 degradation | Daily spend $0.23 | Model split: 85/15 Haiku/Sonnet | Reduced Sonnet usage |
-| TC-LLM-004: Tier 2 degradation | Daily spend $0.27 | Split: 85/15, interval: 20min | Polling slowed |
-| TC-LLM-005: Tier 3 degradation | Daily spend $0.30 | Haiku only, 30min interval | Maximum degradation |
-| TC-LLM-006: Hard ceiling | Daily spend $0.40 | `canMakeCall: false`, mode: monitoring | No LLM calls |
-| TC-LLM-007: Monthly ceiling | Monthly spend $8.00 | Agent enters monitoring mode | Month remainder blocked |
-| TC-LLM-008: Cost tracking accumulation | Multiple calls in day | Running total accurate | Tracks input + output tokens |
-| TC-LLM-009: Day rollover | New day starts | Daily counter resets | But not below monthly floor |
-| TC-LLM-010: Model selection under budget | Normal operation | Returns appropriate model | Haiku for triage, Sonnet for reasoning |
-| TC-LLM-011: Model selection degraded | Tier 1 degradation | Haiku for more tasks | Sonnet only for critical |
-| TC-LLM-012: Cost estimation | Prompt of known size | Accurate cost estimate | Within 5% of actual |
-| TC-LLM-013: Caching calculation | Cached vs non-cached prompt | Lower cost for cached | 90% reduction for cache hits |
-| TC-LLM-014: Budget persistence | Budget state saved | Survives Lambda cold start | Stored in DynamoDB |
+| Test Case                                | Input                          | Expected Output                        | Assertions                             |
+| ---------------------------------------- | ------------------------------ | -------------------------------------- | -------------------------------------- |
+| TC-LLM-001: Under budget                 | Daily spend $0.10, limit $0.23 | `canMakeCall: true`                    | Call allowed                           |
+| TC-LLM-002: At daily limit               | Daily spend $0.23, limit $0.23 | `canMakeCall: false`                   | Call blocked                           |
+| TC-LLM-003: Tier 1 degradation           | Daily spend $0.23              | Model split: 85/15 Haiku/Sonnet        | Reduced Sonnet usage                   |
+| TC-LLM-004: Tier 2 degradation           | Daily spend $0.27              | Split: 85/15, interval: 20min          | Polling slowed                         |
+| TC-LLM-005: Tier 3 degradation           | Daily spend $0.30              | Haiku only, 30min interval             | Maximum degradation                    |
+| TC-LLM-006: Hard ceiling                 | Daily spend $0.40              | `canMakeCall: false`, mode: monitoring | No LLM calls                           |
+| TC-LLM-007: Monthly ceiling              | Monthly spend $8.00            | Agent enters monitoring mode           | Month remainder blocked                |
+| TC-LLM-008: Cost tracking accumulation   | Multiple calls in day          | Running total accurate                 | Tracks input + output tokens           |
+| TC-LLM-009: Day rollover                 | New day starts                 | Daily counter resets                   | But not below monthly floor            |
+| TC-LLM-010: Model selection under budget | Normal operation               | Returns appropriate model              | Haiku for triage, Sonnet for reasoning |
+| TC-LLM-011: Model selection degraded     | Tier 1 degradation             | Haiku for more tasks                   | Sonnet only for critical               |
+| TC-LLM-012: Cost estimation              | Prompt of known size           | Accurate cost estimate                 | Within 5% of actual                    |
+| TC-LLM-013: Caching calculation          | Cached vs non-cached prompt    | Lower cost for cached                  | 90% reduction for cache hits           |
+| TC-LLM-014: Budget persistence           | Budget state saved             | Survives Lambda cold start             | Stored in DynamoDB                     |
 
 ```typescript
 // Budget control example
@@ -351,7 +360,7 @@ describe('BudgetController', () => {
   beforeEach(() => {
     budget = new BudgetController({
       dailyLimit: 0.23,
-      monthlyLimit: 8.00,
+      monthlyLimit: 8.0,
       storage: mockDynamoDB,
     });
   });
@@ -367,7 +376,7 @@ describe('BudgetController', () => {
   });
 
   it('TC-LLM-006: blocks all calls at hard ceiling', async () => {
-    await budget.recordSpend(0.40);
+    await budget.recordSpend(0.4);
 
     const state = await budget.getState();
 
@@ -381,35 +390,37 @@ describe('BudgetController', () => {
 
 ## 3. Integration Test Specifications
 
-Integration tests run against real (local) infrastructure: DynamoDB Local, mocked external APIs, and optionally real Claude API with strict budget caps.
+Integration tests run against real (local) infrastructure: DynamoDB Local,
+mocked external APIs, and optionally real Claude API with strict budget caps.
 
 ### 3.1 DynamoDB Operations
 
 **File:** `packages/core/src/db/__tests__/dynamodb.integration.test.ts`
 
 **Prerequisites:**
+
 - DynamoDB Local running via Docker
 - Table created with correct schema and GSI
 
-| Test Case | Operation | Assertions |
-|-----------|-----------|------------|
-| TC-INT-001: Create project | PutItem with Project entity | Item retrievable, timestamps set |
-| TC-INT-002: Get project | GetItem by PK/SK | Returns full entity |
-| TC-INT-003: List active projects | Query GSI1 by STATUS#active | Returns only active projects |
-| TC-INT-004: Create artefact | PutItem with Artefact entity | Linked to project |
-| TC-INT-005: Update artefact with version | PutItem with previousVersion | One-deep history preserved |
-| TC-INT-006: Create event | PutItem with TTL | TTL attribute set correctly |
-| TC-INT-007: Query events by project | Query by PK prefix EVENT# | Sorted by timestamp desc |
-| TC-INT-008: Query events by date (GSI) | Query GSI1 by EVENT#date | Cross-project query works |
-| TC-INT-009: Create escalation | PutItem with Escalation entity | GSI1PK set to pending |
-| TC-INT-010: Resolve escalation | Update status, GSI1PK | Status and GSI updated atomically |
-| TC-INT-011: Create agent action | PutItem with Action entity | 90-day TTL set |
-| TC-INT-012: Query held actions | Query GSI1 ACTIONS#held | Returns items past heldUntil |
-| TC-INT-013: Create checkpoint | PutItem Checkpoint entity | Upsert behaviour |
-| TC-INT-014: Conditional write conflict | Concurrent updates | ConditionCheckFailed thrown |
-| TC-INT-015: Batch write | 25 items in single batch | All items created |
-| TC-INT-016: Transaction write | Multi-item transaction | All-or-nothing semantics |
-| TC-INT-017: TTL expiration | Wait for TTL (test mode) | Item deleted automatically |
+| Test Case                                | Operation                      | Assertions                        |
+| ---------------------------------------- | ------------------------------ | --------------------------------- |
+| TC-INT-001: Create project               | PutItem with Project entity    | Item retrievable, timestamps set  |
+| TC-INT-002: Get project                  | GetItem by PK/SK               | Returns full entity               |
+| TC-INT-003: List active projects         | Query GSI1 by STATUS#active    | Returns only active projects      |
+| TC-INT-004: Create artefact              | PutItem with Artefact entity   | Linked to project                 |
+| TC-INT-005: Update artefact with version | PutItem with previousVersion   | One-deep history preserved        |
+| TC-INT-006: Create event                 | PutItem with TTL               | TTL attribute set correctly       |
+| TC-INT-007: Query events by project      | Query by PK prefix EVENT#      | Sorted by timestamp desc          |
+| TC-INT-008: Query events by date (GSI)   | Query GSI1 by EVENT#date       | Cross-project query works         |
+| TC-INT-009: Create escalation            | PutItem with Escalation entity | GSI1PK set to pending             |
+| TC-INT-010: Resolve escalation           | Update status, GSI1PK          | Status and GSI updated atomically |
+| TC-INT-011: Create agent action          | PutItem with Action entity     | 90-day TTL set                    |
+| TC-INT-012: Query held actions           | Query GSI1 ACTIONS#held        | Returns items past heldUntil      |
+| TC-INT-013: Create checkpoint            | PutItem Checkpoint entity      | Upsert behaviour                  |
+| TC-INT-014: Conditional write conflict   | Concurrent updates             | ConditionCheckFailed thrown       |
+| TC-INT-015: Batch write                  | 25 items in single batch       | All items created                 |
+| TC-INT-016: Transaction write            | Multi-item transaction         | All-or-nothing semantics          |
+| TC-INT-017: TTL expiration               | Wait for TTL (test mode)       | Item deleted automatically        |
 
 ```typescript
 // DynamoDB integration test example
@@ -451,22 +462,23 @@ describe('DynamoDB Integration', () => {
 **File:** `packages/core/src/integrations/__tests__/jira.integration.test.ts`
 
 **Prerequisites:**
+
 - Jira API mock server (MSW or similar)
 - Pre-configured mock responses
 
-| Test Case | API Call | Mock Response | Assertions |
-|-----------|----------|---------------|------------|
-| TC-INT-020: Health check | GET /rest/api/3/myself | 200 OK with user | `healthCheck()` returns `{ ok: true }` |
-| TC-INT-021: Health check failed | GET /rest/api/3/myself | 401 Unauthorized | `healthCheck()` returns `{ ok: false, detail: '...' }` |
-| TC-INT-022: Fetch sprint issues | GET /rest/agile/1.0/sprint/{id}/issue | 200 with issues | Returns normalised signals |
-| TC-INT-023: Fetch issue delta | GET /rest/api/3/search with JQL | 200 with issues | Only updated since checkpoint |
-| TC-INT-024: Rate limited | 429 Too Many Requests | Retry after header | Automatic retry with backoff |
-| TC-INT-025: Paginated response | Multiple pages | All pages fetched | Total count matches |
-| TC-INT-026: Add comment | POST /rest/api/3/issue/{id}/comment | 201 Created | Comment ID returned |
-| TC-INT-027: Change status | POST /rest/api/3/issue/{id}/transitions | 204 No Content | Status updated |
-| TC-INT-028: Invalid transition | POST transition not allowed | 400 Bad Request | Error handled gracefully |
-| TC-INT-029: Server error | 500 Internal Server Error | Retry, then fail | Max 3 retries |
-| TC-INT-030: Timeout | Response hangs | Timeout after 30s | Clean timeout error |
+| Test Case                       | API Call                                | Mock Response      | Assertions                                             |
+| ------------------------------- | --------------------------------------- | ------------------ | ------------------------------------------------------ |
+| TC-INT-020: Health check        | GET /rest/api/3/myself                  | 200 OK with user   | `healthCheck()` returns `{ ok: true }`                 |
+| TC-INT-021: Health check failed | GET /rest/api/3/myself                  | 401 Unauthorized   | `healthCheck()` returns `{ ok: false, detail: '...' }` |
+| TC-INT-022: Fetch sprint issues | GET /rest/agile/1.0/sprint/{id}/issue   | 200 with issues    | Returns normalised signals                             |
+| TC-INT-023: Fetch issue delta   | GET /rest/api/3/search with JQL         | 200 with issues    | Only updated since checkpoint                          |
+| TC-INT-024: Rate limited        | 429 Too Many Requests                   | Retry after header | Automatic retry with backoff                           |
+| TC-INT-025: Paginated response  | Multiple pages                          | All pages fetched  | Total count matches                                    |
+| TC-INT-026: Add comment         | POST /rest/api/3/issue/{id}/comment     | 201 Created        | Comment ID returned                                    |
+| TC-INT-027: Change status       | POST /rest/api/3/issue/{id}/transitions | 204 No Content     | Status updated                                         |
+| TC-INT-028: Invalid transition  | POST transition not allowed             | 400 Bad Request    | Error handled gracefully                               |
+| TC-INT-029: Server error        | 500 Internal Server Error               | Retry, then fail   | Max 3 retries                                          |
+| TC-INT-030: Timeout             | Response hangs                          | Timeout after 30s  | Clean timeout error                                    |
 
 ```typescript
 // Jira integration test with MSW
@@ -497,60 +509,64 @@ describe('Jira SignalSource', () => {
 
 **File:** `packages/core/src/integrations/__tests__/outlook.integration.test.ts`
 
-| Test Case | API Call | Mock Response | Assertions |
-|-----------|----------|---------------|------------|
-| TC-INT-040: Health check | GET /users/{id} | 200 OK | `healthCheck()` returns `{ ok: true }` |
-| TC-INT-041: Auth failure | 401 Unauthorized | Token refresh | Automatic token refresh attempted |
-| TC-INT-042: Delta query initial | GET /users/{id}/messages/delta | 200 with messages | Returns signals + deltaLink |
-| TC-INT-043: Delta query incremental | GET deltaLink | 200 with new messages | Only new messages |
-| TC-INT-044: Empty delta | GET deltaLink | 200 with empty array | No signals, new deltaLink |
-| TC-INT-045: Send email | POST /users/{id}/sendMail | 202 Accepted | Email queued |
-| TC-INT-046: Large mailbox | 1000+ message delta | Paginated fetch | All messages retrieved |
-| TC-INT-047: Attachment metadata | Message with attachments | Attachment info without content | No large downloads |
-| TC-INT-048: Rate limited | 429 with Retry-After | Automatic retry | Respects Retry-After header |
-| TC-INT-049: Consent required | 403 Forbidden | Clear error | Suggests admin consent |
+| Test Case                           | API Call                       | Mock Response                   | Assertions                             |
+| ----------------------------------- | ------------------------------ | ------------------------------- | -------------------------------------- |
+| TC-INT-040: Health check            | GET /users/{id}                | 200 OK                          | `healthCheck()` returns `{ ok: true }` |
+| TC-INT-041: Auth failure            | 401 Unauthorized               | Token refresh                   | Automatic token refresh attempted      |
+| TC-INT-042: Delta query initial     | GET /users/{id}/messages/delta | 200 with messages               | Returns signals + deltaLink            |
+| TC-INT-043: Delta query incremental | GET deltaLink                  | 200 with new messages           | Only new messages                      |
+| TC-INT-044: Empty delta             | GET deltaLink                  | 200 with empty array            | No signals, new deltaLink              |
+| TC-INT-045: Send email              | POST /users/{id}/sendMail      | 202 Accepted                    | Email queued                           |
+| TC-INT-046: Large mailbox           | 1000+ message delta            | Paginated fetch                 | All messages retrieved                 |
+| TC-INT-047: Attachment metadata     | Message with attachments       | Attachment info without content | No large downloads                     |
+| TC-INT-048: Rate limited            | 429 with Retry-After           | Automatic retry                 | Respects Retry-After header            |
+| TC-INT-049: Consent required        | 403 Forbidden                  | Clear error                     | Suggests admin consent                 |
 
 ### 3.4 Amazon SES Integration
 
 **File:** `packages/core/src/integrations/__tests__/ses.integration.test.ts`
 
 **Prerequisites:**
+
 - LocalStack or SES test mode
 - Verified test email address
 
-| Test Case | Operation | Assertions |
-|-----------|-----------|------------|
-| TC-INT-060: Send simple email | SendEmailCommand | Email sent, MessageId returned |
-| TC-INT-061: Send with HTML | HTML body | Renders correctly |
+| Test Case                        | Operation                 | Assertions                     |
+| -------------------------------- | ------------------------- | ------------------------------ |
+| TC-INT-060: Send simple email    | SendEmailCommand          | Email sent, MessageId returned |
+| TC-INT-061: Send with HTML       | HTML body                 | Renders correctly              |
 | TC-INT-062: Send templated email | SendTemplatedEmailCommand | Template variables substituted |
-| TC-INT-063: Quota check | GetSendQuotaCommand | Returns quota limits |
-| TC-INT-064: Bounce handling | Simulate bounce | Bounce notification logged |
-| TC-INT-065: Invalid recipient | Malformed email address | Validation error thrown |
-| TC-INT-066: Sandbox mode | Unverified recipient | Error with clear message |
+| TC-INT-063: Quota check          | GetSendQuotaCommand       | Returns quota limits           |
+| TC-INT-064: Bounce handling      | Simulate bounce           | Bounce notification logged     |
+| TC-INT-065: Invalid recipient    | Malformed email address   | Validation error thrown        |
+| TC-INT-066: Sandbox mode         | Unverified recipient      | Error with clear message       |
 
 ### 3.5 Claude API Integration
 
 **File:** `packages/core/src/llm/__tests__/client.integration.test.ts`
 
-**Mode:** Run with real Claude API but strict budget cap ($0.10 per test suite run).
+**Mode:** Run with real Claude API but strict budget cap ($0.10 per test suite
+run).
 
-| Test Case | Operation | Assertions |
-|-----------|-----------|------------|
-| TC-INT-080: Tool-use classification | Classify signal with tool | Returns structured tool call |
-| TC-INT-081: Tool-use artefact generation | Generate delivery state | Valid schema output |
-| TC-INT-082: Prompt caching | Same system prompt twice | Second call uses cache |
-| TC-INT-083: Model routing | Haiku for triage | Correct model called |
-| TC-INT-084: Model routing | Sonnet for reasoning | Correct model called |
-| TC-INT-085: Token counting | Known prompt | Actual tokens within 10% estimate |
-| TC-INT-086: Error handling | Invalid API key | Clear error, no retry loop |
-| TC-INT-087: Context window | Large context | Handles gracefully |
-| TC-INT-088: Timeout | Long response | Respects timeout setting |
+| Test Case                                | Operation                 | Assertions                        |
+| ---------------------------------------- | ------------------------- | --------------------------------- |
+| TC-INT-080: Tool-use classification      | Classify signal with tool | Returns structured tool call      |
+| TC-INT-081: Tool-use artefact generation | Generate delivery state   | Valid schema output               |
+| TC-INT-082: Prompt caching               | Same system prompt twice  | Second call uses cache            |
+| TC-INT-083: Model routing                | Haiku for triage          | Correct model called              |
+| TC-INT-084: Model routing                | Sonnet for reasoning      | Correct model called              |
+| TC-INT-085: Token counting               | Known prompt              | Actual tokens within 10% estimate |
+| TC-INT-086: Error handling               | Invalid API key           | Clear error, no retry loop        |
+| TC-INT-087: Context window               | Large context             | Handles gracefully                |
+| TC-INT-088: Timeout                      | Long response             | Respects timeout setting          |
 
 ---
 
 ## 4. Golden Scenarios
 
-Golden scenarios are end-to-end test cases using realistic data that validate the complete agent cycle. Each scenario is run 5 times to account for LLM non-determinism.
+Golden scenarios are end-to-end test cases using realistic data that validate
+the complete agent cycle. Each scenario is run 5 times to account for LLM
+non-determinism.
 
 ### 4.1 Scenario Structure
 
@@ -563,7 +579,7 @@ interface GoldenScenario {
     jiraSignals: JiraWebhookPayload[];
     outlookSignals: GraphDeltaResponse;
     existingArtefacts: Artefact[];
-    agentConfig: { autonomyLevel: 1 | 2 | 3; /* ... */ };
+    agentConfig: { autonomyLevel: 1 | 2 | 3 /* ... */ };
   };
   expected: {
     classifications: ExpectedClassification[];
@@ -572,10 +588,10 @@ interface GoldenScenario {
     escalations: ExpectedEscalation[];
   };
   assertions: {
-    classificationAccuracy: number;  // e.g., 0.9 = 90%
-    noHallucinatedActions: boolean;  // Must be true
-    artefactSchemaValid: boolean;    // Must be true
-    confidenceScoresValid: boolean;  // All dimensions computed
+    classificationAccuracy: number; // e.g., 0.9 = 90%
+    noHallucinatedActions: boolean; // Must be true
+    artefactSchemaValid: boolean; // Must be true
+    confidenceScoresValid: boolean; // All dimensions computed
   };
 }
 ```
@@ -586,21 +602,38 @@ interface GoldenScenario {
 
 **Name:** Routine sprint progress update with no risks
 
-**Description:** Agent receives normal sprint activity (status changes, comments) and updates delivery state without escalation.
+**Description:** Agent receives normal sprint activity (status changes,
+comments) and updates delivery state without escalation.
 
 **Input:**
+
 ```json
 {
   "jiraSignals": [
     {
       "webhookEvent": "jira:issue_updated",
       "issue": { "key": "MCU-142", "fields": { "status": { "name": "Done" } } },
-      "changelog": { "items": [{ "field": "status", "fromString": "In Progress", "toString": "Done" }] }
+      "changelog": {
+        "items": [
+          { "field": "status", "fromString": "In Progress", "toString": "Done" }
+        ]
+      }
     },
     {
       "webhookEvent": "jira:issue_updated",
-      "issue": { "key": "MCU-143", "fields": { "status": { "name": "In Progress" } } },
-      "changelog": { "items": [{ "field": "status", "fromString": "To Do", "toString": "In Progress" }] }
+      "issue": {
+        "key": "MCU-143",
+        "fields": { "status": { "name": "In Progress" } }
+      },
+      "changelog": {
+        "items": [
+          {
+            "field": "status",
+            "fromString": "To Do",
+            "toString": "In Progress"
+          }
+        ]
+      }
     }
   ],
   "outlookSignals": { "value": [] },
@@ -615,6 +648,7 @@ interface GoldenScenario {
 ```
 
 **Expected:**
+
 ```json
 {
   "classifications": [
@@ -622,7 +656,11 @@ interface GoldenScenario {
     { "signalKey": "MCU-143", "classification": "routine", "priority": "low" }
   ],
   "actions": [
-    { "type": "artefact_update", "target": "delivery_state", "autoExecute": true }
+    {
+      "type": "artefact_update",
+      "target": "delivery_state",
+      "autoExecute": true
+    }
   ],
   "artefactUpdates": [
     {
@@ -635,6 +673,7 @@ interface GoldenScenario {
 ```
 
 **Assertions:**
+
 - Classification accuracy >= 90% (both signals classified as routine)
 - No escalations created
 - Delivery state points increased
@@ -647,6 +686,7 @@ interface GoldenScenario {
 **Name:** Blocker flag triggers RAID log update and elevated visibility
 
 **Input:**
+
 ```json
 {
   "jiraSignals": [
@@ -661,7 +701,9 @@ interface GoldenScenario {
         }
       },
       "changelog": {
-        "items": [{ "field": "Flagged", "fromString": "", "toString": "Impediment" }]
+        "items": [
+          { "field": "Flagged", "fromString": "", "toString": "Impediment" }
+        ]
       }
     }
   ],
@@ -674,6 +716,7 @@ interface GoldenScenario {
 ```
 
 **Expected:**
+
 ```json
 {
   "classifications": [
@@ -681,7 +724,11 @@ interface GoldenScenario {
   ],
   "actions": [
     { "type": "artefact_update", "target": "raid_log", "autoExecute": true },
-    { "type": "artefact_update", "target": "delivery_state", "autoExecute": true }
+    {
+      "type": "artefact_update",
+      "target": "delivery_state",
+      "autoExecute": true
+    }
   ],
   "artefactUpdates": [
     {
@@ -690,7 +737,10 @@ interface GoldenScenario {
     },
     {
       "type": "delivery_state",
-      "changes": { "blockers": "contains_new_blocker", "overall_status": "amber" }
+      "changes": {
+        "blockers": "contains_new_blocker",
+        "overall_status": "amber"
+      }
     }
   ],
   "escalations": []
@@ -698,6 +748,7 @@ interface GoldenScenario {
 ```
 
 **Assertions:**
+
 - Signal classified as blocker (not routine)
 - RAID log contains new issue item
 - Delivery state status changed to amber (not still green)
@@ -711,6 +762,7 @@ interface GoldenScenario {
 **Name:** Mid-sprint ticket additions trigger scope change escalation
 
 **Input:**
+
 ```json
 {
   "jiraSignals": [
@@ -753,15 +805,32 @@ interface GoldenScenario {
 ```
 
 **Expected:**
+
 ```json
 {
   "classifications": [
-    { "signalKey": "MCU-200", "classification": "scope_change", "priority": "medium" },
-    { "signalKey": "MCU-201", "classification": "scope_change", "priority": "medium" }
+    {
+      "signalKey": "MCU-200",
+      "classification": "scope_change",
+      "priority": "medium"
+    },
+    {
+      "signalKey": "MCU-201",
+      "classification": "scope_change",
+      "priority": "medium"
+    }
   ],
   "actions": [
-    { "type": "artefact_update", "target": "backlog_summary", "autoExecute": true },
-    { "type": "artefact_update", "target": "delivery_state", "autoExecute": true },
+    {
+      "type": "artefact_update",
+      "target": "backlog_summary",
+      "autoExecute": true
+    },
+    {
+      "type": "artefact_update",
+      "target": "delivery_state",
+      "autoExecute": true
+    },
     { "type": "escalation_created", "autoExecute": false }
   ],
   "artefactUpdates": [
@@ -781,6 +850,7 @@ interface GoldenScenario {
 ```
 
 **Assertions:**
+
 - Both tickets classified as scope_change
 - Backlog summary updated with scope notes
 - Escalation created (user must decide on scope)
@@ -794,6 +864,7 @@ interface GoldenScenario {
 **Name:** Important stakeholder email triggers draft response (Level 3)
 
 **Input:**
+
 ```json
 {
   "jiraSignals": [],
@@ -802,7 +873,9 @@ interface GoldenScenario {
       {
         "id": "email-001",
         "subject": "Re: Project status update needed",
-        "from": { "emailAddress": { "address": "ceo@company.com", "name": "CEO" } },
+        "from": {
+          "emailAddress": { "address": "ceo@company.com", "name": "CEO" }
+        },
         "importance": "high",
         "body": { "content": "Can you send me the latest status by EOD?" },
         "receivedDateTime": "2026-02-05T09:00:00Z"
@@ -810,17 +883,25 @@ interface GoldenScenario {
     ]
   },
   "existingArtefacts": {
-    "delivery_state": { "overall_status": "amber", "status_summary": "On track with one blocker" }
+    "delivery_state": {
+      "overall_status": "amber",
+      "status_summary": "On track with one blocker"
+    }
   },
   "agentConfig": { "autonomyLevel": 3 }
 }
 ```
 
 **Expected:**
+
 ```json
 {
   "classifications": [
-    { "signalKey": "email-001", "classification": "stakeholder_comms", "priority": "high" }
+    {
+      "signalKey": "email-001",
+      "classification": "stakeholder_comms",
+      "priority": "high"
+    }
   ],
   "actions": [
     { "type": "email_stakeholder", "holdQueue": true, "holdDuration": 30 }
@@ -831,6 +912,7 @@ interface GoldenScenario {
 ```
 
 **Assertions:**
+
 - Email classified as stakeholder communication with high priority
 - Draft email action created (not sent immediately)
 - Action placed in hold queue for 30 minutes
@@ -844,6 +926,7 @@ interface GoldenScenario {
 **Name:** Correlated signals from Jira and email indicate risk
 
 **Input:**
+
 ```json
 {
   "jiraSignals": [
@@ -856,7 +939,9 @@ interface GoldenScenario {
           "duedate": "2026-02-10"
         }
       },
-      "comment": { "body": "This is taking longer than expected. May need extra week." }
+      "comment": {
+        "body": "This is taking longer than expected. May need extra week."
+      }
     }
   ],
   "outlookSignals": {
@@ -865,7 +950,9 @@ interface GoldenScenario {
         "id": "email-002",
         "subject": "API migration timeline concerns",
         "from": { "emailAddress": { "address": "dev-lead@company.com" } },
-        "body": { "content": "We're facing unexpected complexity with the API migration. The Feb 10 deadline is at risk." }
+        "body": {
+          "content": "We're facing unexpected complexity with the API migration. The Feb 10 deadline is at risk."
+        }
       }
     ]
   },
@@ -873,7 +960,13 @@ interface GoldenScenario {
     "raid_log": { "items": [] },
     "delivery_state": {
       "overall_status": "green",
-      "milestones": [{ "name": "API Migration", "due_date": "2026-02-10", "status": "on_track" }]
+      "milestones": [
+        {
+          "name": "API Migration",
+          "due_date": "2026-02-10",
+          "status": "on_track"
+        }
+      ]
     }
   },
   "agentConfig": { "autonomyLevel": 2 }
@@ -881,28 +974,45 @@ interface GoldenScenario {
 ```
 
 **Expected:**
+
 ```json
 {
   "classifications": [
-    { "signalKey": "MCU-180", "classification": "risk_indicator", "priority": "high" },
-    { "signalKey": "email-002", "classification": "risk_indicator", "priority": "high" }
+    {
+      "signalKey": "MCU-180",
+      "classification": "risk_indicator",
+      "priority": "high"
+    },
+    {
+      "signalKey": "email-002",
+      "classification": "risk_indicator",
+      "priority": "high"
+    }
   ],
   "actions": [
     { "type": "artefact_update", "target": "raid_log", "autoExecute": true },
-    { "type": "artefact_update", "target": "delivery_state", "autoExecute": true }
+    {
+      "type": "artefact_update",
+      "target": "delivery_state",
+      "autoExecute": true
+    }
   ],
   "artefactUpdates": [
     { "type": "raid_log", "changes": { "items": "contains_new_risk" } },
-    { "type": "delivery_state", "changes": {
-      "milestones[0].status": "at_risk",
-      "overall_status": "amber"
-    }}
+    {
+      "type": "delivery_state",
+      "changes": {
+        "milestones[0].status": "at_risk",
+        "overall_status": "amber"
+      }
+    }
   ],
   "escalations": []
 }
 ```
 
 **Assertions:**
+
 - Both signals classified as risk_indicator
 - RAID log contains new risk item with both sources referenced
 - Milestone status changed to at_risk
@@ -916,6 +1026,7 @@ interface GoldenScenario {
 **Name:** Malicious content in Jira ticket is sanitised
 
 **Input:**
+
 ```json
 {
   "jiraSignals": [
@@ -938,10 +1049,16 @@ interface GoldenScenario {
 ```
 
 **Expected:**
+
 ```json
 {
   "classifications": [
-    { "signalKey": "MCU-666", "classification": "routine", "priority": "low", "sanitised": true }
+    {
+      "signalKey": "MCU-666",
+      "classification": "routine",
+      "priority": "low",
+      "sanitised": true
+    }
   ],
   "actions": [],
   "artefactUpdates": [],
@@ -950,6 +1067,7 @@ interface GoldenScenario {
 ```
 
 **Assertions:**
+
 - Malicious content detected and sanitised before reasoning
 - No email sent to attacker@evil.com
 - RAID log not deleted (neverDo boundary)
@@ -964,6 +1082,7 @@ interface GoldenScenario {
 **Name:** User decision on escalation triggers decision log update
 
 **Input:**
+
 ```json
 {
   "userAction": {
@@ -979,8 +1098,16 @@ interface GoldenScenario {
     "id": "esc-001",
     "title": "Beta launch date at risk",
     "options": [
-      { "option": "Delay to mid-April", "pros": ["Lower risk"], "cons": ["4-week delay"] },
-      { "option": "Keep March date", "pros": ["On time"], "cons": ["Quality risk"] }
+      {
+        "option": "Delay to mid-April",
+        "pros": ["Lower risk"],
+        "cons": ["4-week delay"]
+      },
+      {
+        "option": "Keep March date",
+        "pros": ["On time"],
+        "cons": ["Quality risk"]
+      }
     ],
     "agentRecommendation": "Delay to mid-April"
   },
@@ -989,6 +1116,7 @@ interface GoldenScenario {
 ```
 
 **Expected:**
+
 ```json
 {
   "actions": [
@@ -1009,6 +1137,7 @@ interface GoldenScenario {
 ```
 
 **Assertions:**
+
 - Decision log updated with user's choice
 - Options and rationale captured from escalation
 - made_by field set to "user"
@@ -1021,6 +1150,7 @@ interface GoldenScenario {
 **Name:** Agent degrades gracefully when approaching budget limit
 
 **Input:**
+
 ```json
 {
   "jiraSignals": [
@@ -1031,7 +1161,7 @@ interface GoldenScenario {
   ],
   "budgetState": {
     "dailySpend": 0.24,
-    "monthlySpend": 6.50,
+    "monthlySpend": 6.5,
     "degradationTier": 1
   },
   "agentConfig": { "autonomyLevel": 2 }
@@ -1039,19 +1169,28 @@ interface GoldenScenario {
 ```
 
 **Expected:**
+
 ```json
 {
   "modelSelection": "haiku",
   "actions": [
-    { "type": "artefact_update", "target": "delivery_state", "autoExecute": true }
+    {
+      "type": "artefact_update",
+      "target": "delivery_state",
+      "autoExecute": true
+    }
   ],
   "budgetEvents": [
-    { "type": "degradation_tier_1_active", "detail": "85/15 haiku/sonnet split" }
+    {
+      "type": "degradation_tier_1_active",
+      "detail": "85/15 haiku/sonnet split"
+    }
   ]
 }
 ```
 
 **Assertions:**
+
 - Haiku used instead of Sonnet for all operations
 - Agent still functional (not in monitoring-only mode)
 - Budget degradation logged as event
@@ -1064,6 +1203,7 @@ interface GoldenScenario {
 **Name:** Held email released after approval window
 
 **Input:**
+
 ```json
 {
   "heldActions": [
@@ -1085,6 +1225,7 @@ interface GoldenScenario {
 ```
 
 **Expected:**
+
 ```json
 {
   "actions": [
@@ -1102,6 +1243,7 @@ interface GoldenScenario {
 ```
 
 **Assertions:**
+
 - Action executed after heldUntil time passed
 - Email actually sent (via mocked SES)
 - Execution logged as event
@@ -1114,6 +1256,7 @@ interface GoldenScenario {
 **Name:** Agent in monitoring mode observes but takes no actions
 
 **Input:**
+
 ```json
 {
   "jiraSignals": [
@@ -1140,23 +1283,32 @@ interface GoldenScenario {
 ```
 
 **Expected:**
+
 ```json
 {
   "classifications": [
     { "signalKey": "MCU-400", "classification": "blocker", "priority": "high" },
-    { "signalKey": "email-003", "classification": "stakeholder_comms", "priority": "high" }
+    {
+      "signalKey": "email-003",
+      "classification": "stakeholder_comms",
+      "priority": "high"
+    }
   ],
   "actions": [],
   "artefactUpdates": [],
   "escalations": [],
   "events": [
-    { "type": "signal_detected", "detail": { "signals": 2, "mode": "monitoring" } },
+    {
+      "type": "signal_detected",
+      "detail": { "signals": 2, "mode": "monitoring" }
+    },
     { "type": "action_blocked", "detail": { "reason": "autonomy_level_1" } }
   ]
 }
 ```
 
 **Assertions:**
+
 - Signals correctly classified
 - No artefact updates (blocked by autonomy level)
 - No escalations created
@@ -1188,28 +1340,30 @@ describe('Golden Scenarios', () => {
       });
 
       it('achieves classification accuracy >= 90%', () => {
-        const accuracies = results.map(r => r.classificationAccuracy);
+        const accuracies = results.map((r) => r.classificationAccuracy);
         const avgAccuracy = average(accuracies);
         expect(avgAccuracy).toBeGreaterThanOrEqual(0.9);
       });
 
       it('produces no hallucinated actions', () => {
-        results.forEach(result => {
+        results.forEach((result) => {
           expect(result.hallucinatedActions).toHaveLength(0);
         });
       });
 
       it('generates valid artefact schemas', () => {
-        results.forEach(result => {
-          result.artefactOutputs.forEach(output => {
-            expect(validateSchema(output.type, output.content).valid).toBe(true);
+        results.forEach((result) => {
+          result.artefactOutputs.forEach((output) => {
+            expect(validateSchema(output.type, output.content).valid).toBe(
+              true
+            );
           });
         });
       });
 
       it('computes valid confidence scores', () => {
-        results.forEach(result => {
-          result.confidenceScores.forEach(score => {
+        results.forEach((result) => {
+          result.confidenceScores.forEach((score) => {
             expect(score.sourceAgreement).toBeGreaterThanOrEqual(0);
             expect(score.sourceAgreement).toBeLessThanOrEqual(1);
             expect(score.boundaryCompliance).toBeOneOf([0, 1]);
@@ -1291,7 +1445,9 @@ module.exports = {
 import { faker } from '@faker-js/faker';
 
 // Jira factories
-export function createJiraWebhookPayload(overrides: Partial<JiraWebhook> = {}): JiraWebhook {
+export function createJiraWebhookPayload(
+  overrides: Partial<JiraWebhook> = {}
+): JiraWebhook {
   return {
     webhookEvent: 'jira:issue_updated',
     timestamp: faker.date.recent().toISOString(),
@@ -1314,7 +1470,9 @@ export function createJiraWebhookPayload(overrides: Partial<JiraWebhook> = {}): 
 }
 
 // Graph API factories
-export function createGraphEmailMessage(overrides: Partial<GraphMessage> = {}): GraphMessage {
+export function createGraphEmailMessage(
+  overrides: Partial<GraphMessage> = {}
+): GraphMessage {
   return {
     id: faker.string.uuid(),
     subject: faker.lorem.sentence(),
@@ -1344,7 +1502,9 @@ export function createGraphEmailMessage(overrides: Partial<GraphMessage> = {}): 
 }
 
 // Artefact factories
-export function createValidDeliveryState(overrides: Partial<DeliveryState> = {}): DeliveryState {
+export function createValidDeliveryState(
+  overrides: Partial<DeliveryState> = {}
+): DeliveryState {
   return {
     overall_status: 'green',
     status_summary: faker.lorem.paragraph(),
@@ -1383,7 +1543,12 @@ export function createValidRAIDLog(overrides: Partial<RAIDLog> = {}): RAIDLog {
 export function createRAIDItem(overrides: Partial<RAIDItem> = {}): RAIDItem {
   return {
     id: `R${faker.string.numeric(3)}`,
-    type: faker.helpers.arrayElement(['risk', 'assumption', 'issue', 'dependency']),
+    type: faker.helpers.arrayElement([
+      'risk',
+      'assumption',
+      'issue',
+      'dependency',
+    ]),
     title: faker.lorem.sentence(),
     description: faker.lorem.paragraph(),
     severity: faker.helpers.arrayElement(['critical', 'high', 'medium', 'low']),
@@ -1418,7 +1583,9 @@ export function createTestProject(overrides: Partial<Project> = {}): Project {
   };
 }
 
-export function createTestEscalation(overrides: Partial<Escalation> = {}): Escalation {
+export function createTestEscalation(
+  overrides: Partial<Escalation> = {}
+): Escalation {
   return {
     id: faker.string.uuid(),
     projectId: faker.string.uuid(),
@@ -1475,21 +1642,33 @@ export const jiraHandlers = [
 
 // MSW handlers for Microsoft Graph API
 export const graphHandlers = [
-  rest.get('https://graph.microsoft.com/v1.0/users/:userId', (req, res, ctx) => {
-    return res(ctx.json({ id: req.params.userId, displayName: 'Test User' }));
-  }),
+  rest.get(
+    'https://graph.microsoft.com/v1.0/users/:userId',
+    (req, res, ctx) => {
+      return res(ctx.json({ id: req.params.userId, displayName: 'Test User' }));
+    }
+  ),
 
-  rest.get('https://graph.microsoft.com/v1.0/users/:userId/messages/delta', (req, res, ctx) => {
-    const messages = generateMockEmails(3);
-    return res(ctx.json({
-      value: messages,
-      '@odata.deltaLink': 'https://graph.microsoft.com/delta?token=new-token',
-    }));
-  }),
+  rest.get(
+    'https://graph.microsoft.com/v1.0/users/:userId/messages/delta',
+    (req, res, ctx) => {
+      const messages = generateMockEmails(3);
+      return res(
+        ctx.json({
+          value: messages,
+          '@odata.deltaLink':
+            'https://graph.microsoft.com/delta?token=new-token',
+        })
+      );
+    }
+  ),
 
-  rest.post('https://graph.microsoft.com/v1.0/users/:userId/sendMail', (req, res, ctx) => {
-    return res(ctx.status(202));
-  }),
+  rest.post(
+    'https://graph.microsoft.com/v1.0/users/:userId/sendMail',
+    (req, res, ctx) => {
+      return res(ctx.status(202));
+    }
+  ),
 ];
 
 // Combined server
@@ -1541,9 +1720,12 @@ export function createMockClaudeClient(responses: Map<string, unknown>) {
   const calls: Array<{ prompt: string; model: string }> = [];
 
   return {
-    async complete(params: { model: string; messages: Array<{ content: string }> }) {
+    async complete(params: {
+      model: string;
+      messages: Array<{ content: string }>;
+    }) {
       callCount++;
-      const prompt = params.messages.map(m => m.content).join('\n');
+      const prompt = params.messages.map((m) => m.content).join('\n');
       calls.push({ prompt, model: params.model });
 
       // Return predefined response or default
@@ -1661,13 +1843,15 @@ beforeAll(async () => {
 ```typescript
 // LLM evaluation test setup - real Claude API with budget cap
 
-const BUDGET_CAP_USD = 0.10; // Max spend per test suite run
+const BUDGET_CAP_USD = 0.1; // Max spend per test suite run
 let totalSpend = 0;
 
 beforeAll(() => {
   // Verify Claude API key is set
   if (!process.env.CLAUDE_API_KEY) {
-    throw new Error('CLAUDE_API_KEY environment variable required for LLM eval tests');
+    throw new Error(
+      'CLAUDE_API_KEY environment variable required for LLM eval tests'
+    );
   }
 
   // Reset spend tracker
@@ -1677,19 +1861,28 @@ beforeAll(() => {
 afterEach(() => {
   // Check budget after each test
   if (totalSpend > BUDGET_CAP_USD) {
-    throw new Error(`LLM evaluation budget exceeded: $${totalSpend.toFixed(4)} > $${BUDGET_CAP_USD}`);
+    throw new Error(
+      `LLM evaluation budget exceeded: $${totalSpend.toFixed(4)} > $${BUDGET_CAP_USD}`
+    );
   }
 });
 
 // Export spend tracking function for use in tests
-export function recordLLMSpend(inputTokens: number, outputTokens: number, model: 'haiku' | 'sonnet') {
+export function recordLLMSpend(
+  inputTokens: number,
+  outputTokens: number,
+  model: 'haiku' | 'sonnet'
+) {
   const rates = {
-    haiku: { input: 1.00 / 1_000_000, output: 5.00 / 1_000_000 },
-    sonnet: { input: 3.00 / 1_000_000, output: 15.00 / 1_000_000 },
+    haiku: { input: 1.0 / 1_000_000, output: 5.0 / 1_000_000 },
+    sonnet: { input: 3.0 / 1_000_000, output: 15.0 / 1_000_000 },
   };
-  const cost = (inputTokens * rates[model].input) + (outputTokens * rates[model].output);
+  const cost =
+    inputTokens * rates[model].input + outputTokens * rates[model].output;
   totalSpend += cost;
-  console.log(`LLM spend: $${cost.toFixed(6)} (total: $${totalSpend.toFixed(4)})`);
+  console.log(
+    `LLM spend: $${cost.toFixed(6)} (total: $${totalSpend.toFixed(4)})`
+  );
 }
 ```
 
@@ -1699,14 +1892,14 @@ export function recordLLMSpend(inputTokens: number, outputTokens: number, model:
 
 ### 6.1 Evaluation Metrics
 
-| Metric | Definition | Target | Measurement |
-|--------|------------|--------|-------------|
-| **Classification Accuracy** | % of signals classified correctly | >= 90% | Compare to human-labelled ground truth |
-| **Hallucination Rate** | % of actions not supported by input | 0% | Check each action traces to input signals |
-| **Schema Compliance** | % of outputs matching schema | 100% | JSON schema validation |
-| **Confidence Calibration** | Correlation between confidence and correctness | > 0.7 | Compare confidence scores to actual outcomes |
-| **Response Consistency** | Same input produces similar outputs | > 80% | Run same scenario 5 times, compare outputs |
-| **Latency** | Time to complete LLM call | < 30s P95 | Measure per-call latency |
+| Metric                      | Definition                                     | Target    | Measurement                                  |
+| --------------------------- | ---------------------------------------------- | --------- | -------------------------------------------- |
+| **Classification Accuracy** | % of signals classified correctly              | >= 90%    | Compare to human-labelled ground truth       |
+| **Hallucination Rate**      | % of actions not supported by input            | 0%        | Check each action traces to input signals    |
+| **Schema Compliance**       | % of outputs matching schema                   | 100%      | JSON schema validation                       |
+| **Confidence Calibration**  | Correlation between confidence and correctness | > 0.7     | Compare confidence scores to actual outcomes |
+| **Response Consistency**    | Same input produces similar outputs            | > 80%     | Run same scenario 5 times, compare outputs   |
+| **Latency**                 | Time to complete LLM call                      | < 30s P95 | Measure per-call latency                     |
 
 ### 6.2 Classification Accuracy Measurement
 
@@ -1735,15 +1928,21 @@ function evaluateClassification(
   const errors: string[] = [];
 
   if (predicted.classification !== groundTruth.classification) {
-    errors.push(`classification: expected ${groundTruth.classification}, got ${predicted.classification}`);
+    errors.push(
+      `classification: expected ${groundTruth.classification}, got ${predicted.classification}`
+    );
   }
 
   if (predicted.priority !== groundTruth.priority) {
-    errors.push(`priority: expected ${groundTruth.priority}, got ${predicted.priority}`);
+    errors.push(
+      `priority: expected ${groundTruth.priority}, got ${predicted.priority}`
+    );
   }
 
   if (predicted.shouldEscalate !== groundTruth.shouldEscalate) {
-    errors.push(`escalation: expected ${groundTruth.shouldEscalate}, got ${predicted.shouldEscalate}`);
+    errors.push(
+      `escalation: expected ${groundTruth.shouldEscalate}, got ${predicted.shouldEscalate}`
+    );
   }
 
   return {
@@ -1756,7 +1955,7 @@ function evaluateClassification(
 }
 
 function calculateAccuracy(evaluations: ClassificationEvaluation[]): number {
-  const correct = evaluations.filter(e => e.correct).length;
+  const correct = evaluations.filter((e) => e.correct).length;
   return correct / evaluations.length;
 }
 ```
@@ -1764,6 +1963,7 @@ function calculateAccuracy(evaluations: ClassificationEvaluation[]): number {
 ### 6.3 Hallucination Detection
 
 A hallucinated action is one that:
+
 1. Is not in the `decisionBoundaries` allowlist, OR
 2. Cannot be traced back to an input signal, OR
 3. References entities not present in the input
@@ -1781,7 +1981,7 @@ function checkForHallucinations(
   inputSignals: NormalisedSignal[],
   existingArtefacts: Artefact[]
 ): HallucinationCheck[] {
-  return actions.map(action => {
+  return actions.map((action) => {
     // Check 1: Is action type in allowlist?
     if (!isAllowedActionType(action.type)) {
       return {
@@ -1793,8 +1993,8 @@ function checkForHallucinations(
     }
 
     // Check 2: Can action be traced to input signal?
-    const hasSourceSignal = inputSignals.some(
-      signal => action.sourceSignals?.includes(signal.id)
+    const hasSourceSignal = inputSignals.some((signal) =>
+      action.sourceSignals?.includes(signal.id)
     );
     if (!hasSourceSignal && action.type !== 'heartbeat_log') {
       return {
@@ -1808,7 +2008,7 @@ function checkForHallucinations(
     // Check 3: Do referenced entities exist?
     if (action.target?.projectId) {
       const projectExists = existingArtefacts.some(
-        a => a.projectId === action.target.projectId
+        (a) => a.projectId === action.target.projectId
       );
       if (!projectExists) {
         return {
@@ -1865,8 +2065,10 @@ async function getEvaluationTrend(days: number): Promise<TrendData> {
   });
 
   return {
-    avgAccuracy: average(records.map(r => r.metrics.classificationAccuracy)),
-    avgHallucinationRate: average(records.map(r => r.metrics.hallucinationRate)),
+    avgAccuracy: average(records.map((r) => r.metrics.classificationAccuracy)),
+    avgHallucinationRate: average(
+      records.map((r) => r.metrics.hallucinationRate)
+    ),
     accuracyTrend: calculateTrend(records, 'classificationAccuracy'),
     costTrend: calculateTrend(records, 'totalCostUsd'),
   };
@@ -1893,19 +2095,22 @@ function checkForRegressions(
   const alerts: RegressionAlert[] = [];
 
   // Classification accuracy regression
-  const accuracyDelta = current.metrics.classificationAccuracy - baseline.metrics.classificationAccuracy;
+  const accuracyDelta =
+    current.metrics.classificationAccuracy -
+    baseline.metrics.classificationAccuracy;
   if (accuracyDelta < -0.05) {
     alerts.push({
       metric: 'classificationAccuracy',
       baseline: baseline.metrics.classificationAccuracy,
       current: current.metrics.classificationAccuracy,
       delta: accuracyDelta,
-      severity: accuracyDelta < -0.10 ? 'critical' : 'warning',
+      severity: accuracyDelta < -0.1 ? 'critical' : 'warning',
     });
   }
 
   // Hallucination rate increase
-  const hallucinationDelta = current.metrics.hallucinationRate - baseline.metrics.hallucinationRate;
+  const hallucinationDelta =
+    current.metrics.hallucinationRate - baseline.metrics.hallucinationRate;
   if (hallucinationDelta > 0.01) {
     alerts.push({
       metric: 'hallucinationRate',
@@ -2094,36 +2299,36 @@ module.exports = {
 
 ### 8.1 PR Merge Requirements
 
-| Gate | Requirement | Enforcement |
-|------|-------------|-------------|
-| Unit test pass | All unit tests pass | CI required status |
-| Integration test pass | All integration tests pass | CI required status |
-| Coverage threshold | >= 90% line coverage on `@agentic-pm/core` | Codecov check |
-| No lint errors | ESLint passes with zero errors | CI required status |
-| Type check | TypeScript compiles without errors | CI required status |
-| Build succeeds | Production build completes | CI required status |
-| Review approval | At least 1 approval (or self-merge for solo dev) | Branch protection |
+| Gate                  | Requirement                                      | Enforcement        |
+| --------------------- | ------------------------------------------------ | ------------------ |
+| Unit test pass        | All unit tests pass                              | CI required status |
+| Integration test pass | All integration tests pass                       | CI required status |
+| Coverage threshold    | >= 90% line coverage on `@agentic-pm/core`       | Codecov check      |
+| No lint errors        | ESLint passes with zero errors                   | CI required status |
+| Type check            | TypeScript compiles without errors               | CI required status |
+| Build succeeds        | Production build completes                       | CI required status |
+| Review approval       | At least 1 approval (or self-merge for solo dev) | Branch protection  |
 
 ### 8.2 Release Requirements
 
-| Gate | Requirement | Enforcement |
-|------|-------------|-------------|
-| All PR gates | Pass all PR requirements | CI |
-| E2E tests pass | Critical user paths work | CI (nightly + pre-release) |
-| LLM eval pass | Classification accuracy >= 90% | Weekly eval job |
-| No hallucinations | Zero hallucinated actions in golden scenarios | LLM eval job |
-| No regressions | No significant metric regressions | Regression check script |
-| Manual QA | Smoke test on staging | Pre-release checklist |
+| Gate              | Requirement                                   | Enforcement                |
+| ----------------- | --------------------------------------------- | -------------------------- |
+| All PR gates      | Pass all PR requirements                      | CI                         |
+| E2E tests pass    | Critical user paths work                      | CI (nightly + pre-release) |
+| LLM eval pass     | Classification accuracy >= 90%                | Weekly eval job            |
+| No hallucinations | Zero hallucinated actions in golden scenarios | LLM eval job               |
+| No regressions    | No significant metric regressions             | Regression check script    |
+| Manual QA         | Smoke test on staging                         | Pre-release checklist      |
 
 ### 8.3 Monitoring in Production
 
-| Metric | Alert Threshold | Action |
-|--------|-----------------|--------|
-| Heartbeat missing | No heartbeat for 30 min | SES notification + CloudWatch alarm |
-| Classification errors | > 5% in 24h window | Review logs, consider rollback |
-| Budget exceeded | Daily spend > $0.30 | Automatic degradation, review triggers |
-| Integration health | 3 consecutive failures | SES notification, check credentials |
-| Artefact validation failures | Any schema failure | Retry, fall back to previous version |
+| Metric                       | Alert Threshold         | Action                                 |
+| ---------------------------- | ----------------------- | -------------------------------------- |
+| Heartbeat missing            | No heartbeat for 30 min | SES notification + CloudWatch alarm    |
+| Classification errors        | > 5% in 24h window      | Review logs, consider rollback         |
+| Budget exceeded              | Daily spend > $0.30     | Automatic degradation, review triggers |
+| Integration health           | 3 consecutive failures  | SES notification, check credentials    |
+| Artefact validation failures | Any schema failure      | Retry, fall back to previous version   |
 
 ---
 
@@ -2226,8 +2431,8 @@ services:
     image: amazon/dynamodb-local:latest
     container_name: dynamodb-local
     ports:
-      - "8000:8000"
-    command: "-jar DynamoDBLocal.jar -sharedDb -dbPath /data"
+      - '8000:8000'
+    command: '-jar DynamoDBLocal.jar -sharedDb -dbPath /data'
     volumes:
       - dynamodb-data:/data
 
@@ -2235,7 +2440,7 @@ services:
     image: localstack/localstack:latest
     container_name: localstack
     ports:
-      - "4566:4566"
+      - '4566:4566'
     environment:
       - SERVICES=ses,secretsmanager
       - DEBUG=1
@@ -2269,4 +2474,4 @@ When adding a new golden scenario:
 
 ---
 
-*End of Testing Strategy Document*
+_End of Testing Strategy Document_

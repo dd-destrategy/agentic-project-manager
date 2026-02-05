@@ -372,15 +372,15 @@ const retryConfig = {
 | Document | Purpose | Location |
 |----------|---------|----------|
 | SPEC.md | Source of truth | `/SPEC.md` |
-| Gap Analysis | Pre-implementation risks | `/solution-design/00-gap-analysis.md` |
-| Technical Architecture | Diagrams, ASL, sequences | `/solution-design/01-technical-architecture.md` |
-| API Schemas | TypeScript types, Zod | `/solution-design/02-api-schemas.md` |
-| Dev Backlog | User stories, sprints | `/solution-design/03-dev-backlog.md` |
-| Competitor Analysis | Market positioning | `/solution-design/04-competitor-analysis.md` |
-| Scalability Analysis | Growth scenarios | `/solution-design/05-scalability-analysis.md` |
-| Prompt Library | System prompts, tools | `/solution-design/06-prompt-library.md` |
-| Testing Strategy | Test pyramid, golden scenarios | `/solution-design/07-testing-strategy.md` |
-| Infrastructure Code | CDK, CI/CD, docker-compose | `/solution-design/08-infrastructure-code.md` |
+| Gap Analysis | Pre-implementation risks | `/docs/design/00-gap-analysis.md` |
+| Technical Architecture | Diagrams, ASL, sequences | `/docs/design/01-technical-architecture.md` |
+| API Schemas | TypeScript types, Zod | `/docs/design/02-api-schemas.md` |
+| Dev Backlog | User stories, sprints | `/docs/design/03-dev-backlog.md` |
+| Competitor Analysis | Market positioning | `/docs/design/04-competitor-analysis.md` |
+| Scalability Analysis | Growth scenarios | `/docs/design/05-scalability-analysis.md` |
+| Prompt Library | System prompts, tools | `/docs/design/06-prompt-library.md` |
+| Testing Strategy | Test pyramid, golden scenarios | `/docs/design/07-testing-strategy.md` |
+| Infrastructure Code | CDK, CI/CD, docker-compose | `/docs/design/08-infrastructure-code.md` |
 
 ---
 

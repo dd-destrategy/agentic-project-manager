@@ -1,7 +1,6 @@
 # API and Schema Specifications
 
-> **Document:** `solution-design/02-api-schemas.md`
-> **Status:** Implementation-ready
+> **Document:** `docs/design/02-api-schemas.md` **Status:** Implementation-ready
 > **Source of truth:** `SPEC.md` sections 3, 4, 5, 7, 8
 
 ---
@@ -19,35 +18,35 @@
 
 ### 1.1 Table Configuration
 
-| Property | Value |
-|----------|-------|
-| Table name | `AgenticPM` |
-| Billing mode | On-demand (PAY_PER_REQUEST) |
-| Partition key | `PK` (String) |
-| Sort key | `SK` (String) |
-| TTL attribute | `TTL` (Number, Unix epoch) |
-| Point-in-time recovery | Enabled |
+| Property               | Value                       |
+| ---------------------- | --------------------------- |
+| Table name             | `AgenticPM`                 |
+| Billing mode           | On-demand (PAY_PER_REQUEST) |
+| Partition key          | `PK` (String)               |
+| Sort key               | `SK` (String)               |
+| TTL attribute          | `TTL` (Number, Unix epoch)  |
+| Point-in-time recovery | Enabled                     |
 
 ### 1.2 Global Secondary Index (GSI1)
 
-| Property | Value |
-|----------|-------|
-| Index name | `GSI1` |
+| Property      | Value             |
+| ------------- | ----------------- |
+| Index name    | `GSI1`            |
 | Partition key | `GSI1PK` (String) |
-| Sort key | `GSI1SK` (String) |
-| Projection | ALL |
+| Sort key      | `GSI1SK` (String) |
+| Projection    | ALL               |
 
 ### 1.3 Primary Key Access Patterns
 
 #### Projects
 
-| Operation | Access Pattern | PK | SK | Est. RCU | Est. WCU | Frequency |
-|-----------|---------------|----|----|----------|----------|-----------|
-| Get project metadata | Query | `PROJECT#<uuid>` | `METADATA` | 0.5 | - | Per request |
-| Create project | PutItem | `PROJECT#<uuid>` | `METADATA` | - | 1 | Rare |
-| Update project | UpdateItem | `PROJECT#<uuid>` | `METADATA` | - | 1 | Rare |
-| Get project with all artefacts | Query | `PROJECT#<uuid>` | `begins_with(SK, "ARTEFACT#")` | 2-4 | - | Per page load |
-| Get all project items | Query | `PROJECT#<uuid>` | - (all) | 5-10 | - | Debug only |
+| Operation                      | Access Pattern | PK               | SK                             | Est. RCU | Est. WCU | Frequency     |
+| ------------------------------ | -------------- | ---------------- | ------------------------------ | -------- | -------- | ------------- |
+| Get project metadata           | Query          | `PROJECT#<uuid>` | `METADATA`                     | 0.5      | -        | Per request   |
+| Create project                 | PutItem        | `PROJECT#<uuid>` | `METADATA`                     | -        | 1        | Rare          |
+| Update project                 | UpdateItem     | `PROJECT#<uuid>` | `METADATA`                     | -        | 1        | Rare          |
+| Get project with all artefacts | Query          | `PROJECT#<uuid>` | `begins_with(SK, "ARTEFACT#")` | 2-4      | -        | Per page load |
+| Get all project items          | Query          | `PROJECT#<uuid>` | - (all)                        | 5-10     | -        | Debug only    |
 
 ```typescript
 // Get project metadata
@@ -55,8 +54,8 @@ const getProject = {
   TableName: 'AgenticPM',
   Key: {
     PK: `PROJECT#${projectId}`,
-    SK: 'METADATA'
-  }
+    SK: 'METADATA',
+  },
 };
 
 // Get project with artefacts
@@ -65,19 +64,19 @@ const getProjectWithArtefacts = {
   KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
   ExpressionAttributeValues: {
     ':pk': `PROJECT#${projectId}`,
-    ':prefix': 'ARTEFACT#'
-  }
+    ':prefix': 'ARTEFACT#',
+  },
 };
 ```
 
 #### Artefacts
 
-| Operation | Access Pattern | PK | SK | Est. RCU | Est. WCU | Frequency |
-|-----------|---------------|----|----|----------|----------|-----------|
-| Get single artefact | GetItem | `PROJECT#<uuid>` | `ARTEFACT#<type>` | 1-2 | - | Per view |
-| Get all project artefacts | Query | `PROJECT#<uuid>` | `begins_with(SK, "ARTEFACT#")` | 2-4 | - | Per page load |
-| Update artefact | UpdateItem | `PROJECT#<uuid>` | `ARTEFACT#<type>` | - | 2-4 | Per agent cycle |
-| Bootstrap artefacts | BatchWriteItem | `PROJECT#<uuid>` | `ARTEFACT#*` (4 items) | - | 4-8 | Once per project |
+| Operation                 | Access Pattern | PK               | SK                             | Est. RCU | Est. WCU | Frequency        |
+| ------------------------- | -------------- | ---------------- | ------------------------------ | -------- | -------- | ---------------- |
+| Get single artefact       | GetItem        | `PROJECT#<uuid>` | `ARTEFACT#<type>`              | 1-2      | -        | Per view         |
+| Get all project artefacts | Query          | `PROJECT#<uuid>` | `begins_with(SK, "ARTEFACT#")` | 2-4      | -        | Per page load    |
+| Update artefact           | UpdateItem     | `PROJECT#<uuid>` | `ARTEFACT#<type>`              | -        | 2-4      | Per agent cycle  |
+| Bootstrap artefacts       | BatchWriteItem | `PROJECT#<uuid>` | `ARTEFACT#*` (4 items)         | -        | 4-8      | Once per project |
 
 ```typescript
 // Get specific artefact
@@ -85,8 +84,8 @@ const getArtefact = {
   TableName: 'AgenticPM',
   Key: {
     PK: `PROJECT#${projectId}`,
-    SK: `ARTEFACT#${artefactType}` // delivery_state | raid_log | backlog_summary | decision_log
-  }
+    SK: `ARTEFACT#${artefactType}`, // delivery_state | raid_log | backlog_summary | decision_log
+  },
 };
 
 // Update artefact with previous version tracking
@@ -94,25 +93,26 @@ const updateArtefact = {
   TableName: 'AgenticPM',
   Key: {
     PK: `PROJECT#${projectId}`,
-    SK: `ARTEFACT#${artefactType}`
+    SK: `ARTEFACT#${artefactType}`,
   },
-  UpdateExpression: 'SET content = :newContent, previousVersion = :oldContent, version = version + :inc, updatedAt = :now',
+  UpdateExpression:
+    'SET content = :newContent, previousVersion = :oldContent, version = version + :inc, updatedAt = :now',
   ExpressionAttributeValues: {
     ':newContent': newContent,
     ':oldContent': currentContent,
     ':inc': 1,
-    ':now': new Date().toISOString()
-  }
+    ':now': new Date().toISOString(),
+  },
 };
 ```
 
 #### Events
 
-| Operation | Access Pattern | PK | SK | Est. RCU | Est. WCU | Frequency |
-|-----------|---------------|----|----|----------|----------|-----------|
-| Get project events (recent) | Query (reverse) | `PROJECT#<uuid>` | `begins_with(SK, "EVENT#")` | 2-4 | - | Dashboard poll |
-| Write event | PutItem | `PROJECT#<uuid>` | `EVENT#<timestamp>#<ulid>` | - | 1 | Per agent action |
-| Write global event | PutItem | `GLOBAL` | `EVENT#<timestamp>#<ulid>` | - | 1 | Per agent cycle |
+| Operation                   | Access Pattern  | PK               | SK                          | Est. RCU | Est. WCU | Frequency        |
+| --------------------------- | --------------- | ---------------- | --------------------------- | -------- | -------- | ---------------- |
+| Get project events (recent) | Query (reverse) | `PROJECT#<uuid>` | `begins_with(SK, "EVENT#")` | 2-4      | -        | Dashboard poll   |
+| Write event                 | PutItem         | `PROJECT#<uuid>` | `EVENT#<timestamp>#<ulid>`  | -        | 1        | Per agent action |
+| Write global event          | PutItem         | `GLOBAL`         | `EVENT#<timestamp>#<ulid>`  | -        | 1        | Per agent cycle  |
 
 ```typescript
 // Get recent project events (most recent first)
@@ -121,10 +121,10 @@ const getProjectEvents = {
   KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
   ExpressionAttributeValues: {
     ':pk': `PROJECT#${projectId}`,
-    ':prefix': 'EVENT#'
+    ':prefix': 'EVENT#',
   },
   ScanIndexForward: false, // Descending order
-  Limit: 50
+  Limit: 50,
 };
 
 // Write event with TTL
@@ -140,21 +140,21 @@ const writeEvent = {
     summary,
     detail,
     createdAt: timestamp,
-    TTL: Math.floor(Date.now() / 1000) + (30 * 24 * 60 * 60), // 30 days
+    TTL: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60, // 30 days
     GSI1PK: `EVENT#${dateOnly}`,
-    GSI1SK: `${timestamp}#${ulid}`
-  }
+    GSI1SK: `${timestamp}#${ulid}`,
+  },
 };
 ```
 
 #### Escalations
 
-| Operation | Access Pattern | PK | SK | Est. RCU | Est. WCU | Frequency |
-|-----------|---------------|----|----|----------|----------|-----------|
-| Get escalation | GetItem | `PROJECT#<uuid>` | `ESCALATION#<uuid>` | 0.5 | - | Per view |
-| Get project escalations | Query | `PROJECT#<uuid>` | `begins_with(SK, "ESCALATION#")` | 1-2 | - | Dashboard |
-| Create escalation | PutItem | `PROJECT#<uuid>` | `ESCALATION#<uuid>` | - | 1 | Per escalation |
-| Update escalation (decide) | UpdateItem | `PROJECT#<uuid>` | `ESCALATION#<uuid>` | - | 1 | Per decision |
+| Operation                  | Access Pattern | PK               | SK                               | Est. RCU | Est. WCU | Frequency      |
+| -------------------------- | -------------- | ---------------- | -------------------------------- | -------- | -------- | -------------- |
+| Get escalation             | GetItem        | `PROJECT#<uuid>` | `ESCALATION#<uuid>`              | 0.5      | -        | Per view       |
+| Get project escalations    | Query          | `PROJECT#<uuid>` | `begins_with(SK, "ESCALATION#")` | 1-2      | -        | Dashboard      |
+| Create escalation          | PutItem        | `PROJECT#<uuid>` | `ESCALATION#<uuid>`              | -        | 1        | Per escalation |
+| Update escalation (decide) | UpdateItem     | `PROJECT#<uuid>` | `ESCALATION#<uuid>`              | -        | 1        | Per decision   |
 
 ```typescript
 // Get single escalation
@@ -162,8 +162,8 @@ const getEscalation = {
   TableName: 'AgenticPM',
   Key: {
     PK: `PROJECT#${projectId}`,
-    SK: `ESCALATION#${escalationId}`
-  }
+    SK: `ESCALATION#${escalationId}`,
+  },
 };
 
 // Update escalation with user decision
@@ -171,33 +171,34 @@ const decideEscalation = {
   TableName: 'AgenticPM',
   Key: {
     PK: `PROJECT#${projectId}`,
-    SK: `ESCALATION#${escalationId}`
+    SK: `ESCALATION#${escalationId}`,
   },
-  UpdateExpression: 'SET #status = :status, userDecision = :decision, userNotes = :notes, decidedAt = :now, GSI1PK = :newGsi1pk',
+  UpdateExpression:
+    'SET #status = :status, userDecision = :decision, userNotes = :notes, decidedAt = :now, GSI1PK = :newGsi1pk',
   ExpressionAttributeNames: {
-    '#status': 'status'
+    '#status': 'status',
   },
   ExpressionAttributeValues: {
     ':status': 'decided',
     ':decision': userDecision,
     ':notes': userNotes,
     ':now': new Date().toISOString(),
-    ':newGsi1pk': 'ESCALATION#decided'
+    ':newGsi1pk': 'ESCALATION#decided',
   },
   ConditionExpression: '#status = :pending',
   ExpressionAttributeValues: {
-    ':pending': 'pending'
-  }
+    ':pending': 'pending',
+  },
 };
 ```
 
 #### Agent Actions
 
-| Operation | Access Pattern | PK | SK | Est. RCU | Est. WCU | Frequency |
-|-----------|---------------|----|----|----------|----------|-----------|
-| Get project actions | Query (reverse) | `PROJECT#<uuid>` | `begins_with(SK, "ACTION#")` | 2-4 | - | Dashboard |
-| Write action | PutItem | `PROJECT#<uuid>` | `ACTION#<timestamp>#<ulid>` | - | 1 | Per action |
-| Update action (executed) | UpdateItem | `PROJECT#<uuid>` | `ACTION#<timestamp>#<ulid>` | - | 1 | Hold queue |
+| Operation                | Access Pattern  | PK               | SK                           | Est. RCU | Est. WCU | Frequency  |
+| ------------------------ | --------------- | ---------------- | ---------------------------- | -------- | -------- | ---------- |
+| Get project actions      | Query (reverse) | `PROJECT#<uuid>` | `begins_with(SK, "ACTION#")` | 2-4      | -        | Dashboard  |
+| Write action             | PutItem         | `PROJECT#<uuid>` | `ACTION#<timestamp>#<ulid>`  | -        | 1        | Per action |
+| Update action (executed) | UpdateItem      | `PROJECT#<uuid>` | `ACTION#<timestamp>#<ulid>`  | -        | 1        | Hold queue |
 
 ```typescript
 // Write action with hold queue
@@ -215,17 +216,17 @@ const writeAction = {
     executed: false,
     heldUntil: holdUntilTimestamp, // Optional
     createdAt: timestamp,
-    TTL: Math.floor(Date.now() / 1000) + (90 * 24 * 60 * 60) // 90 days
-  }
+    TTL: Math.floor(Date.now() / 1000) + 90 * 24 * 60 * 60, // 90 days
+  },
 };
 ```
 
 #### Checkpoints
 
-| Operation | Access Pattern | PK | SK | Est. RCU | Est. WCU | Frequency |
-|-----------|---------------|----|----|----------|----------|-----------|
-| Get checkpoint | GetItem | `PROJECT#<uuid>` | `CHECKPOINT#<integration>#<key>` | 0.5 | - | Per cycle |
-| Update checkpoint | PutItem | `PROJECT#<uuid>` | `CHECKPOINT#<integration>#<key>` | - | 1 | Per cycle |
+| Operation         | Access Pattern | PK               | SK                               | Est. RCU | Est. WCU | Frequency |
+| ----------------- | -------------- | ---------------- | -------------------------------- | -------- | -------- | --------- |
+| Get checkpoint    | GetItem        | `PROJECT#<uuid>` | `CHECKPOINT#<integration>#<key>` | 0.5      | -        | Per cycle |
+| Update checkpoint | PutItem        | `PROJECT#<uuid>` | `CHECKPOINT#<integration>#<key>` | -        | 1        | Per cycle |
 
 ```typescript
 // Get integration checkpoint
@@ -233,8 +234,8 @@ const getCheckpoint = {
   TableName: 'AgenticPM',
   Key: {
     PK: `PROJECT#${projectId}`,
-    SK: `CHECKPOINT#${integration}#${key}` // e.g., CHECKPOINT#jira#last_sync
-  }
+    SK: `CHECKPOINT#${integration}#${key}`, // e.g., CHECKPOINT#jira#last_sync
+  },
 };
 
 // Update checkpoint
@@ -247,18 +248,18 @@ const updateCheckpoint = {
     integration,
     checkpointKey: key,
     checkpointValue: value,
-    updatedAt: new Date().toISOString()
-  }
+    updatedAt: new Date().toISOString(),
+  },
 };
 ```
 
 #### Integration Config
 
-| Operation | Access Pattern | PK | SK | Est. RCU | Est. WCU | Frequency |
-|-----------|---------------|----|----|----------|----------|-----------|
-| Get integration config | GetItem | `INTEGRATION#<name>` | `CONFIG` | 0.5 | - | Per cycle |
-| Update integration config | PutItem | `INTEGRATION#<name>` | `CONFIG` | - | 1 | Rare |
-| Get all integrations | Query | `INTEGRATION#*` | - | 1-2 | - | Settings page |
+| Operation                 | Access Pattern | PK                   | SK       | Est. RCU | Est. WCU | Frequency     |
+| ------------------------- | -------------- | -------------------- | -------- | -------- | -------- | ------------- |
+| Get integration config    | GetItem        | `INTEGRATION#<name>` | `CONFIG` | 0.5      | -        | Per cycle     |
+| Update integration config | PutItem        | `INTEGRATION#<name>` | `CONFIG` | -        | 1        | Rare          |
+| Get all integrations      | Query          | `INTEGRATION#*`      | -        | 1-2      | -        | Settings page |
 
 ```typescript
 // Get integration config
@@ -266,18 +267,18 @@ const getIntegrationConfig = {
   TableName: 'AgenticPM',
   Key: {
     PK: `INTEGRATION#${integrationName}`, // jira | outlook | ses
-    SK: 'CONFIG'
-  }
+    SK: 'CONFIG',
+  },
 };
 ```
 
 #### Agent Config
 
-| Operation | Access Pattern | PK | SK | Est. RCU | Est. WCU | Frequency |
-|-----------|---------------|----|----|----------|----------|-----------|
-| Get config value | GetItem | `AGENT` | `CONFIG#<key>` | 0.5 | - | Per cycle |
-| Update config value | PutItem | `AGENT` | `CONFIG#<key>` | - | 1 | Rare |
-| Get all config | Query | `AGENT` | `begins_with(SK, "CONFIG#")` | 1 | - | Settings page |
+| Operation           | Access Pattern | PK      | SK                           | Est. RCU | Est. WCU | Frequency     |
+| ------------------- | -------------- | ------- | ---------------------------- | -------- | -------- | ------------- |
+| Get config value    | GetItem        | `AGENT` | `CONFIG#<key>`               | 0.5      | -        | Per cycle     |
+| Update config value | PutItem        | `AGENT` | `CONFIG#<key>`               | -        | 1        | Rare          |
+| Get all config      | Query          | `AGENT` | `begins_with(SK, "CONFIG#")` | 1        | -        | Settings page |
 
 ```typescript
 // Get all agent config
@@ -286,8 +287,8 @@ const getAllAgentConfig = {
   KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
   ExpressionAttributeValues: {
     ':pk': 'AGENT',
-    ':prefix': 'CONFIG#'
-  }
+    ':prefix': 'CONFIG#',
+  },
 };
 
 // Update daily budget tracking
@@ -295,28 +296,29 @@ const updateDailySpend = {
   TableName: 'AgenticPM',
   Key: {
     PK: 'AGENT',
-    SK: `CONFIG#daily_spend_${dateOnly}`
+    SK: `CONFIG#daily_spend_${dateOnly}`,
   },
-  UpdateExpression: 'SET #value = if_not_exists(#value, :zero) + :amount, updatedAt = :now',
+  UpdateExpression:
+    'SET #value = if_not_exists(#value, :zero) + :amount, updatedAt = :now',
   ExpressionAttributeNames: {
-    '#value': 'value'
+    '#value': 'value',
   },
   ExpressionAttributeValues: {
     ':zero': 0,
     ':amount': spendAmount,
-    ':now': new Date().toISOString()
-  }
+    ':now': new Date().toISOString(),
+  },
 };
 ```
 
 ### 1.4 GSI1 Access Patterns
 
-| Operation | Access Pattern | GSI1PK | GSI1SK | Est. RCU | Frequency |
-|-----------|---------------|--------|--------|----------|-----------|
-| Get active projects | Query | `STATUS#active` | - | 1 | Dashboard |
-| Get pending escalations (global) | Query | `ESCALATION#pending` | - | 1-2 | Dashboard poll |
-| Get events by date (global) | Query | `EVENT#<date>` | `<timestamp>#<ulid>` | 2-4 | Activity feed |
-| Get held actions (ready) | Query | `ACTIONS#held` | `<= now` | 1-2 | 1-min schedule |
+| Operation                        | Access Pattern | GSI1PK               | GSI1SK               | Est. RCU | Frequency      |
+| -------------------------------- | -------------- | -------------------- | -------------------- | -------- | -------------- |
+| Get active projects              | Query          | `STATUS#active`      | -                    | 1        | Dashboard      |
+| Get pending escalations (global) | Query          | `ESCALATION#pending` | -                    | 1-2      | Dashboard poll |
+| Get events by date (global)      | Query          | `EVENT#<date>`       | `<timestamp>#<ulid>` | 2-4      | Activity feed  |
+| Get held actions (ready)         | Query          | `ACTIONS#held`       | `<= now`             | 1-2      | 1-min schedule |
 
 ```typescript
 // Get all active projects
@@ -325,8 +327,8 @@ const getActiveProjects = {
   IndexName: 'GSI1',
   KeyConditionExpression: 'GSI1PK = :status',
   ExpressionAttributeValues: {
-    ':status': 'STATUS#active'
-  }
+    ':status': 'STATUS#active',
+  },
 };
 
 // Get all pending escalations (cross-project)
@@ -335,9 +337,9 @@ const getPendingEscalations = {
   IndexName: 'GSI1',
   KeyConditionExpression: 'GSI1PK = :status',
   ExpressionAttributeValues: {
-    ':status': 'ESCALATION#pending'
+    ':status': 'ESCALATION#pending',
   },
-  ScanIndexForward: false // Most recent first
+  ScanIndexForward: false, // Most recent first
 };
 
 // Get events for today (activity feed)
@@ -346,10 +348,10 @@ const getTodayEvents = {
   IndexName: 'GSI1',
   KeyConditionExpression: 'GSI1PK = :dateKey',
   ExpressionAttributeValues: {
-    ':dateKey': `EVENT#${todayDateOnly}` // EVENT#2026-02-05
+    ':dateKey': `EVENT#${todayDateOnly}`, // EVENT#2026-02-05
   },
   ScanIndexForward: false,
-  Limit: 100
+  Limit: 100,
 };
 
 // Get held actions ready for execution
@@ -359,34 +361,35 @@ const getReadyHeldActions = {
   KeyConditionExpression: 'GSI1PK = :held AND GSI1SK <= :now',
   ExpressionAttributeValues: {
     ':held': 'ACTIONS#held',
-    ':now': new Date().toISOString()
-  }
+    ':now': new Date().toISOString(),
+  },
 };
 ```
 
 ### 1.5 Scan Operations
 
-**Policy:** Scans are discouraged. All current access patterns use Query operations. If a scan is ever needed, it should be flagged as a design issue.
+**Policy:** Scans are discouraged. All current access patterns use Query
+operations. If a scan is ever needed, it should be flagged as a design issue.
 
-| Operation | When used | Mitigation |
-|-----------|-----------|------------|
-| Full table scan | Never in production | Use GSI or redesign access pattern |
-| Debug/admin scan | Development only | Paginate with 1MB limit |
+| Operation        | When used           | Mitigation                         |
+| ---------------- | ------------------- | ---------------------------------- |
+| Full table scan  | Never in production | Use GSI or redesign access pattern |
+| Debug/admin scan | Development only    | Paginate with 1MB limit            |
 
 ### 1.6 Capacity Estimates (Monthly)
 
 Based on single user, 1-2 active projects, 96 cycles/day:
 
-| Operation Type | Est. Monthly Volume | Est. RCU/WCU |
-|----------------|---------------------|--------------|
-| Dashboard reads | ~5,000 | 10,000 RCU |
-| Activity feed reads | ~3,000 | 12,000 RCU |
-| Agent cycle writes (events) | ~90,000 | 90,000 WCU |
-| Agent cycle writes (checkpoints) | ~6,000 | 6,000 WCU |
-| Artefact updates | ~3,000 | 9,000 WCU |
-| Escalation reads/writes | ~500 | 500 RCU + 500 WCU |
-| **Total estimated** | | **~23,000 RCU + ~106,000 WCU** |
-| **Monthly cost** | | **~$0.25** |
+| Operation Type                   | Est. Monthly Volume | Est. RCU/WCU                   |
+| -------------------------------- | ------------------- | ------------------------------ |
+| Dashboard reads                  | ~5,000              | 10,000 RCU                     |
+| Activity feed reads              | ~3,000              | 12,000 RCU                     |
+| Agent cycle writes (events)      | ~90,000             | 90,000 WCU                     |
+| Agent cycle writes (checkpoints) | ~6,000              | 6,000 WCU                      |
+| Artefact updates                 | ~3,000              | 9,000 WCU                      |
+| Escalation reads/writes          | ~500                | 500 RCU + 500 WCU              |
+| **Total estimated**              |                     | **~23,000 RCU + ~106,000 WCU** |
+| **Monthly cost**                 |                     | **~$0.25**                     |
 
 ---
 
@@ -394,22 +397,23 @@ Based on single user, 1-2 active projects, 96 cycles/day:
 
 ### 2.1 Route Overview
 
-All routes are Next.js API routes (`/app/api/**/route.ts`) deployed to AWS Amplify.
+All routes are Next.js API routes (`/app/api/**/route.ts`) deployed to AWS
+Amplify.
 
-| Route | Method | Purpose | Auth |
-|-------|--------|---------|------|
-| `/api/projects` | GET | List all projects | Required |
-| `/api/projects/[id]` | GET | Get project details | Required |
-| `/api/projects/[id]/artefacts` | GET | Get all artefacts for project | Required |
-| `/api/projects/[id]/autonomy` | POST | Update project autonomy level | Required |
-| `/api/events` | GET | Get activity feed (paginated) | Required |
-| `/api/escalations` | GET | Get pending escalations | Required |
-| `/api/escalations/[id]` | GET | Get escalation details | Required |
-| `/api/escalations/[id]/decide` | POST | Submit user decision | Required |
-| `/api/agent/status` | GET | Get agent health status | Required |
-| `/api/agent/config` | GET | Get agent configuration | Required |
-| `/api/agent/config` | POST | Update agent configuration | Required |
-| `/api/integrations` | GET | Get integration status | Required |
+| Route                          | Method | Purpose                       | Auth     |
+| ------------------------------ | ------ | ----------------------------- | -------- |
+| `/api/projects`                | GET    | List all projects             | Required |
+| `/api/projects/[id]`           | GET    | Get project details           | Required |
+| `/api/projects/[id]/artefacts` | GET    | Get all artefacts for project | Required |
+| `/api/projects/[id]/autonomy`  | POST   | Update project autonomy level | Required |
+| `/api/events`                  | GET    | Get activity feed (paginated) | Required |
+| `/api/escalations`             | GET    | Get pending escalations       | Required |
+| `/api/escalations/[id]`        | GET    | Get escalation details        | Required |
+| `/api/escalations/[id]/decide` | POST   | Submit user decision          | Required |
+| `/api/agent/status`            | GET    | Get agent health status       | Required |
+| `/api/agent/config`            | GET    | Get agent configuration       | Required |
+| `/api/agent/config`            | POST   | Update agent configuration    | Required |
+| `/api/integrations`            | GET    | Get integration status        | Required |
 
 ### 2.2 Detailed Route Specifications
 
@@ -417,12 +421,12 @@ All routes are Next.js API routes (`/app/api/**/route.ts`) deployed to AWS Ampli
 
 List all projects with summary information.
 
-**Query Parameters:**
-| Param | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| status | string | No | `active` | Filter by status: `active`, `paused`, `archived`, `all` |
+**Query Parameters:** | Param | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------| | status | string | No |
+`active` | Filter by status: `active`, `paused`, `archived`, `all` |
 
 **Response:** `200 OK`
+
 ```typescript
 interface ProjectListResponse {
   projects: ProjectSummary[];
@@ -451,12 +455,11 @@ interface ProjectSummary {
 
 Get full project details including metadata.
 
-**Path Parameters:**
-| Param | Type | Description |
-|-------|------|-------------|
-| id | string (UUID) | Project ID |
+**Path Parameters:** | Param | Type | Description |
+|-------|------|-------------| | id | string (UUID) | Project ID |
 
 **Response:** `200 OK`
+
 ```typescript
 interface ProjectDetailResponse {
   project: Project;
@@ -472,6 +475,7 @@ interface ProjectStats {
 ```
 
 **Error Responses:**
+
 - `404 Not Found`: Project does not exist
 
 ---
@@ -480,18 +484,17 @@ interface ProjectStats {
 
 Get all artefacts for a project.
 
-**Path Parameters:**
-| Param | Type | Description |
-|-------|------|-------------|
-| id | string (UUID) | Project ID |
+**Path Parameters:** | Param | Type | Description |
+|-------|------|-------------| | id | string (UUID) | Project ID |
 
-**Query Parameters:**
-| Param | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| type | string | No | all | Filter by type: `delivery_state`, `raid_log`, `backlog_summary`, `decision_log` |
-| includePrevious | boolean | No | false | Include previousVersion for diff view |
+**Query Parameters:** | Param | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------| | type | string | No | all |
+Filter by type: `delivery_state`, `raid_log`, `backlog_summary`, `decision_log`
+| | includePrevious | boolean | No | false | Include previousVersion for diff
+view |
 
 **Response:** `200 OK`
+
 ```typescript
 interface ArtefactsResponse {
   artefacts: Artefact[];
@@ -505,12 +508,11 @@ interface ArtefactsResponse {
 
 Update project autonomy level.
 
-**Path Parameters:**
-| Param | Type | Description |
-|-------|------|-------------|
-| id | string (UUID) | Project ID |
+**Path Parameters:** | Param | Type | Description |
+|-------|------|-------------| | id | string (UUID) | Project ID |
 
 **Request Body:**
+
 ```typescript
 interface AutonomyUpdateRequest {
   level: AutonomyLevel; // 'monitoring' | 'artefact' | 'tactical'
@@ -519,6 +521,7 @@ interface AutonomyUpdateRequest {
 ```
 
 **Response:** `200 OK`
+
 ```typescript
 interface AutonomyUpdateResponse {
   project: Project;
@@ -529,6 +532,7 @@ interface AutonomyUpdateResponse {
 ```
 
 **Validation:**
+
 - Level must be valid AutonomyLevel
 - Cannot skip levels (must graduate through monitoring -> artefact -> tactical)
 - Downgrade is always allowed
@@ -539,17 +543,16 @@ interface AutonomyUpdateResponse {
 
 Get activity feed with pagination.
 
-**Query Parameters:**
-| Param | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| projectId | string | No | all | Filter by project |
-| eventType | string | No | all | Filter by event type |
-| severity | string | No | all | Filter by severity |
-| limit | number | No | 50 | Max items to return (max 200) |
-| cursor | string | No | - | Pagination cursor (base64 encoded LastEvaluatedKey) |
-| since | string | No | - | ISO 8601 timestamp, only events after this time |
+**Query Parameters:** | Param | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------| | projectId | string | No |
+all | Filter by project | | eventType | string | No | all | Filter by event type
+| | severity | string | No | all | Filter by severity | | limit | number | No |
+50 | Max items to return (max 200) | | cursor | string | No | - | Pagination
+cursor (base64 encoded LastEvaluatedKey) | | since | string | No | - | ISO 8601
+timestamp, only events after this time |
 
 **Response:** `200 OK`
+
 ```typescript
 interface EventsResponse {
   events: Event[];
@@ -559,6 +562,7 @@ interface EventsResponse {
 ```
 
 **DynamoDB Query:**
+
 - If projectId specified: Query on `PROJECT#<id>` with SK prefix `EVENT#`
 - If no projectId: GSI1 query on `EVENT#<date>`
 
@@ -568,14 +572,14 @@ interface EventsResponse {
 
 Get pending escalations across all projects.
 
-**Query Parameters:**
-| Param | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| status | string | No | `pending` | Filter: `pending`, `decided`, `expired`, `all` |
-| projectId | string | No | all | Filter by project |
-| limit | number | No | 20 | Max items to return |
+**Query Parameters:** | Param | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------| | status | string | No |
+`pending` | Filter: `pending`, `decided`, `expired`, `all` | | projectId |
+string | No | all | Filter by project | | limit | number | No | 20 | Max items
+to return |
 
 **Response:** `200 OK`
+
 ```typescript
 interface EscalationsResponse {
   escalations: Escalation[];
@@ -591,17 +595,15 @@ interface EscalationsResponse {
 
 Get full escalation details.
 
-**Path Parameters:**
-| Param | Type | Description |
-|-------|------|-------------|
-| id | string (UUID) | Escalation ID |
+**Path Parameters:** | Param | Type | Description |
+|-------|------|-------------| | id | string (UUID) | Escalation ID |
 
-**Query Parameters:**
-| Param | Type | Required | Description |
-|-------|------|----------|-------------|
-| projectId | string | Yes | Project ID (required for DynamoDB key) |
+**Query Parameters:** | Param | Type | Required | Description |
+|-------|------|----------|-------------| | projectId | string | Yes | Project
+ID (required for DynamoDB key) |
 
 **Response:** `200 OK`
+
 ```typescript
 interface EscalationDetailResponse {
   escalation: Escalation;
@@ -616,12 +618,11 @@ interface EscalationDetailResponse {
 
 Submit user decision on an escalation.
 
-**Path Parameters:**
-| Param | Type | Description |
-|-------|------|-------------|
-| id | string (UUID) | Escalation ID |
+**Path Parameters:** | Param | Type | Description |
+|-------|------|-------------| | id | string (UUID) | Escalation ID |
 
 **Request Body:**
+
 ```typescript
 interface EscalationDecisionRequest {
   projectId: string; // Required for DynamoDB key
@@ -631,6 +632,7 @@ interface EscalationDecisionRequest {
 ```
 
 **Response:** `200 OK`
+
 ```typescript
 interface EscalationDecisionResponse {
   escalation: Escalation;
@@ -639,11 +641,13 @@ interface EscalationDecisionResponse {
 ```
 
 **Validation:**
+
 - Decision must match one of the escalation options
 - Escalation must be in `pending` status
 - Uses conditional write to prevent race conditions
 
 **Error Responses:**
+
 - `400 Bad Request`: Invalid decision or missing projectId
 - `404 Not Found`: Escalation not found
 - `409 Conflict`: Escalation already decided
@@ -655,6 +659,7 @@ interface EscalationDecisionResponse {
 Get current agent health and status.
 
 **Response:** `200 OK`
+
 ```typescript
 interface AgentStatusResponse {
   status: 'active' | 'paused' | 'error' | 'starting';
@@ -683,6 +688,7 @@ interface BudgetStatus {
 ```
 
 **Data Sources:**
+
 - Last heartbeat event from GLOBAL partition
 - Budget from AGENT config
 - Integration health from last cycle
@@ -694,6 +700,7 @@ interface BudgetStatus {
 Get agent configuration.
 
 **Response:** `200 OK`
+
 ```typescript
 interface AgentConfigResponse {
   config: AgentConfig;
@@ -722,6 +729,7 @@ interface AgentConfig {
 Update agent configuration.
 
 **Request Body:**
+
 ```typescript
 interface AgentConfigUpdateRequest {
   pollingIntervalMinutes?: number; // 5-60
@@ -735,6 +743,7 @@ interface AgentConfigUpdateRequest {
 ```
 
 **Response:** `200 OK`
+
 ```typescript
 interface AgentConfigUpdateResponse {
   config: AgentConfig;
@@ -744,6 +753,7 @@ interface AgentConfigUpdateResponse {
 ```
 
 **Validation:**
+
 - pollingIntervalMinutes: 5-60
 - holdQueueMinutes: 1-120
 - Budget ceiling is not user-configurable (hardcoded)
@@ -756,6 +766,7 @@ interface AgentConfigUpdateResponse {
 Get status of all integrations.
 
 **Response:** `200 OK`
+
 ```typescript
 interface IntegrationsResponse {
   integrations: IntegrationConfig[];
@@ -780,16 +791,13 @@ interface ApiErrorResponse {
 }
 ```
 
-**Standard Error Codes:**
-| Code | HTTP Status | Description |
-|------|-------------|-------------|
-| `UNAUTHORIZED` | 401 | Missing or invalid session |
-| `FORBIDDEN` | 403 | Insufficient permissions |
-| `NOT_FOUND` | 404 | Resource not found |
-| `VALIDATION_ERROR` | 400 | Invalid request body/params |
-| `CONFLICT` | 409 | Resource state conflict |
-| `INTERNAL_ERROR` | 500 | Unexpected server error |
-| `SERVICE_UNAVAILABLE` | 503 | DynamoDB or external service down |
+**Standard Error Codes:** | Code | HTTP Status | Description |
+|------|-------------|-------------| | `UNAUTHORIZED` | 401 | Missing or invalid
+session | | `FORBIDDEN` | 403 | Insufficient permissions | | `NOT_FOUND` | 404 |
+Resource not found | | `VALIDATION_ERROR` | 400 | Invalid request body/params |
+| `CONFLICT` | 409 | Resource state conflict | | `INTERNAL_ERROR` | 500 |
+Unexpected server error | | `SERVICE_UNAVAILABLE` | 503 | DynamoDB or external
+service down |
 
 ---
 
@@ -1238,15 +1246,8 @@ export interface DecisionBoundaries {
 }
 
 export const decisionBoundaries: DecisionBoundaries = {
-  canAutoExecute: [
-    'artefact_update',
-    'notification_sent',
-    'jira_comment',
-  ],
-  requireHoldQueue: [
-    'email_sent',
-    'jira_status_change',
-  ],
+  canAutoExecute: ['artefact_update', 'notification_sent', 'jira_comment'],
+  requireHoldQueue: ['email_sent', 'jira_status_change'],
   requireApproval: [
     'escalation_created', // For external email or new tickets
   ],
@@ -1613,9 +1614,18 @@ import { z } from 'zod';
 
 export const ProjectStatusSchema = z.enum(['active', 'paused', 'archived']);
 
-export const IntegrationSourceSchema = z.enum(['jira', 'outlook', 'asana', 'ses']);
+export const IntegrationSourceSchema = z.enum([
+  'jira',
+  'outlook',
+  'asana',
+  'ses',
+]);
 
-export const AutonomyLevelSchema = z.enum(['monitoring', 'artefact', 'tactical']);
+export const AutonomyLevelSchema = z.enum([
+  'monitoring',
+  'artefact',
+  'tactical',
+]);
 
 export const ArtefactTypeSchema = z.enum([
   'delivery_state',
@@ -1624,7 +1634,12 @@ export const ArtefactTypeSchema = z.enum([
   'decision_log',
 ]);
 
-export const EventSeveritySchema = z.enum(['info', 'warning', 'error', 'critical']);
+export const EventSeveritySchema = z.enum([
+  'info',
+  'warning',
+  'error',
+  'critical',
+]);
 
 export const EventTypeSchema = z.enum([
   'heartbeat',
@@ -1702,17 +1717,21 @@ export const ProjectSchema = z.object({
 
 export const EventDetailSchema = z.object({
   source: z.string().optional(),
-  relatedIds: z.object({
-    artefactId: z.string().optional(),
-    escalationId: z.string().optional(),
-    actionId: z.string().optional(),
-    signalId: z.string().optional(),
-  }).optional(),
-  metrics: z.object({
-    durationMs: z.number().optional(),
-    tokensUsed: z.number().optional(),
-    costUsd: z.number().optional(),
-  }).optional(),
+  relatedIds: z
+    .object({
+      artefactId: z.string().optional(),
+      escalationId: z.string().optional(),
+      actionId: z.string().optional(),
+      signalId: z.string().optional(),
+    })
+    .optional(),
+  metrics: z
+    .object({
+      durationMs: z.number().optional(),
+      tokensUsed: z.number().optional(),
+      costUsd: z.number().optional(),
+    })
+    .optional(),
   context: z.record(z.unknown()).optional(),
 });
 
@@ -1789,15 +1808,19 @@ export const ConfidenceScoreSchema = z.object({
 });
 
 export const ActionDetailSchema = z.object({
-  target: z.object({
-    type: z.enum(['artefact', 'jira_ticket', 'email', 'escalation']),
-    id: z.string(),
-    name: z.string().optional(),
-  }).optional(),
-  changes: z.object({
-    before: z.unknown().optional(),
-    after: z.unknown().optional(),
-  }).optional(),
+  target: z
+    .object({
+      type: z.enum(['artefact', 'jira_ticket', 'email', 'escalation']),
+      id: z.string(),
+      name: z.string().optional(),
+    })
+    .optional(),
+  changes: z
+    .object({
+      before: z.unknown().optional(),
+      after: z.unknown().optional(),
+    })
+    .optional(),
   draftContent: z.string().optional(),
   holdReason: z.string().optional(),
 });
@@ -2224,7 +2247,12 @@ export const BudgetStatusSchema = z.object({
   dailyLimitUsd: z.number().min(0),
   monthlySpendUsd: z.number().min(0),
   monthlyLimitUsd: z.number().min(0),
-  degradationTier: z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3)]),
+  degradationTier: z.union([
+    z.literal(0),
+    z.literal(1),
+    z.literal(2),
+    z.literal(3),
+  ]),
 });
 
 export const AgentStatusResponseSchema = z.object({
@@ -2289,7 +2317,8 @@ These schemas are used for defining Claude function calling tools.
  */
 export const UpdateDeliveryStateTool = {
   name: 'update_delivery_state',
-  description: 'Update the Delivery State artefact for a project based on new signals',
+  description:
+    'Update the Delivery State artefact for a project based on new signals',
   input_schema: {
     type: 'object',
     properties: {
@@ -2324,7 +2353,12 @@ export const UpdateDeliveryStateTool = {
                   inProgressPoints: { type: 'number' },
                   blockedPoints: { type: 'number' },
                 },
-                required: ['totalPoints', 'completedPoints', 'inProgressPoints', 'blockedPoints'],
+                required: [
+                  'totalPoints',
+                  'completedPoints',
+                  'inProgressPoints',
+                  'blockedPoints',
+                ],
               },
             },
             required: ['name', 'startDate', 'endDate', 'goal', 'progress'],
@@ -2336,7 +2370,10 @@ export const UpdateDeliveryStateTool = {
               properties: {
                 name: { type: 'string' },
                 dueDate: { type: 'string', format: 'date-time' },
-                status: { type: 'string', enum: ['on_track', 'at_risk', 'delayed', 'completed'] },
+                status: {
+                  type: 'string',
+                  enum: ['on_track', 'at_risk', 'delayed', 'completed'],
+                },
                 notes: { type: 'string' },
               },
               required: ['name', 'dueDate', 'status'],
@@ -2354,18 +2391,32 @@ export const UpdateDeliveryStateTool = {
                 severity: { type: 'string', enum: ['high', 'medium', 'low'] },
                 sourceTicket: { type: 'string' },
               },
-              required: ['id', 'description', 'owner', 'raisedDate', 'severity'],
+              required: [
+                'id',
+                'description',
+                'owner',
+                'raisedDate',
+                'severity',
+              ],
             },
           },
           keyMetrics: {
             type: 'object',
             properties: {
-              velocityTrend: { type: 'string', enum: ['increasing', 'stable', 'decreasing'] },
+              velocityTrend: {
+                type: 'string',
+                enum: ['increasing', 'stable', 'decreasing'],
+              },
               avgCycleTimeDays: { type: 'number' },
               openBlockers: { type: 'number' },
               activeRisks: { type: 'number' },
             },
-            required: ['velocityTrend', 'avgCycleTimeDays', 'openBlockers', 'activeRisks'],
+            required: [
+              'velocityTrend',
+              'avgCycleTimeDays',
+              'openBlockers',
+              'activeRisks',
+            ],
           },
           nextActions: {
             type: 'array',
@@ -2373,7 +2424,14 @@ export const UpdateDeliveryStateTool = {
             maxItems: 10,
           },
         },
-        required: ['overallStatus', 'statusSummary', 'milestones', 'blockers', 'keyMetrics', 'nextActions'],
+        required: [
+          'overallStatus',
+          'statusSummary',
+          'milestones',
+          'blockers',
+          'keyMetrics',
+          'nextActions',
+        ],
       },
       rationale: {
         type: 'string',
@@ -2408,12 +2466,26 @@ export const ClassifySignalTool = {
             type: 'array',
             items: {
               type: 'string',
-              enum: ['blocker', 'risk', 'scope_change', 'deadline_impact', 'stakeholder_communication', 'routine_update', 'noise'],
+              enum: [
+                'blocker',
+                'risk',
+                'scope_change',
+                'deadline_impact',
+                'stakeholder_communication',
+                'routine_update',
+                'noise',
+              ],
             },
           },
           recommendedAction: {
             type: 'string',
-            enum: ['update_artefact', 'create_escalation', 'send_notification', 'hold_for_review', 'ignore'],
+            enum: [
+              'update_artefact',
+              'create_escalation',
+              'send_notification',
+              'hold_for_review',
+              'ignore',
+            ],
           },
           requiresComplexReasoning: {
             type: 'boolean',
@@ -2423,7 +2495,13 @@ export const ClassifySignalTool = {
             maxLength: 500,
           },
         },
-        required: ['importance', 'categories', 'recommendedAction', 'requiresComplexReasoning', 'rationale'],
+        required: [
+          'importance',
+          'categories',
+          'recommendedAction',
+          'requiresComplexReasoning',
+          'rationale',
+        ],
       },
     },
     required: ['signalId', 'classification'],
@@ -2446,10 +2524,16 @@ export const AddRaidItemTool = {
       item: {
         type: 'object',
         properties: {
-          type: { type: 'string', enum: ['risk', 'assumption', 'issue', 'dependency'] },
+          type: {
+            type: 'string',
+            enum: ['risk', 'assumption', 'issue', 'dependency'],
+          },
           title: { type: 'string', maxLength: 200 },
           description: { type: 'string', maxLength: 2000 },
-          severity: { type: 'string', enum: ['critical', 'high', 'medium', 'low'] },
+          severity: {
+            type: 'string',
+            enum: ['critical', 'high', 'medium', 'low'],
+          },
           owner: { type: 'string' },
           dueDate: { type: 'string', format: 'date-time' },
           mitigation: { type: 'string' },
@@ -2530,7 +2614,14 @@ export const CreateEscalationTool = {
         maxLength: 1000,
       },
     },
-    required: ['projectId', 'title', 'context', 'options', 'recommendation', 'rationale'],
+    required: [
+      'projectId',
+      'title',
+      'context',
+      'options',
+      'recommendation',
+      'rationale',
+    ],
   },
 } as const;
 ```
@@ -2553,6 +2644,7 @@ export const SchemaMetadata = {
 ```
 
 When schema changes are needed:
+
 1. Increment `SCHEMA_VERSION`
 2. Add migration function in `packages/core/src/db/migrations/`
 3. Update `lastUpdated` timestamp

@@ -1,9 +1,7 @@
 # Infrastructure as Code Design — AWS CDK
 
-> **Document type:** Solution Design
-> **Status:** Implementation-ready
-> **Source:** SPEC.md (single source of truth)
-> **Last updated:** February 2026
+> **Document type:** Solution Design **Status:** Implementation-ready
+> **Source:** SPEC.md (single source of truth) **Last updated:** February 2026
 
 ---
 
@@ -22,7 +20,8 @@
 
 ### 1.1 Stack Organisation
 
-The infrastructure is organised into four CDK stacks, following the principle of separation by lifecycle and deployment frequency.
+The infrastructure is organised into four CDK stacks, following the principle of
+separation by lifecycle and deployment frequency.
 
 ```
 infra/
@@ -156,8 +155,8 @@ export const environments: Record<string, EnvironmentConfig> = {
     pollingIntervalMinutes: 15,
     holdQueueCheckMinutes: 1,
     logRetentionDays: 7,
-    llmBudgetDaily: 0.30,    // Higher ceiling for testing
-    llmBudgetMonthly: 10.00,
+    llmBudgetDaily: 0.3, // Higher ceiling for testing
+    llmBudgetMonthly: 10.0,
     enableAlarms: false,
   },
   prod: {
@@ -167,8 +166,8 @@ export const environments: Record<string, EnvironmentConfig> = {
     pollingIntervalMinutes: 15,
     holdQueueCheckMinutes: 1,
     logRetentionDays: 30,
-    llmBudgetDaily: 0.23,    // Per SPEC section 6.3
-    llmBudgetMonthly: 8.00,
+    llmBudgetDaily: 0.23, // Per SPEC section 6.3
+    llmBudgetMonthly: 8.0,
     enableAlarms: true,
   },
 };
@@ -176,7 +175,9 @@ export const environments: Record<string, EnvironmentConfig> = {
 export function getEnvironmentConfig(env: string): EnvironmentConfig {
   const config = environments[env];
   if (!config) {
-    throw new Error(`Unknown environment: ${env}. Valid options: ${Object.keys(environments).join(', ')}`);
+    throw new Error(
+      `Unknown environment: ${env}. Valid options: ${Object.keys(environments).join(', ')}`
+    );
   }
   return config;
 }
@@ -543,14 +544,16 @@ const lambdaConfigs = [
   },
   {
     name: 'reasoning',
-    description: 'Complex multi-source reasoning for difficult signals (Sonnet)',
+    description:
+      'Complex multi-source reasoning for difficult signals (Sonnet)',
     handler: 'reasoning.handler',
     timeout: cdk.Duration.seconds(300),
     role: 'triage', // Uses triageLambdaRole - limited to LLM
   },
   {
     name: 'execute',
-    description: 'Execute auto-approved actions, queue hold items, create escalations',
+    description:
+      'Execute auto-approved actions, queue hold items, create escalations',
     handler: 'execute.handler',
     timeout: cdk.Duration.seconds(60),
     role: 'agent',
@@ -586,7 +589,10 @@ for (const config of lambdaConfigs) {
     functionName: `agentic-pm-${config.name}`,
     description: config.description,
     handler: config.handler,
-    role: config.role === 'triage' ? props.roles.triageLambdaRole : props.roles.agentLambdaRole,
+    role:
+      config.role === 'triage'
+        ? props.roles.triageLambdaRole
+        : props.roles.agentLambdaRole,
     timeout: config.timeout,
     memorySize: 256,
     layers: [this.coreLayer],
@@ -595,9 +601,10 @@ for (const config of lambdaConfigs) {
       TABLE_ARN: props.table.tableArn,
       ENVIRONMENT: props.config.envName,
     },
-    logRetention: props.config.envName === 'prod'
-      ? logs.RetentionDays.ONE_MONTH
-      : logs.RetentionDays.ONE_WEEK,
+    logRetention:
+      props.config.envName === 'prod'
+        ? logs.RetentionDays.ONE_MONTH
+        : logs.RetentionDays.ONE_WEEK,
   });
 
   this.lambdaFunctions.set(config.name, lambdaConstruct.function);
@@ -651,7 +658,11 @@ export class AgentStateMachine extends Construct {
 
       if (options?.retryOnServiceExceptions !== false) {
         task.addRetry({
-          errors: ['Lambda.ServiceException', 'Lambda.AWSLambdaException', 'Lambda.TooManyRequestsException'],
+          errors: [
+            'Lambda.ServiceException',
+            'Lambda.AWSLambdaException',
+            'Lambda.TooManyRequestsException',
+          ],
           maxAttempts: options?.retryAttempts ?? 2,
           backoffRate: 2,
           interval: options?.retryBackoff ?? cdk.Duration.seconds(5),
@@ -667,24 +678,36 @@ export class AgentStateMachine extends Construct {
       retryBackoff: cdk.Duration.seconds(5),
     });
 
-    const changeDetection = createInvokeTask('ChangeDetection', 'change-detection', {
-      retryAttempts: 3,
-      retryBackoff: cdk.Duration.seconds(10),
-    });
+    const changeDetection = createInvokeTask(
+      'ChangeDetection',
+      'change-detection',
+      {
+        retryAttempts: 3,
+        retryBackoff: cdk.Duration.seconds(10),
+      }
+    );
 
     const normalise = createInvokeTask('Normalise', 'normalise', {
       retryOnServiceExceptions: false, // Deterministic, no retry needed
     });
 
-    const triageSanitise = createInvokeTask('TriageSanitise', 'triage-sanitise', {
-      retryAttempts: 2,
-      retryBackoff: cdk.Duration.seconds(30),
-    });
+    const triageSanitise = createInvokeTask(
+      'TriageSanitise',
+      'triage-sanitise',
+      {
+        retryAttempts: 2,
+        retryBackoff: cdk.Duration.seconds(30),
+      }
+    );
 
-    const triageClassify = createInvokeTask('TriageClassify', 'triage-classify', {
-      retryAttempts: 2,
-      retryBackoff: cdk.Duration.seconds(30),
-    });
+    const triageClassify = createInvokeTask(
+      'TriageClassify',
+      'triage-classify',
+      {
+        retryAttempts: 2,
+        retryBackoff: cdk.Duration.seconds(30),
+      }
+    );
 
     const reasoning = createInvokeTask('Reasoning', 'reasoning', {
       retryAttempts: 2,
@@ -696,10 +719,14 @@ export class AgentStateMachine extends Construct {
       retryBackoff: cdk.Duration.seconds(10),
     });
 
-    const artefactUpdate = createInvokeTask('ArtefactUpdate', 'artefact-update', {
-      retryAttempts: 2,
-      retryBackoff: cdk.Duration.seconds(30),
-    });
+    const artefactUpdate = createInvokeTask(
+      'ArtefactUpdate',
+      'artefact-update',
+      {
+        retryAttempts: 2,
+        retryBackoff: cdk.Duration.seconds(30),
+      }
+    );
 
     const housekeeping = createInvokeTask('Housekeeping', 'housekeeping', {
       retryAttempts: 2,
@@ -712,11 +739,17 @@ export class AgentStateMachine extends Construct {
       .otherwise(new sfn.Pass(this, 'NoChanges'));
 
     const needsReasoning = new sfn.Choice(this, 'NeedsReasoning?')
-      .when(sfn.Condition.booleanEquals('$.needsComplexReasoning', true), reasoning)
+      .when(
+        sfn.Condition.booleanEquals('$.needsComplexReasoning', true),
+        reasoning
+      )
       .otherwise(execute);
 
     const isHousekeepingDue = new sfn.Choice(this, 'IsHousekeepingDue?')
-      .when(sfn.Condition.booleanEquals('$.housekeepingDue', true), housekeeping)
+      .when(
+        sfn.Condition.booleanEquals('$.housekeepingDue', true),
+        housekeeping
+      )
       .otherwise(new sfn.Succeed(this, 'CycleComplete'));
 
     // Success state
@@ -725,10 +758,12 @@ export class AgentStateMachine extends Construct {
     // Catch-all error handler
     const catchError = new sfn.Pass(this, 'CatchError', {
       result: sfn.Result.fromObject({ error: true }),
-    }).next(new sfn.Fail(this, 'CycleFailed', {
-      cause: 'Agent cycle failed after retries',
-      error: 'AgentCycleError',
-    }));
+    }).next(
+      new sfn.Fail(this, 'CycleFailed', {
+        cause: 'Agent cycle failed after retries',
+        error: 'AgentCycleError',
+      })
+    );
 
     // Chain the states
     normalise.next(triageSanitise);
@@ -740,12 +775,18 @@ export class AgentStateMachine extends Construct {
     housekeeping.next(success);
 
     // Main flow
-    const definition = heartbeat
-      .next(changeDetection)
-      .next(hasChanges);
+    const definition = heartbeat.next(changeDetection).next(hasChanges);
 
     // Add error handling to critical states
-    [heartbeat, changeDetection, triageSanitise, triageClassify, reasoning, execute, artefactUpdate].forEach(state => {
+    [
+      heartbeat,
+      changeDetection,
+      triageSanitise,
+      triageClassify,
+      reasoning,
+      execute,
+      artefactUpdate,
+    ].forEach((state) => {
       state.addCatch(catchError, {
         errors: ['States.ALL'],
         resultPath: '$.error',
@@ -865,36 +906,47 @@ export class MonitoringStack extends cdk.Stack {
     // Add email subscription (configure via parameter)
     const alertEmail = this.node.tryGetContext('alertEmail');
     if (alertEmail) {
-      alertTopic.addSubscription(new subscriptions.EmailSubscription(alertEmail));
+      alertTopic.addSubscription(
+        new subscriptions.EmailSubscription(alertEmail)
+      );
     }
 
     // Alarm: Missed heartbeat (no successful execution in 30 minutes)
-    const missedHeartbeatAlarm = new cloudwatch.Alarm(this, 'MissedHeartbeatAlarm', {
-      alarmName: 'agentic-pm-missed-heartbeat',
-      alarmDescription: 'No successful agent cycle in 30 minutes',
-      metric: props.stateMachine.metricSucceeded({
-        period: cdk.Duration.minutes(30),
-        statistic: 'Sum',
-      }),
-      threshold: 1,
-      evaluationPeriods: 1,
-      comparisonOperator: cloudwatch.ComparisonOperator.LESS_THAN_THRESHOLD,
-      treatMissingData: cloudwatch.TreatMissingData.BREACHING,
-    });
+    const missedHeartbeatAlarm = new cloudwatch.Alarm(
+      this,
+      'MissedHeartbeatAlarm',
+      {
+        alarmName: 'agentic-pm-missed-heartbeat',
+        alarmDescription: 'No successful agent cycle in 30 minutes',
+        metric: props.stateMachine.metricSucceeded({
+          period: cdk.Duration.minutes(30),
+          statistic: 'Sum',
+        }),
+        threshold: 1,
+        evaluationPeriods: 1,
+        comparisonOperator: cloudwatch.ComparisonOperator.LESS_THAN_THRESHOLD,
+        treatMissingData: cloudwatch.TreatMissingData.BREACHING,
+      }
+    );
     missedHeartbeatAlarm.addAlarmAction(new actions.SnsAction(alertTopic));
 
     // Alarm: State machine failures
-    const executionFailedAlarm = new cloudwatch.Alarm(this, 'ExecutionFailedAlarm', {
-      alarmName: 'agentic-pm-execution-failed',
-      alarmDescription: 'Agent cycle execution failed',
-      metric: props.stateMachine.metricFailed({
-        period: cdk.Duration.minutes(5),
-        statistic: 'Sum',
-      }),
-      threshold: 1,
-      evaluationPeriods: 1,
-      comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
-    });
+    const executionFailedAlarm = new cloudwatch.Alarm(
+      this,
+      'ExecutionFailedAlarm',
+      {
+        alarmName: 'agentic-pm-execution-failed',
+        alarmDescription: 'Agent cycle execution failed',
+        metric: props.stateMachine.metricFailed({
+          period: cdk.Duration.minutes(5),
+          statistic: 'Sum',
+        }),
+        threshold: 1,
+        evaluationPeriods: 1,
+        comparisonOperator:
+          cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+      }
+    );
     executionFailedAlarm.addAlarmAction(new actions.SnsAction(alertTopic));
 
     // Alarm: Lambda errors (aggregated across all functions)
@@ -917,26 +969,32 @@ export class MonitoringStack extends cdk.Stack {
       metric: lambdaErrors,
       threshold: 3,
       evaluationPeriods: 1,
-      comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+      comparisonOperator:
+        cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
     });
     lambdaErrorAlarm.addAlarmAction(new actions.SnsAction(alertTopic));
 
     // Alarm: DynamoDB throttling
-    const dynamoThrottleAlarm = new cloudwatch.Alarm(this, 'DynamoThrottleAlarm', {
-      alarmName: 'agentic-pm-dynamo-throttle',
-      alarmDescription: 'DynamoDB read/write throttling detected',
-      metric: props.table.metricThrottledRequestsForOperations({
-        operations: [
-          dynamodb.Operation.GET_ITEM,
-          dynamodb.Operation.PUT_ITEM,
-          dynamodb.Operation.QUERY,
-        ],
-        period: cdk.Duration.minutes(5),
-      }),
-      threshold: 1,
-      evaluationPeriods: 1,
-      comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
-    });
+    const dynamoThrottleAlarm = new cloudwatch.Alarm(
+      this,
+      'DynamoThrottleAlarm',
+      {
+        alarmName: 'agentic-pm-dynamo-throttle',
+        alarmDescription: 'DynamoDB read/write throttling detected',
+        metric: props.table.metricThrottledRequestsForOperations({
+          operations: [
+            dynamodb.Operation.GET_ITEM,
+            dynamodb.Operation.PUT_ITEM,
+            dynamodb.Operation.QUERY,
+          ],
+          period: cdk.Duration.minutes(5),
+        }),
+        threshold: 1,
+        evaluationPeriods: 1,
+        comparisonOperator:
+          cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+      }
+    );
 
     // CloudWatch Dashboard
     const dashboard = new cloudwatch.Dashboard(this, 'Dashboard', {
@@ -976,14 +1034,14 @@ export class MonitoringStack extends cdk.Stack {
       new cloudwatch.GraphWidget({
         title: 'Lambda Invocations',
         width: 12,
-        left: Array.from(props.lambdaFunctions.values()).map(fn =>
+        left: Array.from(props.lambdaFunctions.values()).map((fn) =>
           fn.metricInvocations({ statistic: 'Sum' })
         ),
       }),
       new cloudwatch.GraphWidget({
         title: 'Lambda Duration',
         width: 12,
-        left: Array.from(props.lambdaFunctions.values()).map(fn =>
+        left: Array.from(props.lambdaFunctions.values()).map((fn) =>
           fn.metricDuration({ statistic: 'Average' })
         ),
       })
@@ -1049,7 +1107,9 @@ export class FrontendStack extends cdk.Stack {
 
     // GitHub token for Amplify to access repository
     const githubToken = secretsmanager.Secret.fromSecretNameV2(
-      this, 'GitHubToken', '/agentic-pm/github/token'
+      this,
+      'GitHubToken',
+      '/agentic-pm/github/token'
     );
 
     // Amplify App
@@ -1073,9 +1133,7 @@ export class FrontendStack extends cdk.Stack {
               ],
             },
             build: {
-              commands: [
-                'pnpm build',
-              ],
+              commands: ['pnpm build'],
             },
           },
           artifacts: {
@@ -1162,13 +1220,15 @@ export class FrontendStack extends cdk.Stack {
     props.table.grantReadWriteData(amplifyRole);
 
     // Amplify needs Secrets Manager access for NextAuth
-    amplifyRole.addToPolicy(new iam.PolicyStatement({
-      effect: iam.Effect.ALLOW,
-      actions: ['secretsmanager:GetSecretValue'],
-      resources: [
-        `arn:aws:secretsmanager:${this.region}:${this.account}:secret:/agentic-pm/auth/*`,
-      ],
-    }));
+    amplifyRole.addToPolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['secretsmanager:GetSecretValue'],
+        resources: [
+          `arn:aws:secretsmanager:${this.region}:${this.account}:secret:/agentic-pm/auth/*`,
+        ],
+      })
+    );
 
     // Output the Amplify app URL
     new cdk.CfnOutput(this, 'AmplifyAppUrl', {
@@ -1223,7 +1283,9 @@ this.coreLayer = new lambda.LayerVersion(this, 'CoreLayer', {
   description: 'Shared @agentic-pm/core library and dependencies',
   compatibleRuntimes: [lambda.Runtime.NODEJS_20_X],
   compatibleArchitectures: [lambda.Architecture.ARM64],
-  code: lambda.Code.fromAsset(path.join(__dirname, '../../../packages/core/layer')),
+  code: lambda.Code.fromAsset(
+    path.join(__dirname, '../../../packages/core/layer')
+  ),
   license: 'MIT',
 });
 
@@ -1253,7 +1315,9 @@ fs.cpSync(CORE_DIST, path.join(NODEJS_DIR, 'node_modules/@agentic-pm/core'), {
 });
 
 // Install production dependencies
-const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, '../package.json'), 'utf-8'));
+const packageJson = JSON.parse(
+  fs.readFileSync(path.join(__dirname, '../package.json'), 'utf-8')
+);
 const prodDeps = packageJson.dependencies;
 
 // Create a minimal package.json for the layer
@@ -1303,11 +1367,15 @@ console.log('Layer built successfully at:', LAYER_DIR);
 // For explicit version tracking, use SSM Parameter Store
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 
-const coreLayerVersion = new ssm.StringParameter(this, 'CoreLayerVersionParam', {
-  parameterName: '/agentic-pm/layers/core-version',
-  stringValue: this.coreLayer.layerVersionArn,
-  description: 'Current version ARN of @agentic-pm/core layer',
-});
+const coreLayerVersion = new ssm.StringParameter(
+  this,
+  'CoreLayerVersionParam',
+  {
+    parameterName: '/agentic-pm/layers/core-version',
+    stringValue: this.coreLayer.layerVersionArn,
+    description: 'Current version ARN of @agentic-pm/core layer',
+  }
+);
 
 // Lambda functions reference the layer directly (not via parameter)
 // This ensures atomic deployments where functions and layers update together
@@ -1523,7 +1591,8 @@ jobs:
     name: Deploy to Dev
     runs-on: ubuntu-latest
     needs: [build, cdk-synth]
-    if: github.ref == 'refs/heads/develop' || github.event_name == 'pull_request'
+    if:
+      github.ref == 'refs/heads/develop' || github.event_name == 'pull_request'
     environment: development
     steps:
       - name: Checkout code
@@ -1652,7 +1721,9 @@ export class AgenticPMPipeline extends cdk.Stack {
       'your-username/agentic-pm-workbench',
       'main',
       {
-        authentication: cdk.SecretValue.secretsManager('/agentic-pm/github/token'),
+        authentication: cdk.SecretValue.secretsManager(
+          '/agentic-pm/github/token'
+        ),
       }
     );
 
@@ -1686,9 +1757,7 @@ export class AgenticPMPipeline extends cdk.Stack {
     pipeline.addStage(devStage, {
       post: [
         new pipelines.ShellStep('IntegrationTest', {
-          commands: [
-            'pnpm test:integration',
-          ],
+          commands: ['pnpm test:integration'],
         }),
       ],
     });
@@ -1725,7 +1794,11 @@ export class AgenticPMPipeline extends cdk.Stack {
 class AgenticPMStage extends cdk.Stage {
   public readonly stateMachineArn: cdk.CfnOutput;
 
-  constructor(scope: Construct, id: string, props: cdk.StageProps & { envName: string }) {
+  constructor(
+    scope: Construct,
+    id: string,
+    props: cdk.StageProps & { envName: string }
+  ) {
     super(scope, id, props);
 
     // Create all stacks for this stage
@@ -1839,12 +1912,12 @@ services:
     image: amazon/dynamodb-local:latest
     container_name: agentic-pm-dynamodb
     ports:
-      - "8000:8000"
-    command: "-jar DynamoDBLocal.jar -sharedDb -dbPath /data"
+      - '8000:8000'
+    command: '-jar DynamoDBLocal.jar -sharedDb -dbPath /data'
     volumes:
       - dynamodb-data:/data
     healthcheck:
-      test: ["CMD-SHELL", "curl -s http://localhost:8000 || exit 1"]
+      test: ['CMD-SHELL', 'curl -s http://localhost:8000 || exit 1']
       interval: 10s
       timeout: 5s
       retries: 3
@@ -1854,8 +1927,8 @@ services:
     image: localstack/localstack:latest
     container_name: agentic-pm-localstack
     ports:
-      - "4566:4566"           # LocalStack Gateway
-      - "4510-4559:4510-4559" # External services
+      - '4566:4566' # LocalStack Gateway
+      - '4510-4559:4510-4559' # External services
     environment:
       - SERVICES=secretsmanager,ses,stepfunctions,lambda,events
       - DEBUG=1
@@ -1863,10 +1936,15 @@ services:
       - LAMBDA_EXECUTOR=docker
       - LAMBDA_DOCKER_NETWORK=agentic-pm-network
     volumes:
-      - "/var/run/docker.sock:/var/run/docker.sock"
+      - '/var/run/docker.sock:/var/run/docker.sock'
       - localstack-data:/var/lib/localstack
     healthcheck:
-      test: ["CMD-SHELL", "curl -s http://localhost:4566/_localstack/health | grep -q '\"secretsmanager\": \"running\"'"]
+      test:
+        [
+          'CMD-SHELL',
+          'curl -s http://localhost:4566/_localstack/health | grep -q
+          ''"secretsmanager": "running"''',
+        ]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -1876,7 +1954,7 @@ services:
     image: aaronshaf/dynamodb-admin:latest
     container_name: agentic-pm-dynamodb-admin
     ports:
-      - "8001:8001"
+      - '8001:8001'
     environment:
       - DYNAMO_ENDPOINT=http://dynamodb-local:8000
       - AWS_REGION=ap-southeast-2
@@ -1932,29 +2010,44 @@ const secrets = [
   },
   {
     name: '/agentic-pm/auth/nextauth-secret',
-    value: JSON.stringify({ secret: 'local-development-secret-key-for-testing' }),
+    value: JSON.stringify({
+      secret: 'local-development-secret-key-for-testing',
+    }),
   },
 ];
 
 console.log('Creating secrets in LocalStack...');
 for (const secret of secrets) {
   try {
-    execSync(awsLocal(`secretsmanager create-secret --name "${secret.name}" --secret-string '${secret.value}'`), {
-      stdio: 'inherit',
-    });
+    execSync(
+      awsLocal(
+        `secretsmanager create-secret --name "${secret.name}" --secret-string '${secret.value}'`
+      ),
+      {
+        stdio: 'inherit',
+      }
+    );
   } catch (e) {
     // Secret may already exist
-    execSync(awsLocal(`secretsmanager put-secret-value --secret-id "${secret.name}" --secret-string '${secret.value}'`), {
-      stdio: 'inherit',
-    });
+    execSync(
+      awsLocal(
+        `secretsmanager put-secret-value --secret-id "${secret.name}" --secret-string '${secret.value}'`
+      ),
+      {
+        stdio: 'inherit',
+      }
+    );
   }
 }
 
 // Verify SES email identity (for local testing)
 console.log('Verifying SES email identity...');
-execSync(awsLocal('ses verify-email-identity --email-address test@agentic-pm.local'), {
-  stdio: 'inherit',
-});
+execSync(
+  awsLocal('ses verify-email-identity --email-address test@agentic-pm.local'),
+  {
+    stdio: 'inherit',
+  }
+);
 
 console.log('LocalStack initialization complete!');
 ```
@@ -1963,9 +2056,14 @@ console.log('LocalStack initialization complete!');
 
 ```typescript
 // scripts/dynamodb-init.ts
-import { DynamoDBClient, CreateTableCommand, DescribeTableCommand } from '@aws-sdk/client-dynamodb';
+import {
+  DynamoDBClient,
+  CreateTableCommand,
+  DescribeTableCommand,
+} from '@aws-sdk/client-dynamodb';
 
-const DYNAMODB_ENDPOINT = process.env.DYNAMODB_ENDPOINT || 'http://localhost:8000';
+const DYNAMODB_ENDPOINT =
+  process.env.DYNAMODB_ENDPOINT || 'http://localhost:8000';
 const TABLE_NAME = 'AgenticPM-Local';
 
 const client = new DynamoDBClient({
@@ -1988,86 +2086,94 @@ async function createTable() {
   }
 
   // Create table with same schema as production
-  await client.send(new CreateTableCommand({
-    TableName: TABLE_NAME,
-    KeySchema: [
-      { AttributeName: 'PK', KeyType: 'HASH' },
-      { AttributeName: 'SK', KeyType: 'RANGE' },
-    ],
-    AttributeDefinitions: [
-      { AttributeName: 'PK', AttributeType: 'S' },
-      { AttributeName: 'SK', AttributeType: 'S' },
-      { AttributeName: 'GSI1PK', AttributeType: 'S' },
-      { AttributeName: 'GSI1SK', AttributeType: 'S' },
-    ],
-    GlobalSecondaryIndexes: [
-      {
-        IndexName: 'GSI1',
-        KeySchema: [
-          { AttributeName: 'GSI1PK', KeyType: 'HASH' },
-          { AttributeName: 'GSI1SK', KeyType: 'RANGE' },
-        ],
-        Projection: { ProjectionType: 'ALL' },
-      },
-    ],
-    BillingMode: 'PAY_PER_REQUEST',
-  }));
+  await client.send(
+    new CreateTableCommand({
+      TableName: TABLE_NAME,
+      KeySchema: [
+        { AttributeName: 'PK', KeyType: 'HASH' },
+        { AttributeName: 'SK', KeyType: 'RANGE' },
+      ],
+      AttributeDefinitions: [
+        { AttributeName: 'PK', AttributeType: 'S' },
+        { AttributeName: 'SK', AttributeType: 'S' },
+        { AttributeName: 'GSI1PK', AttributeType: 'S' },
+        { AttributeName: 'GSI1SK', AttributeType: 'S' },
+      ],
+      GlobalSecondaryIndexes: [
+        {
+          IndexName: 'GSI1',
+          KeySchema: [
+            { AttributeName: 'GSI1PK', KeyType: 'HASH' },
+            { AttributeName: 'GSI1SK', KeyType: 'RANGE' },
+          ],
+          Projection: { ProjectionType: 'ALL' },
+        },
+      ],
+      BillingMode: 'PAY_PER_REQUEST',
+    })
+  );
 
   console.log(`Table ${TABLE_NAME} created successfully`);
 }
 
 async function seedData() {
-  const { DynamoDBDocumentClient, PutCommand } = await import('@aws-sdk/lib-dynamodb');
+  const { DynamoDBDocumentClient, PutCommand } =
+    await import('@aws-sdk/lib-dynamodb');
   const docClient = DynamoDBDocumentClient.from(client);
 
   // Seed default agent config
   const defaultConfigs = [
     { key: 'polling_interval_minutes', value: 15 },
-    { key: 'budget_ceiling_daily_usd', value: 0.30 },
+    { key: 'budget_ceiling_daily_usd', value: 0.3 },
     { key: 'hold_queue_minutes', value: 30 },
-    { key: 'working_hours', value: { start: '08:00', end: '18:00', timezone: 'Australia/Sydney' } },
+    {
+      key: 'working_hours',
+      value: { start: '08:00', end: '18:00', timezone: 'Australia/Sydney' },
+    },
   ];
 
   for (const config of defaultConfigs) {
-    await docClient.send(new PutCommand({
-      TableName: TABLE_NAME,
-      Item: {
-        PK: 'AGENT',
-        SK: `CONFIG#${config.key}`,
-        key: config.key,
-        value: config.value,
-        updatedAt: new Date().toISOString(),
-      },
-    }));
+    await docClient.send(
+      new PutCommand({
+        TableName: TABLE_NAME,
+        Item: {
+          PK: 'AGENT',
+          SK: `CONFIG#${config.key}`,
+          key: config.key,
+          value: config.value,
+          updatedAt: new Date().toISOString(),
+        },
+      })
+    );
   }
 
   // Seed a test project
-  await docClient.send(new PutCommand({
-    TableName: TABLE_NAME,
-    Item: {
-      PK: 'PROJECT#test-project-001',
-      SK: 'METADATA',
-      id: 'test-project-001',
-      name: 'Test Project',
-      description: 'A project for local development testing',
-      status: 'active',
-      source: 'jira',
-      sourceProjectKey: 'TEST',
-      autonomyLevel: 'monitoring',
-      config: {},
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      GSI1PK: 'STATUS#active',
-      GSI1SK: 'PROJECT#test-project-001',
-    },
-  }));
+  await docClient.send(
+    new PutCommand({
+      TableName: TABLE_NAME,
+      Item: {
+        PK: 'PROJECT#test-project-001',
+        SK: 'METADATA',
+        id: 'test-project-001',
+        name: 'Test Project',
+        description: 'A project for local development testing',
+        status: 'active',
+        source: 'jira',
+        sourceProjectKey: 'TEST',
+        autonomyLevel: 'monitoring',
+        config: {},
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        GSI1PK: 'STATUS#active',
+        GSI1SK: 'PROJECT#test-project-001',
+      },
+    })
+  );
 
   console.log('Seed data inserted successfully');
 }
 
-createTable()
-  .then(seedData)
-  .catch(console.error);
+createTable().then(seedData).catch(console.error);
 ```
 
 ### 5.4 SAM Local Invoke Setup
@@ -2357,17 +2463,18 @@ export class ResourceLimitAspect implements cdk.IAspect {
   };
 
   constructor(envName: 'dev' | 'prod') {
-    this.config = envName === 'prod'
-      ? {
-          maxLambdaMemory: 512,      // MB
-          maxLambdaTimeout: 300,      // seconds
-          maxConcurrency: 10,         // reserved concurrency
-        }
-      : {
-          maxLambdaMemory: 256,
-          maxLambdaTimeout: 120,
-          maxConcurrency: 5,
-        };
+    this.config =
+      envName === 'prod'
+        ? {
+            maxLambdaMemory: 512, // MB
+            maxLambdaTimeout: 300, // seconds
+            maxConcurrency: 10, // reserved concurrency
+          }
+        : {
+            maxLambdaMemory: 256,
+            maxLambdaTimeout: 120,
+            maxConcurrency: 5,
+          };
   }
 
   visit(node: IConstruct): void {
@@ -2376,7 +2483,10 @@ export class ResourceLimitAspect implements cdk.IAspect {
       const cfnFunction = node.node.defaultChild as lambda.CfnFunction;
 
       // Check memory
-      if (cfnFunction.memorySize && cfnFunction.memorySize > this.config.maxLambdaMemory) {
+      if (
+        cfnFunction.memorySize &&
+        cfnFunction.memorySize > this.config.maxLambdaMemory
+      ) {
         cdk.Annotations.of(node).addWarning(
           `Lambda memory (${cfnFunction.memorySize}MB) exceeds limit (${this.config.maxLambdaMemory}MB). Resetting to limit.`
         );
@@ -2384,7 +2494,10 @@ export class ResourceLimitAspect implements cdk.IAspect {
       }
 
       // Check timeout
-      if (cfnFunction.timeout && cfnFunction.timeout > this.config.maxLambdaTimeout) {
+      if (
+        cfnFunction.timeout &&
+        cfnFunction.timeout > this.config.maxLambdaTimeout
+      ) {
         cdk.Annotations.of(node).addWarning(
           `Lambda timeout (${cfnFunction.timeout}s) exceeds limit (${this.config.maxLambdaTimeout}s). Resetting to limit.`
         );
@@ -2425,7 +2538,7 @@ export class NoVpcAspect implements cdk.IAspect {
       if (cfnFunction.vpcConfig) {
         cdk.Annotations.of(node).addError(
           'Lambda functions must run OUTSIDE VPC to avoid NAT Gateway costs (~$33/month). ' +
-          'Remove VPC configuration from this function.'
+            'Remove VPC configuration from this function.'
         );
       }
     }
@@ -2434,7 +2547,7 @@ export class NoVpcAspect implements cdk.IAspect {
     if (node instanceof ec2.CfnNatGateway) {
       cdk.Annotations.of(node).addError(
         'NAT Gateway creation is prohibited. Cost: ~$33/month, which exceeds the entire project budget. ' +
-        'Lambda functions should run outside VPC for external API access.'
+          'Lambda functions should run outside VPC for external API access.'
       );
     }
 
@@ -2442,7 +2555,7 @@ export class NoVpcAspect implements cdk.IAspect {
     if (node instanceof ec2.Vpc) {
       cdk.Annotations.of(node).addWarning(
         'VPC created. Ensure no NAT Gateway or VPC-attached Lambda functions are configured. ' +
-        'Lambda functions must run outside VPC for cost control.'
+          'Lambda functions must run outside VPC for cost control.'
       );
     }
   }
@@ -2548,15 +2661,15 @@ dailyCostAlarm.addAlarmAction(new actions.SnsAction(alertTopic));
 // unexpected high invocation rates
 
 const concurrencyLimits: Record<string, number> = {
-  'heartbeat': 2,
+  heartbeat: 2,
   'change-detection': 2,
-  'normalise': 2,
+  normalise: 2,
   'triage-sanitise': 2,
   'triage-classify': 2,
-  'reasoning': 1,           // Expensive LLM calls
-  'execute': 2,
+  reasoning: 1, // Expensive LLM calls
+  execute: 2,
   'artefact-update': 2,
-  'housekeeping': 1,
+  housekeeping: 1,
   'hold-queue': 2,
 };
 
@@ -2573,7 +2686,8 @@ for (const [name, concurrency] of Object.entries(concurrencyLimits)) {
     // Account-level concurrency is 1000 by default
     // Reserving concurrency per function prevents one function from
     // consuming all available concurrency
-    (fn.node.defaultChild as lambda.CfnFunction).reservedConcurrentExecutions = concurrency;
+    (fn.node.defaultChild as lambda.CfnFunction).reservedConcurrentExecutions =
+      concurrency;
   }
 }
 ```
@@ -2730,15 +2844,15 @@ aws cloudformation describe-stacks         # View deployed stacks
 
 ## Appendix C: Environment Variables Reference
 
-| Variable | Description | Set By |
-|----------|-------------|--------|
-| `TABLE_NAME` | DynamoDB table name | CDK (Lambda env) |
-| `TABLE_ARN` | DynamoDB table ARN | CDK (Lambda env) |
-| `ENVIRONMENT` | `dev` or `prod` | CDK (Lambda env) |
-| `LOG_LEVEL` | Logging level (`DEBUG`, `INFO`, `WARN`, `ERROR`) | CDK (Lambda env) |
-| `AWS_REGION` | AWS region | Lambda runtime |
-| `DYNAMODB_ENDPOINT` | DynamoDB endpoint (local dev only) | docker-compose |
-| `LOCALSTACK_ENDPOINT` | LocalStack endpoint (local dev only) | docker-compose |
+| Variable              | Description                                      | Set By           |
+| --------------------- | ------------------------------------------------ | ---------------- |
+| `TABLE_NAME`          | DynamoDB table name                              | CDK (Lambda env) |
+| `TABLE_ARN`           | DynamoDB table ARN                               | CDK (Lambda env) |
+| `ENVIRONMENT`         | `dev` or `prod`                                  | CDK (Lambda env) |
+| `LOG_LEVEL`           | Logging level (`DEBUG`, `INFO`, `WARN`, `ERROR`) | CDK (Lambda env) |
+| `AWS_REGION`          | AWS region                                       | Lambda runtime   |
+| `DYNAMODB_ENDPOINT`   | DynamoDB endpoint (local dev only)               | docker-compose   |
+| `LOCALSTACK_ENDPOINT` | LocalStack endpoint (local dev only)             | docker-compose   |
 
 ---
 

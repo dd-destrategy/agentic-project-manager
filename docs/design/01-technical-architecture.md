@@ -1,9 +1,7 @@
 # Agentic PM Workbench — Technical Architecture
 
-> **Version:** 1.0
-> **Last Updated:** February 2026
-> **Status:** Implementation-ready
-> **Source:** Derived from `SPEC.md`
+> **Version:** 1.0 **Last Updated:** February 2026 **Status:**
+> Implementation-ready **Source:** Derived from `SPEC.md`
 
 ---
 
@@ -700,14 +698,15 @@ sequenceDiagram
 
 ### 3.1 agent-heartbeat
 
-**Purpose:** Log cycle start, verify agent health, check integration connectivity.
+**Purpose:** Log cycle start, verify agent health, check integration
+connectivity.
 
 #### Input Schema
 
 ```typescript
 interface HeartbeatInput {
-  executionId: string;       // Step Functions execution ID
-  scheduledTime: string;     // ISO 8601 timestamp
+  executionId: string; // Step Functions execution ID
+  scheduledTime: string; // ISO 8601 timestamp
 }
 ```
 
@@ -718,7 +717,7 @@ interface HeartbeatOutput {
   healthy: boolean;
   timestamp: string;
   integrations: {
-    name: string;           // 'jira' | 'outlook' | 'ses'
+    name: string; // 'jira' | 'outlook' | 'ses'
     status: 'ok' | 'degraded' | 'error';
     latencyMs?: number;
     error?: string;
@@ -733,13 +732,13 @@ interface HeartbeatOutput {
 
 #### Configuration
 
-| Property | Value |
-|----------|-------|
-| **Runtime** | Node.js 20.x |
-| **Timeout** | 30 seconds |
-| **Memory** | 256 MB |
-| **Retry** | 2x with 5s exponential backoff |
-| **VPC** | None (public internet) |
+| Property    | Value                          |
+| ----------- | ------------------------------ |
+| **Runtime** | Node.js 20.x                   |
+| **Timeout** | 30 seconds                     |
+| **Memory**  | 256 MB                         |
+| **Retry**   | 2x with 5s exponential backoff |
+| **VPC**     | None (public internet)         |
 
 #### Dependencies
 
@@ -760,11 +759,7 @@ interface HeartbeatOutput {
   "Statement": [
     {
       "Effect": "Allow",
-      "Action": [
-        "dynamodb:GetItem",
-        "dynamodb:PutItem",
-        "dynamodb:Query"
-      ],
+      "Action": ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:Query"],
       "Resource": [
         "arn:aws:dynamodb:*:*:table/AgenticPM",
         "arn:aws:dynamodb:*:*:table/AgenticPM/index/GSI1"
@@ -802,7 +797,7 @@ interface HeartbeatOutput {
 ```typescript
 interface ChangeDetectionInput {
   executionId: string;
-  projectIds: string[];      // UUIDs of active projects
+  projectIds: string[]; // UUIDs of active projects
 }
 ```
 
@@ -814,8 +809,8 @@ interface ChangeDetectionOutput {
   jiraChanges: JiraChange[];
   outlookChanges: OutlookChange[];
   checkpoints: {
-    jira: string;           // Last sync timestamp
-    outlook: string;        // Delta token
+    jira: string; // Last sync timestamp
+    outlook: string; // Delta token
   };
 }
 
@@ -840,13 +835,13 @@ interface OutlookChange {
 
 #### Configuration
 
-| Property | Value |
-|----------|-------|
-| **Runtime** | Node.js 20.x |
-| **Timeout** | 60 seconds |
-| **Memory** | 512 MB |
-| **Retry** | 3x with 10s exponential backoff |
-| **VPC** | None (public internet) |
+| Property    | Value                           |
+| ----------- | ------------------------------- |
+| **Runtime** | Node.js 20.x                    |
+| **Timeout** | 60 seconds                      |
+| **Memory**  | 512 MB                          |
+| **Retry**   | 3x with 10s exponential backoff |
+| **VPC**     | None (public internet)          |
 
 #### Dependencies
 
@@ -870,11 +865,7 @@ interface OutlookChange {
   "Statement": [
     {
       "Effect": "Allow",
-      "Action": [
-        "dynamodb:GetItem",
-        "dynamodb:PutItem",
-        "dynamodb:Query"
-      ],
+      "Action": ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:Query"],
       "Resource": [
         "arn:aws:dynamodb:*:*:table/AgenticPM",
         "arn:aws:dynamodb:*:*:table/AgenticPM/index/GSI1"
@@ -934,11 +925,11 @@ interface NormaliseOutput {
 }
 
 interface NormalisedSignal {
-  id: string;               // ULID
+  id: string; // ULID
   source: 'jira' | 'outlook' | 'asana';
-  timestamp: string;        // ISO 8601
-  type: string;             // 'ticket_updated', 'email_received', etc.
-  summary: string;          // Human-readable one-liner
+  timestamp: string; // ISO 8601
+  type: string; // 'ticket_updated', 'email_received', etc.
+  summary: string; // Human-readable one-liner
   raw: Record<string, unknown>;
   projectId: string;
 }
@@ -946,13 +937,13 @@ interface NormalisedSignal {
 
 #### Configuration
 
-| Property | Value |
-|----------|-------|
-| **Runtime** | Node.js 20.x |
-| **Timeout** | 30 seconds |
-| **Memory** | 256 MB |
-| **Retry** | None (deterministic) |
-| **VPC** | None (public internet) |
+| Property    | Value                  |
+| ----------- | ---------------------- |
+| **Runtime** | Node.js 20.x           |
+| **Timeout** | 30 seconds             |
+| **Memory**  | 256 MB                 |
+| **Retry**   | None (deterministic)   |
+| **VPC**     | None (public internet) |
 
 #### Dependencies
 
@@ -986,7 +977,8 @@ interface NormalisedSignal {
 
 ### 3.4 agent-triage-sanitise
 
-**Purpose:** Strip or neutralise untrusted content from signals. SECURITY BOUNDARY - isolated IAM role.
+**Purpose:** Strip or neutralise untrusted content from signals. SECURITY
+BOUNDARY - isolated IAM role.
 
 #### Input Schema
 
@@ -1030,13 +1022,13 @@ interface SanitisedSignal extends NormalisedSignal {
 
 #### Configuration
 
-| Property | Value |
-|----------|-------|
-| **Runtime** | Node.js 20.x |
-| **Timeout** | 120 seconds |
-| **Memory** | 512 MB |
-| **Retry** | 2x with 30s exponential backoff |
-| **VPC** | None (public internet) |
+| Property    | Value                           |
+| ----------- | ------------------------------- |
+| **Runtime** | Node.js 20.x                    |
+| **Timeout** | 120 seconds                     |
+| **Memory**  | 512 MB                          |
+| **Retry**   | 2x with 30s exponential backoff |
+| **VPC**     | None (public internet)          |
 
 #### Dependencies
 
@@ -1074,11 +1066,7 @@ interface SanitisedSignal extends NormalisedSignal {
     {
       "Sid": "AllowDynamoDB",
       "Effect": "Allow",
-      "Action": [
-        "dynamodb:GetItem",
-        "dynamodb:PutItem",
-        "dynamodb:Query"
-      ],
+      "Action": ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:Query"],
       "Resource": [
         "arn:aws:dynamodb:*:*:table/AgenticPM",
         "arn:aws:dynamodb:*:*:table/AgenticPM/index/GSI1"
@@ -1108,7 +1096,8 @@ interface SanitisedSignal extends NormalisedSignal {
 
 ### 3.5 agent-triage-classify
 
-**Purpose:** Classify signal importance and recommend actions using Claude Haiku.
+**Purpose:** Classify signal importance and recommend actions using Claude
+Haiku.
 
 #### Input Schema
 
@@ -1133,7 +1122,7 @@ interface TriageClassifyInput {
 interface TriageClassifyOutput {
   classifiedSignals: ClassifiedSignal[];
   needsReasoning: boolean;
-  complexSignals: SanitisedSignal[];   // Signals requiring Sonnet
+  complexSignals: SanitisedSignal[]; // Signals requiring Sonnet
   proposedActions: ProposedAction[];
   llmUsage: {
     inputTokens: number;
@@ -1147,7 +1136,7 @@ interface ClassifiedSignal extends SanitisedSignal {
   classification: {
     importance: 'critical' | 'high' | 'medium' | 'low' | 'noise';
     category: 'blocker' | 'risk' | 'progress' | 'communication' | 'routine';
-    confidence: number;     // 0-1
+    confidence: number; // 0-1
     reasoning: string;
   };
   suggestedActions: {
@@ -1158,34 +1147,34 @@ interface ClassifiedSignal extends SanitisedSignal {
 }
 
 interface ProposedAction {
-  id: string;               // ULID
+  id: string; // ULID
   actionType: string;
   description: string;
   targetProjectId: string;
-  triggeringSignals: string[];  // Signal IDs
+  triggeringSignals: string[]; // Signal IDs
   boundary: 'auto' | 'hold' | 'escalate';
   holdMinutes?: number;
   confidence: ConfidenceScore;
 }
 
 interface ConfidenceScore {
-  sourceAgreement: number;      // 0-1
+  sourceAgreement: number; // 0-1
   boundaryCompliance: boolean;
   schemaValidity: boolean;
-  precedentMatch: number;       // 0-1
+  precedentMatch: number; // 0-1
   overallPass: boolean;
 }
 ```
 
 #### Configuration
 
-| Property | Value |
-|----------|-------|
-| **Runtime** | Node.js 20.x |
-| **Timeout** | 120 seconds |
-| **Memory** | 512 MB |
-| **Retry** | 2x with 30s exponential backoff |
-| **VPC** | None (public internet) |
+| Property    | Value                           |
+| ----------- | ------------------------------- |
+| **Runtime** | Node.js 20.x                    |
+| **Timeout** | 120 seconds                     |
+| **Memory**  | 512 MB                          |
+| **Retry**   | 2x with 30s exponential backoff |
+| **VPC**     | None (public internet)          |
 
 #### Dependencies
 
@@ -1207,7 +1196,8 @@ Same as `agent-triage-sanitise` (Triage Zone isolation).
 
 ### 3.6 agent-reasoning
 
-**Purpose:** Complex multi-source reasoning for difficult signals using Claude Sonnet.
+**Purpose:** Complex multi-source reasoning for difficult signals using Claude
+Sonnet.
 
 #### Input Schema
 
@@ -1269,13 +1259,13 @@ interface ReasoningOutput {
 
 #### Configuration
 
-| Property | Value |
-|----------|-------|
-| **Runtime** | Node.js 20.x |
-| **Timeout** | 300 seconds |
-| **Memory** | 1024 MB |
-| **Retry** | 2x with 60s exponential backoff |
-| **VPC** | None (public internet) |
+| Property    | Value                           |
+| ----------- | ------------------------------- |
+| **Runtime** | Node.js 20.x                    |
+| **Timeout** | 300 seconds                     |
+| **Memory**  | 1024 MB                         |
+| **Retry**   | 2x with 60s exponential backoff |
+| **VPC**     | None (public internet)          |
 
 #### Dependencies
 
@@ -1302,10 +1292,7 @@ interface ReasoningOutput {
     },
     {
       "Effect": "Allow",
-      "Action": [
-        "dynamodb:GetItem",
-        "dynamodb:Query"
-      ],
+      "Action": ["dynamodb:GetItem", "dynamodb:Query"],
       "Resource": [
         "arn:aws:dynamodb:*:*:table/AgenticPM",
         "arn:aws:dynamodb:*:*:table/AgenticPM/index/GSI1"
@@ -1386,13 +1373,13 @@ interface ExecuteOutput {
 
 #### Configuration
 
-| Property | Value |
-|----------|-------|
-| **Runtime** | Node.js 20.x |
-| **Timeout** | 60 seconds |
-| **Memory** | 512 MB |
-| **Retry** | 2x with 10s exponential backoff |
-| **VPC** | None (public internet) |
+| Property    | Value                           |
+| ----------- | ------------------------------- |
+| **Runtime** | Node.js 20.x                    |
+| **Timeout** | 60 seconds                      |
+| **Memory**  | 512 MB                          |
+| **Retry**   | 2x with 10s exponential backoff |
+| **VPC**     | None (public internet)          |
 
 #### Dependencies
 
@@ -1465,7 +1452,11 @@ interface ArtefactUpdateInput {
   executionId: string;
   updates: {
     projectId: string;
-    artefactType: 'delivery_state' | 'raid_log' | 'backlog_summary' | 'decision_log';
+    artefactType:
+      | 'delivery_state'
+      | 'raid_log'
+      | 'backlog_summary'
+      | 'decision_log';
     updateRationale: string;
     triggeringSignals: string[];
     proposedChanges?: Record<string, unknown>;
@@ -1500,13 +1491,13 @@ interface ArtefactUpdateOutput {
 
 #### Configuration
 
-| Property | Value |
-|----------|-------|
-| **Runtime** | Node.js 20.x |
-| **Timeout** | 180 seconds |
-| **Memory** | 512 MB |
-| **Retry** | 2x with 30s exponential backoff |
-| **VPC** | None (public internet) |
+| Property    | Value                           |
+| ----------- | ------------------------------- |
+| **Runtime** | Node.js 20.x                    |
+| **Timeout** | 180 seconds                     |
+| **Memory**  | 512 MB                          |
+| **Retry**   | 2x with 30s exponential backoff |
+| **VPC**     | None (public internet)          |
 
 #### Dependencies
 
@@ -1601,13 +1592,13 @@ interface HousekeepingOutput {
 
 #### Configuration
 
-| Property | Value |
-|----------|-------|
-| **Runtime** | Node.js 20.x |
-| **Timeout** | 120 seconds |
-| **Memory** | 256 MB |
-| **Retry** | 2x with 30s exponential backoff |
-| **VPC** | None (public internet) |
+| Property    | Value                           |
+| ----------- | ------------------------------- |
+| **Runtime** | Node.js 20.x                    |
+| **Timeout** | 120 seconds                     |
+| **Memory**  | 256 MB                          |
+| **Retry**   | 2x with 30s exponential backoff |
+| **VPC**     | None (public internet)          |
 
 #### Dependencies
 
@@ -1641,10 +1632,7 @@ interface HousekeepingOutput {
     },
     {
       "Effect": "Allow",
-      "Action": [
-        "ses:SendEmail",
-        "ses:GetSendQuota"
-      ],
+      "Action": ["ses:SendEmail", "ses:GetSendQuota"],
       "Resource": "*"
     },
     {
@@ -1671,7 +1659,7 @@ interface HousekeepingOutput {
 ```typescript
 interface HoldQueueInput {
   triggeredAt: string;
-  maxItemsToProcess?: number;   // Default: 10
+  maxItemsToProcess?: number; // Default: 10
 }
 ```
 
@@ -1693,13 +1681,13 @@ interface HoldQueueOutput {
 
 #### Configuration
 
-| Property | Value |
-|----------|-------|
-| **Runtime** | Node.js 20.x |
-| **Timeout** | 60 seconds |
-| **Memory** | 512 MB |
-| **Retry** | 2x with 10s exponential backoff |
-| **VPC** | None (public internet) |
+| Property    | Value                           |
+| ----------- | ------------------------------- |
+| **Runtime** | Node.js 20.x                    |
+| **Timeout** | 60 seconds                      |
+| **Memory**  | 512 MB                          |
+| **Retry**   | 2x with 10s exponential backoff |
+| **VPC**     | None (public internet)          |
 
 #### Dependencies
 
@@ -1777,7 +1765,10 @@ interface HoldQueueOutput {
       "TimeoutSeconds": 30,
       "Retry": [
         {
-          "ErrorEquals": ["Lambda.ServiceException", "Lambda.TooManyRequestsException"],
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.TooManyRequestsException"
+          ],
           "IntervalSeconds": 5,
           "MaxAttempts": 2,
           "BackoffRate": 2
@@ -1799,13 +1790,15 @@ interface HoldQueueOutput {
       "Parameters": {
         "TableName": "AgenticPM",
         "Item": {
-          "PK": {"S": "GLOBAL"},
-          "SK": {"S.$": "States.Format('EVENT#{}#{}', $$.Execution.StartTime, $$.Execution.Id)"},
-          "eventType": {"S": "error"},
-          "severity": {"S": "critical"},
-          "summary": {"S": "Heartbeat failed - agent may be unhealthy"},
-          "detail": {"S.$": "States.JsonToString($.error)"},
-          "createdAt": {"S.$": "$$.Execution.StartTime"}
+          "PK": { "S": "GLOBAL" },
+          "SK": {
+            "S.$": "States.Format('EVENT#{}#{}', $$.Execution.StartTime, $$.Execution.Id)"
+          },
+          "eventType": { "S": "error" },
+          "severity": { "S": "critical" },
+          "summary": { "S": "Heartbeat failed - agent may be unhealthy" },
+          "detail": { "S.$": "States.JsonToString($.error)" },
+          "createdAt": { "S.$": "$$.Execution.StartTime" }
         }
       },
       "ResultPath": null,
@@ -1830,13 +1823,17 @@ interface HoldQueueOutput {
       "Parameters": {
         "TableName": "AgenticPM",
         "Item": {
-          "PK": {"S": "GLOBAL"},
-          "SK": {"S.$": "States.Format('EVENT#{}#{}', $$.Execution.StartTime, $$.Execution.Id)"},
-          "eventType": {"S": "error"},
-          "severity": {"S": "error"},
-          "summary": {"S": "Agent unhealthy - integration connectivity issues"},
-          "detail": {"S.$": "States.JsonToString($.heartbeat.integrations)"},
-          "createdAt": {"S.$": "$$.Execution.StartTime"}
+          "PK": { "S": "GLOBAL" },
+          "SK": {
+            "S.$": "States.Format('EVENT#{}#{}', $$.Execution.StartTime, $$.Execution.Id)"
+          },
+          "eventType": { "S": "error" },
+          "severity": { "S": "error" },
+          "summary": {
+            "S": "Agent unhealthy - integration connectivity issues"
+          },
+          "detail": { "S.$": "States.JsonToString($.heartbeat.integrations)" },
+          "createdAt": { "S.$": "$$.Execution.StartTime" }
         }
       },
       "ResultPath": null,
@@ -1851,7 +1848,7 @@ interface HoldQueueOutput {
         "IndexName": "GSI1",
         "KeyConditionExpression": "GSI1PK = :status",
         "ExpressionAttributeValues": {
-          ":status": {"S": "STATUS#active"}
+          ":status": { "S": "STATUS#active" }
         }
       },
       "ResultPath": "$.projects",
@@ -1876,12 +1873,14 @@ interface HoldQueueOutput {
       "Parameters": {
         "TableName": "AgenticPM",
         "Item": {
-          "PK": {"S": "GLOBAL"},
-          "SK": {"S.$": "States.Format('EVENT#{}#{}', $$.Execution.StartTime, $$.Execution.Id)"},
-          "eventType": {"S": "heartbeat"},
-          "severity": {"S": "info"},
-          "summary": {"S": "Heartbeat - no active projects"},
-          "createdAt": {"S.$": "$$.Execution.StartTime"}
+          "PK": { "S": "GLOBAL" },
+          "SK": {
+            "S.$": "States.Format('EVENT#{}#{}', $$.Execution.StartTime, $$.Execution.Id)"
+          },
+          "eventType": { "S": "heartbeat" },
+          "severity": { "S": "info" },
+          "summary": { "S": "Heartbeat - no active projects" },
+          "createdAt": { "S.$": "$$.Execution.StartTime" }
         }
       },
       "ResultPath": null,
@@ -1899,7 +1898,11 @@ interface HoldQueueOutput {
       "TimeoutSeconds": 60,
       "Retry": [
         {
-          "ErrorEquals": ["Lambda.ServiceException", "Lambda.TooManyRequestsException", "States.Timeout"],
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.TooManyRequestsException",
+            "States.Timeout"
+          ],
           "IntervalSeconds": 10,
           "MaxAttempts": 3,
           "BackoffRate": 2
@@ -1921,13 +1924,15 @@ interface HoldQueueOutput {
       "Parameters": {
         "TableName": "AgenticPM",
         "Item": {
-          "PK": {"S": "GLOBAL"},
-          "SK": {"S.$": "States.Format('EVENT#{}#{}', $$.Execution.StartTime, $$.Execution.Id)"},
-          "eventType": {"S": "error"},
-          "severity": {"S": "error"},
-          "summary": {"S": "Change detection failed"},
-          "detail": {"S.$": "States.JsonToString($.error)"},
-          "createdAt": {"S.$": "$$.Execution.StartTime"}
+          "PK": { "S": "GLOBAL" },
+          "SK": {
+            "S.$": "States.Format('EVENT#{}#{}', $$.Execution.StartTime, $$.Execution.Id)"
+          },
+          "eventType": { "S": "error" },
+          "severity": { "S": "error" },
+          "summary": { "S": "Change detection failed" },
+          "detail": { "S.$": "States.JsonToString($.error)" },
+          "createdAt": { "S.$": "$$.Execution.StartTime" }
         }
       },
       "ResultPath": null,
@@ -1952,12 +1957,14 @@ interface HoldQueueOutput {
       "Parameters": {
         "TableName": "AgenticPM",
         "Item": {
-          "PK": {"S": "GLOBAL"},
-          "SK": {"S.$": "States.Format('EVENT#{}#{}', $$.Execution.StartTime, $$.Execution.Id)"},
-          "eventType": {"S": "heartbeat"},
-          "severity": {"S": "info"},
-          "summary": {"S": "Heartbeat - no changes detected"},
-          "createdAt": {"S.$": "$$.Execution.StartTime"}
+          "PK": { "S": "GLOBAL" },
+          "SK": {
+            "S.$": "States.Format('EVENT#{}#{}', $$.Execution.StartTime, $$.Execution.Id)"
+          },
+          "eventType": { "S": "heartbeat" },
+          "severity": { "S": "info" },
+          "summary": { "S": "Heartbeat - no changes detected" },
+          "createdAt": { "S.$": "$$.Execution.StartTime" }
         }
       },
       "ResultPath": null,
@@ -2011,13 +2018,15 @@ interface HoldQueueOutput {
       "Parameters": {
         "TableName": "AgenticPM",
         "Item": {
-          "PK": {"S": "GLOBAL"},
-          "SK": {"S.$": "States.Format('EVENT#{}#{}', $$.Execution.StartTime, $$.Execution.Id)"},
-          "eventType": {"S": "error"},
-          "severity": {"S": "error"},
-          "summary": {"S": "Triage failed - signals not processed"},
-          "detail": {"S.$": "States.JsonToString($.error)"},
-          "createdAt": {"S.$": "$$.Execution.StartTime"}
+          "PK": { "S": "GLOBAL" },
+          "SK": {
+            "S.$": "States.Format('EVENT#{}#{}', $$.Execution.StartTime, $$.Execution.Id)"
+          },
+          "eventType": { "S": "error" },
+          "severity": { "S": "error" },
+          "summary": { "S": "Triage failed - signals not processed" },
+          "detail": { "S.$": "States.JsonToString($.error)" },
+          "createdAt": { "S.$": "$$.Execution.StartTime" }
         }
       },
       "ResultPath": null,
@@ -2099,13 +2108,17 @@ interface HoldQueueOutput {
       "Parameters": {
         "TableName": "AgenticPM",
         "Item": {
-          "PK": {"S": "GLOBAL"},
-          "SK": {"S.$": "States.Format('EVENT#{}#{}', $$.Execution.StartTime, $$.Execution.Id)"},
-          "eventType": {"S": "warning"},
-          "severity": {"S": "warning"},
-          "summary": {"S": "Complex reasoning failed - falling back to triage actions"},
-          "detail": {"S.$": "States.JsonToString($.error)"},
-          "createdAt": {"S.$": "$$.Execution.StartTime"}
+          "PK": { "S": "GLOBAL" },
+          "SK": {
+            "S.$": "States.Format('EVENT#{}#{}', $$.Execution.StartTime, $$.Execution.Id)"
+          },
+          "eventType": { "S": "warning" },
+          "severity": { "S": "warning" },
+          "summary": {
+            "S": "Complex reasoning failed - falling back to triage actions"
+          },
+          "detail": { "S.$": "States.JsonToString($.error)" },
+          "createdAt": { "S.$": "$$.Execution.StartTime" }
         }
       },
       "ResultPath": null,
@@ -2159,13 +2172,15 @@ interface HoldQueueOutput {
       "Parameters": {
         "TableName": "AgenticPM",
         "Item": {
-          "PK": {"S": "GLOBAL"},
-          "SK": {"S.$": "States.Format('EVENT#{}#{}', $$.Execution.StartTime, $$.Execution.Id)"},
-          "eventType": {"S": "error"},
-          "severity": {"S": "error"},
-          "summary": {"S": "Action execution failed"},
-          "detail": {"S.$": "States.JsonToString($.error)"},
-          "createdAt": {"S.$": "$$.Execution.StartTime"}
+          "PK": { "S": "GLOBAL" },
+          "SK": {
+            "S.$": "States.Format('EVENT#{}#{}', $$.Execution.StartTime, $$.Execution.Id)"
+          },
+          "eventType": { "S": "error" },
+          "severity": { "S": "error" },
+          "summary": { "S": "Action execution failed" },
+          "detail": { "S.$": "States.JsonToString($.error)" },
+          "createdAt": { "S.$": "$$.Execution.StartTime" }
         }
       },
       "ResultPath": null,
@@ -2217,13 +2232,15 @@ interface HoldQueueOutput {
       "Parameters": {
         "TableName": "AgenticPM",
         "Item": {
-          "PK": {"S": "GLOBAL"},
-          "SK": {"S.$": "States.Format('EVENT#{}#{}', $$.Execution.StartTime, $$.Execution.Id)"},
-          "eventType": {"S": "warning"},
-          "severity": {"S": "warning"},
-          "summary": {"S": "Artefact update failed"},
-          "detail": {"S.$": "States.JsonToString($.error)"},
-          "createdAt": {"S.$": "$$.Execution.StartTime"}
+          "PK": { "S": "GLOBAL" },
+          "SK": {
+            "S.$": "States.Format('EVENT#{}#{}', $$.Execution.StartTime, $$.Execution.Id)"
+          },
+          "eventType": { "S": "warning" },
+          "severity": { "S": "warning" },
+          "summary": { "S": "Artefact update failed" },
+          "detail": { "S.$": "States.JsonToString($.error)" },
+          "createdAt": { "S.$": "$$.Execution.StartTime" }
         }
       },
       "ResultPath": null,
@@ -2236,8 +2253,8 @@ interface HoldQueueOutput {
       "Parameters": {
         "TableName": "AgenticPM",
         "Key": {
-          "PK": {"S": "AGENT"},
-          "SK": {"S": "CONFIG#last_housekeeping"}
+          "PK": { "S": "AGENT" },
+          "SK": { "S": "CONFIG#last_housekeeping" }
         }
       },
       "ResultPath": "$.lastHousekeeping",
@@ -2298,13 +2315,15 @@ interface HoldQueueOutput {
       "Parameters": {
         "TableName": "AgenticPM",
         "Item": {
-          "PK": {"S": "GLOBAL"},
-          "SK": {"S.$": "States.Format('EVENT#{}#{}', $$.Execution.StartTime, $$.Execution.Id)"},
-          "eventType": {"S": "warning"},
-          "severity": {"S": "warning"},
-          "summary": {"S": "Housekeeping failed"},
-          "detail": {"S.$": "States.JsonToString($.error)"},
-          "createdAt": {"S.$": "$$.Execution.StartTime"}
+          "PK": { "S": "GLOBAL" },
+          "SK": {
+            "S.$": "States.Format('EVENT#{}#{}', $$.Execution.StartTime, $$.Execution.Id)"
+          },
+          "eventType": { "S": "warning" },
+          "severity": { "S": "warning" },
+          "summary": { "S": "Housekeeping failed" },
+          "detail": { "S.$": "States.JsonToString($.error)" },
+          "createdAt": { "S.$": "$$.Execution.StartTime" }
         }
       },
       "ResultPath": null,
@@ -2317,12 +2336,14 @@ interface HoldQueueOutput {
       "Parameters": {
         "TableName": "AgenticPM",
         "Item": {
-          "PK": {"S": "GLOBAL"},
-          "SK": {"S.$": "States.Format('EVENT#{}#{}', $$.Execution.StartTime, $$.Execution.Id)"},
-          "eventType": {"S": "heartbeat"},
-          "severity": {"S": "info"},
-          "summary": {"S": "Agent cycle completed successfully"},
-          "createdAt": {"S.$": "$$.Execution.StartTime"}
+          "PK": { "S": "GLOBAL" },
+          "SK": {
+            "S.$": "States.Format('EVENT#{}#{}', $$.Execution.StartTime, $$.Execution.Id)"
+          },
+          "eventType": { "S": "heartbeat" },
+          "severity": { "S": "info" },
+          "summary": { "S": "Agent cycle completed successfully" },
+          "createdAt": { "S.$": "$$.Execution.StartTime" }
         }
       },
       "ResultPath": null,
@@ -2466,13 +2487,13 @@ interface HoldQueueOutput {
 
 ### 5.1 IAM Roles Summary
 
-| Role Name | Purpose | Trust Policy |
-|-----------|---------|--------------|
-| `agentic-pm-triage-role` | Triage Lambdas (security boundary) | Lambda service |
-| `agentic-pm-agent-role` | Agent Lambdas (full integration access) | Lambda service |
-| `agentic-pm-stepfunctions-role` | Step Functions orchestration | States service |
-| `agentic-pm-eventbridge-role` | EventBridge scheduler | Scheduler service |
-| `agentic-pm-amplify-role` | Amplify frontend | Amplify service |
+| Role Name                       | Purpose                                 | Trust Policy      |
+| ------------------------------- | --------------------------------------- | ----------------- |
+| `agentic-pm-triage-role`        | Triage Lambdas (security boundary)      | Lambda service    |
+| `agentic-pm-agent-role`         | Agent Lambdas (full integration access) | Lambda service    |
+| `agentic-pm-stepfunctions-role` | Step Functions orchestration            | States service    |
+| `agentic-pm-eventbridge-role`   | EventBridge scheduler                   | Scheduler service |
+| `agentic-pm-amplify-role`       | Amplify frontend                        | Amplify service   |
 
 ### 5.2 Complete IAM Policy: agentic-pm-triage-role
 
@@ -2532,10 +2553,7 @@ interface HoldQueueOutput {
     {
       "Sid": "AllowXRayTracing",
       "Effect": "Allow",
-      "Action": [
-        "xray:PutTraceSegments",
-        "xray:PutTelemetryRecords"
-      ],
+      "Action": ["xray:PutTraceSegments", "xray:PutTelemetryRecords"],
       "Resource": "*"
     }
   ]
@@ -2595,17 +2613,12 @@ interface HoldQueueOutput {
         "logs:CreateLogStream",
         "logs:PutLogEvents"
       ],
-      "Resource": [
-        "arn:aws:logs:*:*:log-group:/aws/lambda/agentic-pm-*:*"
-      ]
+      "Resource": ["arn:aws:logs:*:*:log-group:/aws/lambda/agentic-pm-*:*"]
     },
     {
       "Sid": "AllowXRayTracing",
       "Effect": "Allow",
-      "Action": [
-        "xray:PutTraceSegments",
-        "xray:PutTelemetryRecords"
-      ],
+      "Action": ["xray:PutTraceSegments", "xray:PutTelemetryRecords"],
       "Resource": "*"
     }
   ]
@@ -2737,12 +2750,12 @@ interface HoldQueueOutput {
 
 ### 6.2 External Service Dependencies
 
-| Service | Purpose | Failure Mode | Fallback |
-|---------|---------|--------------|----------|
-| **Jira Cloud API** | Issue tracking data | Skip Jira signals | Outlook-only cycle |
-| **MS Graph API** | Email data | Skip Outlook signals | Jira-only cycle |
-| **Claude API** | LLM processing | Retry 2x, then skip LLM | Log signals, defer processing |
-| **Amazon SES** | Notifications | Retry 2x | Log notification failure |
+| Service            | Purpose             | Failure Mode            | Fallback                      |
+| ------------------ | ------------------- | ----------------------- | ----------------------------- |
+| **Jira Cloud API** | Issue tracking data | Skip Jira signals       | Outlook-only cycle            |
+| **MS Graph API**   | Email data          | Skip Outlook signals    | Jira-only cycle               |
+| **Claude API**     | LLM processing      | Retry 2x, then skip LLM | Log signals, defer processing |
+| **Amazon SES**     | Notifications       | Retry 2x                | Log notification failure      |
 
 ### 6.3 Shared Lambda Layer
 
@@ -2779,22 +2792,22 @@ layer/
 
 ### 6.4 Environment Variables (All Lambdas)
 
-| Variable | Value | Source |
-|----------|-------|--------|
-| `AWS_REGION` | `ap-southeast-2` | AWS default |
-| `DYNAMODB_TABLE` | `AgenticPM` | CDK parameter |
-| `SECRETS_PREFIX` | `/agentic-pm` | CDK parameter |
-| `LOG_LEVEL` | `info` | CDK parameter |
-| `NODE_OPTIONS` | `--enable-source-maps` | CDK default |
+| Variable         | Value                  | Source        |
+| ---------------- | ---------------------- | ------------- |
+| `AWS_REGION`     | `ap-southeast-2`       | AWS default   |
+| `DYNAMODB_TABLE` | `AgenticPM`            | CDK parameter |
+| `SECRETS_PREFIX` | `/agentic-pm`          | CDK parameter |
+| `LOG_LEVEL`      | `info`                 | CDK parameter |
+| `NODE_OPTIONS`   | `--enable-source-maps` | CDK default   |
 
 ### 6.5 CloudWatch Alarms
 
-| Alarm Name | Metric | Threshold | Action |
-|------------|--------|-----------|--------|
-| `agentic-pm-heartbeat-missing` | Custom: LastHeartbeat | > 30 minutes | SNS → SES notification |
-| `agentic-pm-errors-high` | Lambda Errors | > 5 in 15 minutes | SNS → SES notification |
-| `agentic-pm-budget-exceeded` | Custom: DailyLLMSpend | > $0.40 | SNS → SES notification + auto-degrade |
-| `agentic-pm-step-functions-failed` | Step Functions ExecutionsFailed | > 3 in 1 hour | SNS → SES notification |
+| Alarm Name                         | Metric                          | Threshold         | Action                                |
+| ---------------------------------- | ------------------------------- | ----------------- | ------------------------------------- |
+| `agentic-pm-heartbeat-missing`     | Custom: LastHeartbeat           | > 30 minutes      | SNS → SES notification                |
+| `agentic-pm-errors-high`           | Lambda Errors                   | > 5 in 15 minutes | SNS → SES notification                |
+| `agentic-pm-budget-exceeded`       | Custom: DailyLLMSpend           | > $0.40           | SNS → SES notification + auto-degrade |
+| `agentic-pm-step-functions-failed` | Step Functions ExecutionsFailed | > 3 in 1 hour     | SNS → SES notification                |
 
 ### 6.6 Cost Monitoring Tags
 
@@ -2813,20 +2826,21 @@ All resources tagged with:
 
 ## Appendix A: Lambda Memory and Timeout Summary
 
-| Lambda Function | Memory (MB) | Timeout (s) | Est. Cold Start (ms) |
-|-----------------|-------------|-------------|---------------------|
-| agent-heartbeat | 256 | 30 | ~300 |
-| agent-change-detection | 512 | 60 | ~400 |
-| agent-normalise | 256 | 30 | ~300 |
-| agent-triage-sanitise | 512 | 120 | ~400 |
-| agent-triage-classify | 512 | 120 | ~400 |
-| agent-reasoning | 1024 | 300 | ~500 |
-| agent-execute | 512 | 60 | ~400 |
-| agent-artefact-update | 512 | 180 | ~400 |
-| agent-housekeeping | 256 | 120 | ~300 |
-| agent-hold-queue | 512 | 60 | ~400 |
+| Lambda Function        | Memory (MB) | Timeout (s) | Est. Cold Start (ms) |
+| ---------------------- | ----------- | ----------- | -------------------- |
+| agent-heartbeat        | 256         | 30          | ~300                 |
+| agent-change-detection | 512         | 60          | ~400                 |
+| agent-normalise        | 256         | 30          | ~300                 |
+| agent-triage-sanitise  | 512         | 120         | ~400                 |
+| agent-triage-classify  | 512         | 120         | ~400                 |
+| agent-reasoning        | 1024        | 300         | ~500                 |
+| agent-execute          | 512         | 60          | ~400                 |
+| agent-artefact-update  | 512         | 180         | ~400                 |
+| agent-housekeeping     | 256         | 120         | ~300                 |
+| agent-hold-queue       | 512         | 60          | ~400                 |
 
-**Total cold start overhead (worst case):** ~3.8 seconds across all Lambdas in sequence.
+**Total cold start overhead (worst case):** ~3.8 seconds across all Lambdas in
+sequence.
 
 ---
 
@@ -2834,17 +2848,17 @@ All resources tagged with:
 
 ### Read/Write Units per Cycle
 
-| Operation | Read Units | Write Units |
-|-----------|-----------|-------------|
-| Heartbeat | 5 | 2 |
-| Get checkpoints | 4 | 0 |
-| Update checkpoints | 0 | 4 |
-| Query active projects | 10 | 0 |
-| Get artefacts for context | 20 | 0 |
-| Write events | 0 | 5 |
-| Write actions | 0 | 3 |
-| Update artefacts | 10 | 8 |
-| **Total per cycle** | **~49** | **~22** |
+| Operation                 | Read Units | Write Units |
+| ------------------------- | ---------- | ----------- |
+| Heartbeat                 | 5          | 2           |
+| Get checkpoints           | 4          | 0           |
+| Update checkpoints        | 0          | 4           |
+| Query active projects     | 10         | 0           |
+| Get artefacts for context | 20         | 0           |
+| Write events              | 0          | 5           |
+| Write actions             | 0          | 3           |
+| Update artefacts          | 10         | 8           |
+| **Total per cycle**       | **~49**    | **~22**     |
 
 ### Monthly Estimate
 
