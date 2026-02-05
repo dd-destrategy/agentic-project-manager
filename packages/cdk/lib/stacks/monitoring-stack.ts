@@ -1,7 +1,10 @@
 import * as cdk from 'aws-cdk-lib';
 import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
+import * as cloudwatchActions from 'aws-cdk-lib/aws-cloudwatch-actions';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as sfn from 'aws-cdk-lib/aws-stepfunctions';
+import * as sns from 'aws-cdk-lib/aws-sns';
+import * as subscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
 import { Construct } from 'constructs';
 import type { EnvironmentConfig } from '../config/environments.js';
 
@@ -12,11 +15,19 @@ export interface MonitoringStackProps extends cdk.StackProps {
 }
 
 export class MonitoringStack extends cdk.Stack {
+  private alertTopic?: sns.Topic;
+
   constructor(scope: Construct, id: string, props: MonitoringStackProps) {
     super(scope, id, props);
 
+    // Add cost tracking tags
+    cdk.Tags.of(this).add('Project', 'agentic-pm');
+    cdk.Tags.of(this).add('Environment', props.config.envName);
+    cdk.Tags.of(this).add('ManagedBy', 'CDK');
+
     // Only create alarms in production
     if (props.config.enableAlarms) {
+      this.createAlertTopic();
       this.createAlarms(props);
     }
 
@@ -24,9 +35,27 @@ export class MonitoringStack extends cdk.Stack {
     this.createDashboard(props);
   }
 
+  private createAlertTopic(): void {
+    this.alertTopic = new sns.Topic(this, 'AlertTopic', {
+      topicName: 'agentic-pm-alerts',
+      displayName: 'Agentic PM Alerts',
+    });
+
+    // Add email subscription for alerts
+    const alertEmail = process.env.ALERT_EMAIL || 'alerts@example.com';
+    this.alertTopic.addSubscription(
+      new subscriptions.EmailSubscription(alertEmail)
+    );
+
+    new cdk.CfnOutput(this, 'AlertTopicArn', {
+      value: this.alertTopic.topicArn,
+      exportName: `${this.stackName}-AlertTopicArn`,
+    });
+  }
+
   private createAlarms(props: MonitoringStackProps): void {
     // Step Functions failure alarm
-    new cloudwatch.Alarm(this, 'StateMachineFailureAlarm', {
+    const stateMachineAlarm = new cloudwatch.Alarm(this, 'StateMachineFailureAlarm', {
       alarmName: 'agentic-pm-state-machine-failures',
       alarmDescription: 'Agent cycle state machine is failing',
       metric: props.stateMachine.metricFailed({
@@ -37,8 +66,15 @@ export class MonitoringStack extends cdk.Stack {
       treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
     });
 
+    // Add SNS action for state machine alarm
+    if (this.alertTopic) {
+      stateMachineAlarm.addAlarmAction(
+        new cloudwatchActions.SnsAction(this.alertTopic)
+      );
+    }
+
     // DynamoDB throttling alarm
-    new cloudwatch.Alarm(this, 'DynamoDBThrottleAlarm', {
+    const dynamoDBAlarm = new cloudwatch.Alarm(this, 'DynamoDBThrottleAlarm', {
       alarmName: 'agentic-pm-dynamodb-throttles',
       alarmDescription: 'DynamoDB is being throttled',
       metric: new cloudwatch.Metric({
@@ -54,6 +90,13 @@ export class MonitoringStack extends cdk.Stack {
       evaluationPeriods: 1,
       treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
     });
+
+    // Add SNS action for DynamoDB alarm
+    if (this.alertTopic) {
+      dynamoDBAlarm.addAlarmAction(
+        new cloudwatchActions.SnsAction(this.alertTopic)
+      );
+    }
   }
 
   private createDashboard(props: MonitoringStackProps): void {

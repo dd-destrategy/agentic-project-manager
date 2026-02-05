@@ -30,6 +30,11 @@ export class FoundationStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: FoundationStackProps) {
     super(scope, id, props);
 
+    // Add cost tracking tags
+    cdk.Tags.of(this).add('Project', 'agentic-pm');
+    cdk.Tags.of(this).add('Environment', props.config.envName);
+    cdk.Tags.of(this).add('ManagedBy', 'CDK');
+
     // Create DynamoDB table
     this.table = this.createTable(props.config);
 
@@ -37,7 +42,7 @@ export class FoundationStack extends cdk.Stack {
     this.secrets = this.createSecrets();
 
     // Create IAM roles
-    this.roles = this.createRoles();
+    this.roles = this.createRoles(props.config);
   }
 
   private createTable(config: EnvironmentConfig): dynamodb.Table {
@@ -104,7 +109,7 @@ export class FoundationStack extends cdk.Stack {
     return { llmApiKey, jiraApiToken, graphCredentials, nextAuthSecret };
   }
 
-  private createRoles(): AgenticPMRoles {
+  private createRoles(config: EnvironmentConfig): AgenticPMRoles {
     // =========================================================================
     // Triage Lambda Role - SECURITY BOUNDARY
     // =========================================================================
@@ -172,10 +177,24 @@ export class FoundationStack extends cdk.Stack {
     this.secrets.llmApiKey.grantRead(agentLambdaRole);
     this.table.grantReadWriteData(agentLambdaRole);
 
+    // Restrict SES permissions to specific verified identity
+    const region = cdk.Stack.of(this).region;
+    const account = cdk.Stack.of(this).account;
     agentLambdaRole.addToPolicy(
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
-        actions: ['ses:SendEmail', 'ses:SendRawEmail', 'ses:GetSendQuota'],
+        actions: ['ses:SendEmail', 'ses:SendRawEmail'],
+        resources: [
+          `arn:aws:ses:${region}:${account}:identity/${config.sesVerifiedDomain}`,
+        ],
+      })
+    );
+
+    // Allow checking send quota (no resource restriction needed)
+    agentLambdaRole.addToPolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['ses:GetSendQuota'],
         resources: ['*'],
       })
     );

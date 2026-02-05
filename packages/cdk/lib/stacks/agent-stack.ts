@@ -7,6 +7,8 @@ import * as targets from 'aws-cdk-lib/aws-events-targets';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as iam from 'aws-cdk-lib/aws-iam';
+import * as sqs from 'aws-cdk-lib/aws-sqs';
+import * as kms from 'aws-cdk-lib/aws-kms';
 import { Construct } from 'constructs';
 import type { EnvironmentConfig } from '../config/environments.js';
 import type { AgenticPMSecrets, AgenticPMRoles } from './foundation-stack.js';
@@ -21,9 +23,60 @@ export interface AgentStackProps extends cdk.StackProps {
 export class AgentStack extends cdk.Stack {
   public readonly stateMachine: sfn.StateMachine;
   public readonly lambdaFunctions: Map<string, lambda.Function>;
+  public readonly deadLetterQueue: sqs.Queue;
+  public readonly logEncryptionKey: kms.Key;
 
   constructor(scope: Construct, id: string, props: AgentStackProps) {
     super(scope, id, props);
+
+    // Add cost tracking tags
+    cdk.Tags.of(this).add('Project', 'agentic-pm');
+    cdk.Tags.of(this).add('Environment', props.config.envName);
+    cdk.Tags.of(this).add('ManagedBy', 'CDK');
+
+    // Create KMS key for CloudWatch log encryption
+    this.logEncryptionKey = new kms.Key(this, 'LogEncryptionKey', {
+      alias: 'agentic-pm-logs',
+      description: 'KMS key for encrypting CloudWatch logs',
+      enableKeyRotation: true,
+      removalPolicy: props.config.envName === 'prod'
+        ? cdk.RemovalPolicy.RETAIN
+        : cdk.RemovalPolicy.DESTROY,
+    });
+
+    // Grant CloudWatch Logs permission to use the key
+    this.logEncryptionKey.addToResourcePolicy(
+      new iam.PolicyStatement({
+        actions: [
+          'kms:Encrypt*',
+          'kms:Decrypt*',
+          'kms:ReEncrypt*',
+          'kms:GenerateDataKey*',
+          'kms:Describe*',
+        ],
+        principals: [
+          new iam.ServicePrincipal(`logs.${cdk.Stack.of(this).region}.amazonaws.com`),
+        ],
+        resources: ['*'],
+        conditions: {
+          ArnLike: {
+            'kms:EncryptionContext:aws:logs:arn': `arn:aws:logs:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:*`,
+          },
+        },
+      })
+    );
+
+    // Create dead letter queue for Lambda failures
+    this.deadLetterQueue = new sqs.Queue(this, 'LambdaDLQ', {
+      queueName: 'agentic-pm-lambda-dlq',
+      retentionPeriod: cdk.Duration.days(14),
+      encryption: sqs.QueueEncryption.KMS_MANAGED,
+    });
+
+    new cdk.CfnOutput(this, 'DLQUrl', {
+      value: this.deadLetterQueue.queueUrl,
+      exportName: `${this.stackName}-DLQUrl`,
+    });
 
     // Create Lambda functions
     this.lambdaFunctions = this.createLambdaFunctions(props);
@@ -72,6 +125,7 @@ export class AgentStack extends cdk.Stack {
           LOG_LEVEL: 'INFO',
         },
         tracing: lambda.Tracing.ACTIVE,
+        deadLetterQueue: this.deadLetterQueue,
       });
 
       functions.set(config.name, fn);
@@ -237,7 +291,7 @@ export class AgentStack extends cdk.Stack {
       .next(changeDetection)
       .next(hasChanges);
 
-    // Create log group
+    // Create log group with KMS encryption
     const logGroup = new logs.LogGroup(this, 'StateMachineLogGroup', {
       logGroupName: '/aws/stepfunctions/agentic-pm-agent',
       retention:
@@ -245,6 +299,7 @@ export class AgentStack extends cdk.Stack {
           ? logs.RetentionDays.ONE_MONTH
           : logs.RetentionDays.ONE_WEEK,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
+      encryptionKey: this.logEncryptionKey,
     });
 
     // Create state machine

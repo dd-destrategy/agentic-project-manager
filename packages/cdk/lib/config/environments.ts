@@ -10,6 +10,7 @@ export interface EnvironmentConfig {
   llmBudgetDaily: number;
   llmBudgetMonthly: number;
   enableAlarms: boolean;
+  sesVerifiedDomain: string;
 }
 
 const baseConfig = {
@@ -30,6 +31,7 @@ export const environments: Record<string, EnvironmentConfig> = {
     llmBudgetDaily: 0.30,
     llmBudgetMonthly: 10.00,
     enableAlarms: false,
+    sesVerifiedDomain: process.env.SES_VERIFIED_DOMAIN || 'example.com',
   },
   prod: {
     ...baseConfig,
@@ -41,6 +43,7 @@ export const environments: Record<string, EnvironmentConfig> = {
     llmBudgetDaily: 0.23,
     llmBudgetMonthly: 8.00,
     enableAlarms: true,
+    sesVerifiedDomain: process.env.SES_VERIFIED_DOMAIN || 'example.com',
   },
 };
 
