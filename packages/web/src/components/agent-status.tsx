@@ -1,6 +1,7 @@
 'use client';
 
-import { useAgentStatus, formatLastHeartbeat } from '@/lib/hooks/use-agent-status';
+import { Activity, Pause, AlertCircle, Loader2, Square, HelpCircle } from 'lucide-react';
+
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Tooltip,
@@ -8,8 +9,9 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { useAgentStatus, formatLastHeartbeat } from '@/lib/hooks/use-agent-status';
 import type { AgentStatusType, BudgetStatus as BudgetStatusType } from '@/types';
-import { Activity, Pause, AlertCircle, Loader2 } from 'lucide-react';
+
 
 /**
  * Agent status configuration
@@ -43,6 +45,18 @@ const statusConfig: Record<AgentStatusType, {
     className: 'bg-blue-100 text-blue-800 border-blue-200',
     dotClassName: 'bg-blue-500',
     icon: Loader2,
+  },
+  stopped: {
+    label: 'Stopped',
+    className: 'bg-gray-100 text-gray-800 border-gray-200',
+    dotClassName: 'bg-gray-500',
+    icon: Square,
+  },
+  never_run: {
+    label: 'Not Started',
+    className: 'bg-gray-100 text-gray-600 border-gray-200',
+    dotClassName: 'bg-gray-400',
+    icon: HelpCircle,
   },
 };
 

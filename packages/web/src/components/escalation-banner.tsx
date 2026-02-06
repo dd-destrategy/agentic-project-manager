@@ -1,8 +1,9 @@
 'use client';
 
-import Link from 'next/link';
-import { usePendingEscalationCount } from '@/lib/hooks';
 import { AlertCircle, ArrowRight, Bell } from 'lucide-react';
+import Link from 'next/link';
+
+import { usePendingEscalationCount } from '@/lib/hooks';
 
 /**
  * Escalation banner component

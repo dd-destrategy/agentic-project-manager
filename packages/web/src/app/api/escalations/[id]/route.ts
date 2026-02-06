@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options';
-import { decideEscalationSchema } from '@/schemas/api';
-import type { Escalation } from '@/types';
 import { DynamoDBClient } from '@agentic-pm/core/db';
 import { EscalationRepository } from '@agentic-pm/core/db/repositories';
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+
+import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options';
+import { decideEscalationSchema } from '@/schemas/api';
 
 /**
  * GET /api/escalations/[id]

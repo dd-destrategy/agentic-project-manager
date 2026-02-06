@@ -1,10 +1,11 @@
 'use client';
 
+import { AlertTriangle, CheckCircle, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
-import { useProjects, getTotalPendingEscalations } from '@/lib/hooks/use-projects';
+
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { AlertTriangle, CheckCircle, ArrowRight } from 'lucide-react';
+import { useProjects, getTotalPendingEscalations } from '@/lib/hooks/use-projects';
 
 /**
  * Escalation summary card

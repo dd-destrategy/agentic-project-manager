@@ -1,6 +1,6 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, RenderOptions } from '@testing-library/react'
 import { ReactElement } from 'react'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 // Create a test query client with no retries
 const createTestQueryClient = () =>

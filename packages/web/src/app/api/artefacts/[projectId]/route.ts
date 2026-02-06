@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options';
-import type { ArtefactType } from '@/types';
 import { DynamoDBClient } from '@agentic-pm/core/db';
 import { ArtefactRepository } from '@agentic-pm/core/db/repositories';
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+
+import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options';
+import type { ArtefactType } from '@/types';
 
 interface Artefact {
   id: string;

@@ -1,20 +1,6 @@
 'use client';
 
 import {
-  useActivityStats,
-  formatCompactNumber,
-  formatChange,
-  getChangeClassName,
-} from '@/lib/hooks/use-activity-stats';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
-import {
   Activity,
   Radio,
   CheckCircle,
@@ -27,6 +13,22 @@ import {
   TrendingDown,
   Minus,
 } from 'lucide-react';
+
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
+  useActivityStats,
+  formatCompactNumber,
+  formatChange,
+  getChangeClassName,
+} from '@/lib/hooks/use-activity-stats';
+
 
 /**
  * Activity statistics component

@@ -1,11 +1,5 @@
 'use client';
 
-import Link from 'next/link';
-import { useEvents, formatEventTime } from '@/lib/hooks/use-events';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Badge } from '@/components/ui/badge';
-import type { Event, EventType, EventSeverity } from '@/types';
 import {
   Heart,
   HeartPulse,
@@ -14,15 +8,24 @@ import {
   PauseCircle,
   CheckCircle2,
   XCircle,
+  Zap,
   AlertTriangle,
   CheckSquare,
   Clock,
   FileEdit,
+  Settings,
   AlertOctagon,
   DollarSign,
   AlertCircle,
   Activity,
 } from 'lucide-react';
+import Link from 'next/link';
+
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useEvents, formatEventTime } from '@/lib/hooks/use-events';
+import type { Event, EventType, EventSeverity } from '@/types';
 
 /**
  * Event type icon mapping
@@ -35,10 +38,12 @@ const eventTypeIcons: Record<EventType, React.ComponentType<{ className?: string
   action_held: PauseCircle,
   action_approved: CheckCircle2,
   action_rejected: XCircle,
+  action_executed: Zap,
   escalation_created: AlertTriangle,
   escalation_decided: CheckSquare,
   escalation_expired: Clock,
   artefact_updated: FileEdit,
+  autonomy_level_changed: Settings,
   integration_error: AlertOctagon,
   budget_warning: DollarSign,
   error: AlertCircle,

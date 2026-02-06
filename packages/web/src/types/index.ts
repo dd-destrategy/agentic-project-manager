@@ -29,10 +29,12 @@ export type EventType =
   | 'action_held'
   | 'action_approved'
   | 'action_rejected'
+  | 'action_executed'
   | 'escalation_created'
   | 'escalation_decided'
   | 'escalation_expired'
   | 'artefact_updated'
+  | 'autonomy_level_changed'
   | 'integration_error'
   | 'budget_warning'
   | 'error';
@@ -41,7 +43,7 @@ export type EscalationStatus = 'pending' | 'decided' | 'expired' | 'superseded';
 
 export type HealthStatus = 'healthy' | 'warning' | 'error';
 
-export type AgentStatusType = 'active' | 'paused' | 'error' | 'starting';
+export type AgentStatusType = 'active' | 'paused' | 'error' | 'starting' | 'stopped' | 'never_run';
 
 // ============================================================================
 // Entity Interfaces
@@ -260,10 +262,12 @@ export const eventTypeIcons: Record<EventType, string> = {
   action_held: 'pause-circle',
   action_approved: 'check-circle-2',
   action_rejected: 'x-circle',
+  action_executed: 'zap',
   escalation_created: 'alert-triangle',
   escalation_decided: 'check-square',
   escalation_expired: 'clock',
   artefact_updated: 'file-edit',
+  autonomy_level_changed: 'settings',
   integration_error: 'alert-octagon',
   budget_warning: 'dollar-sign',
   error: 'alert-circle',

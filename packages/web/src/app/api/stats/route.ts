@@ -1,7 +1,8 @@
+import { DynamoDBClient } from '@agentic-pm/core/db/client';
+import { EventRepository } from '@agentic-pm/core/db/repositories/event';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { getDynamoDBClient } from '@agentic-pm/core/db/client';
-import { EventRepository } from '@agentic-pm/core/db/repositories/event';
+
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options';
 import type { ActivityStatsResponse, ActivityStats } from '@/types';
 
@@ -20,7 +21,7 @@ export async function GET() {
     }
 
     // Initialize DynamoDB client and repository
-    const db = getDynamoDBClient();
+    const db = new DynamoDBClient();
     const eventRepo = new EventRepository(db);
 
     // Get date strings for queries

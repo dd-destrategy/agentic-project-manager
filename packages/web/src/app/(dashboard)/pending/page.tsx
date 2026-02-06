@@ -1,16 +1,17 @@
 'use client';
 
 import { Clock, CheckCircle2, Loader2, AlertCircle, Inbox } from 'lucide-react';
+
+import {
+  CommunicationPreview,
+  CommunicationPreviewSkeleton,
+} from '@/components/communication-preview';
+import { Badge } from '@/components/ui/badge';
 import {
   usePendingHeldActions,
   useApproveHeldAction,
   useCancelHeldAction,
 } from '@/lib/hooks';
-import { Badge } from '@/components/ui/badge';
-import {
-  CommunicationPreview,
-  CommunicationPreviewSkeleton,
-} from '@/components/communication-preview';
 
 /**
  * Empty state component

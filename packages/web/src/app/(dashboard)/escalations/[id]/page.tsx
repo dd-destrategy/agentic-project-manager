@@ -1,8 +1,5 @@
 'use client';
 
-import { useState, use } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import {
   AlertCircle,
   ArrowLeft,
@@ -15,16 +12,20 @@ import {
   AlertTriangle,
   Send,
 } from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useState, use } from 'react';
+
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
 import {
   useEscalation,
   useRecordDecision,
   formatEscalationTime,
   getRiskLevelVariant,
 } from '@/lib/hooks';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
 import type { EscalationOption } from '@/types';
 
 /**

@@ -1,12 +1,13 @@
+import { DynamoDBClient } from '@agentic-pm/core/db';
+import { AgentConfigRepository } from '@agentic-pm/core/db/repositories/agent-config';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
+
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options';
 import {
   updateAutonomySettingsSchema,
   autonomyAcknowledgeSchema,
 } from '@/schemas/api';
-import { DynamoDBClient } from '@agentic-pm/core/db';
-import { AgentConfigRepository } from '@agentic-pm/core/db/repositories/agent-config';
 
 /**
  * Create DynamoDB client and repository

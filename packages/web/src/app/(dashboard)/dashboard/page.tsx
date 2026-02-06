@@ -1,9 +1,10 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { Skeleton } from '@/components/ui/skeleton';
+
 import { AgentStatus } from '@/components/agent-status';
 import { EscalationBanner } from '@/components/escalation-banner';
+import { Skeleton } from '@/components/ui/skeleton';
 
 // Dynamic imports for heavy components to reduce initial bundle size
 const ActivityFeed = dynamic(

@@ -1,9 +1,10 @@
-import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options';
-import type { AgentStatusResponse } from '@/types';
 import { DynamoDBClient } from '@agentic-pm/core/db';
 import { AgentConfigRepository, EventRepository } from '@agentic-pm/core/db/repositories';
+import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+
+import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options';
+import type { AgentStatusResponse } from '@/types';
 
 /**
  * GET /api/agent/status
@@ -44,7 +45,7 @@ export async function GET() {
       nextScheduledRun: lastHeartbeat
         ? new Date(new Date(lastHeartbeat).getTime() + config.pollingIntervalMinutes * 60 * 1000).toISOString()
         : new Date(Date.now() + config.pollingIntervalMinutes * 60 * 1000).toISOString(),
-      currentCycleState: latestHeartbeatEvent?.detail?.context?.cycleId ?? null,
+      currentCycleState: (latestHeartbeatEvent?.detail?.context?.cycleId as string | undefined) ?? null,
       integrations: [
         {
           name: 'jira',

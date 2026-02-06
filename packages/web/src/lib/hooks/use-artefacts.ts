@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
+
 import type { ArtefactType } from '@/types';
 
 interface Artefact {

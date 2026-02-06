@@ -1,10 +1,11 @@
+import { DynamoDBClient } from '@agentic-pm/core/db/client';
+import { HeldActionRepository } from '@agentic-pm/core/db/repositories/held-action';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { getDynamoDBClient } from '@agentic-pm/core/db/client';
-import { HeldActionRepository } from '@agentic-pm/core/db/repositories/held-action';
+
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options';
 import { cancelHeldActionSchema } from '@/schemas/api';
-import type { HeldAction, HeldActionResponse } from '@/types';
+import type { HeldActionResponse } from '@/types';
 
 /**
  * POST /api/held-actions/[id]/cancel
@@ -34,7 +35,7 @@ export async function POST(
     }
 
     // Initialize DynamoDB client and repository
-    const db = getDynamoDBClient();
+    const db = new DynamoDBClient();
     const repo = new HeldActionRepository(db);
 
     // Cancel the action

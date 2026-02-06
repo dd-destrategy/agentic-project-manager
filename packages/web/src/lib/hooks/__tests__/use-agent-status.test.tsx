@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { afterEach , describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useAgentStatus, formatLastHeartbeat } from '../use-agent-status'

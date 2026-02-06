@@ -1,12 +1,13 @@
 'use client';
 
+import { AlertTriangle, CheckCircle, XCircle, Activity, Clock, Settings } from 'lucide-react';
 import Link from 'next/link';
-import { useProjects, formatLastActivity } from '@/lib/hooks/use-projects';
+
+import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Badge } from '@/components/ui/badge';
+import { useProjects, formatLastActivity } from '@/lib/hooks/use-projects';
 import type { HealthStatus, AutonomyLevel, ProjectSummary } from '@/types';
-import { AlertTriangle, CheckCircle, XCircle, Activity, Clock, Settings } from 'lucide-react';
 
 /**
  * RAG status configuration with AA-compliant colours

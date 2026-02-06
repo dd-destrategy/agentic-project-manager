@@ -87,6 +87,22 @@
       "types": "./dist/db/repositories/escalation.d.ts",
       "import": "./dist/db/repositories/escalation.js"
     },
+    "./db/repositories/agent-config": {
+      "types": "./dist/db/repositories/agent-config.d.ts",
+      "import": "./dist/db/repositories/agent-config.js"
+    },
+    "./db/repositories/artefact": {
+      "types": "./dist/db/repositories/artefact.d.ts",
+      "import": "./dist/db/repositories/artefact.js"
+    },
+    "./db/repositories/event": {
+      "types": "./dist/db/repositories/event.d.ts",
+      "import": "./dist/db/repositories/event.js"
+    },
+    "./artefacts/repository": {
+      "types": "./dist/artefacts/repository.d.ts",
+      "import": "./dist/artefacts/repository.js"
+    },
     "./execution/hold-queue": {
       "types": "./dist/execution/hold-queue.d.ts",
       "import": "./dist/execution/hold-queue.js"
@@ -98,6 +114,10 @@
     "./execution/confidence": {
       "types": "./dist/execution/confidence.d.ts",
       "import": "./dist/execution/confidence.js"
+    },
+    "./db/repositories": {
+      "types": "./dist/db/repositories/index.d.ts",
+      "import": "./dist/db/repositories/index.js"
     }
   },
   "scripts": {

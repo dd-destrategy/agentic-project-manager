@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
 import { DynamoDBClient } from '@agentic-pm/core/db/client';
 import { EscalationRepository } from '@agentic-pm/core/db/repositories/escalation';
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options';
-import type { EscalationsResponse, Escalation } from '@/types';
+import type { Escalation, EscalationsResponse } from '@/types';
 
 /**
  * GET /api/escalations
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
     }
 
     const searchParams = request.nextUrl.searchParams;
-    const status = searchParams.get('status') as Escalation['status'] | null;
+    const status = (searchParams.get("status") as Escalation["status"]) || undefined;
     const projectId = searchParams.get('projectId');
     const limit = Math.min(
       parseInt(searchParams.get('limit') || '20', 10),

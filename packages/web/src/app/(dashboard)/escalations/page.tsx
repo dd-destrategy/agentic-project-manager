@@ -1,10 +1,11 @@
 'use client';
 
-import Link from 'next/link';
 import { AlertCircle, Clock, CheckCircle2, XCircle, ChevronRight, Loader2 } from 'lucide-react';
-import { useEscalations, formatEscalationTime, getRiskLevelVariant } from '@/lib/hooks';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import Link from 'next/link';
+
 import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useEscalations, formatEscalationTime, getRiskLevelVariant } from '@/lib/hooks';
 import type { Escalation, EscalationStatus } from '@/types';
 
 /**

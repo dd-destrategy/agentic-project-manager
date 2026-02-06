@@ -1,11 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options';
 import { DynamoDBClient } from '@agentic-pm/core/db';
 import { AgentConfigRepository } from '@agentic-pm/core/db/repositories/agent-config';
 import { GraduationStateRepository } from '@agentic-pm/core/db/repositories/graduation-state';
 import type { GraduationTier } from '@agentic-pm/core/db/repositories/graduation-state';
 import type { AutonomyLevel } from '@agentic-pm/core/types';
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+
+import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options';
 
 /**
  * Graduation tier levels (mapped to autonomy levels)

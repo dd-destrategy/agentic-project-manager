@@ -1,10 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options';
-import { confirmGraduationSchema } from '@/schemas/api';
 import { DynamoDBClient } from '@agentic-pm/core/db';
 import { AgentConfigRepository, EventRepository } from '@agentic-pm/core/db/repositories';
 import type { AutonomyLevel } from '@agentic-pm/core/types';
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+
+import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options';
+import { confirmGraduationSchema } from '@/schemas/api';
 
 /**
  * Graduation confirmation response

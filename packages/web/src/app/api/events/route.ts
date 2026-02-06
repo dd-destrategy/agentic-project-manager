@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options';
-import type { EventsResponse, Event } from '@/types';
 import { DynamoDBClient } from '@agentic-pm/core/db';
 import { EventRepository } from '@agentic-pm/core/db/repositories';
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+
+import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options';
+import type { EventsResponse } from '@/types';
 
 /**
  * GET /api/events
@@ -24,7 +25,7 @@ export async function GET(request: NextRequest) {
 
     const searchParams = request.nextUrl.searchParams;
     const limit = Math.min(parseInt(searchParams.get('limit') || '20', 10), 100);
-    const cursor = searchParams.get('cursor');
+    const _cursor = searchParams.get('cursor'); // TODO: implement pagination with cursor
     const projectId = searchParams.get('projectId');
 
     // Fetch events from DynamoDB

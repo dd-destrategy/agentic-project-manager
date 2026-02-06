@@ -1,10 +1,11 @@
 'use client';
 
+import { LogOut, Bell } from 'lucide-react';
 import Link from 'next/link';
 import { signOut } from 'next-auth/react';
-import { LogOut, Bell } from 'lucide-react';
-import { usePendingEscalationCount } from '@/lib/hooks';
+
 import { Badge } from '@/components/ui/badge';
+import { usePendingEscalationCount } from '@/lib/hooks';
 
 export function Header() {
   const { count: pendingCount } = usePendingEscalationCount();

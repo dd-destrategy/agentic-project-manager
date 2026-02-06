@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
 import { Menu } from 'lucide-react';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { Sidebar } from '@/components/sidebar';
+import { useState } from 'react';
+
 import { Header } from '@/components/header';
+import { Sidebar } from '@/components/sidebar';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 
 interface ResponsiveLayoutProps {
   children: React.ReactNode;

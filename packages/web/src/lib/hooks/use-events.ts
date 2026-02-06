@@ -1,6 +1,7 @@
 'use client';
 
 import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
+
 import type { EventsResponse } from '@/types';
 
 interface UseEventsOptions {

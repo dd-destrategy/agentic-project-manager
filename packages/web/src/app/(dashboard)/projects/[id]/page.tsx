@@ -1,8 +1,5 @@
 'use client';
 
-import { useState, use } from 'react';
-import Link from 'next/link';
-import dynamic from 'next/dynamic';
 import {
   ArrowLeft,
   Loader2,
@@ -11,13 +8,17 @@ import {
   GitCompare,
   FileText,
 } from 'lucide-react';
-import { useProject, getHealthVariant, formatHealthStatus } from '@/lib/hooks/use-project';
-import { useArtefacts, formatArtefactType, getArtefactByType } from '@/lib/hooks/use-artefacts';
-import { Card, CardContent } from '@/components/ui/card';
+import dynamic from 'next/dynamic';
+import Link from 'next/link';
+import { useState, use } from 'react';
+
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useArtefacts, formatArtefactType, getArtefactByType } from '@/lib/hooks/use-artefacts';
+import { useProject, getHealthVariant, formatHealthStatus } from '@/lib/hooks/use-project';
 import type { ArtefactType } from '@/types';
 
 // Dynamic imports for heavy components to reduce initial bundle size

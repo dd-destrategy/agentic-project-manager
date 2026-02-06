@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
 import { DynamoDBClient } from '@agentic-pm/core/db/client';
-import { ProjectRepository } from '@agentic-pm/core/db/repositories/project';
 import { EscalationRepository } from '@agentic-pm/core/db/repositories/escalation';
 import { EventRepository } from '@agentic-pm/core/db/repositories/event';
+import { ProjectRepository } from '@agentic-pm/core/db/repositories/project';
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options';
 import type { ProjectListResponse, ProjectSummary, Project } from '@/types';
 

@@ -1,9 +1,10 @@
+import { DynamoDBClient } from '@agentic-pm/core/db/client';
+import { HeldActionRepository } from '@agentic-pm/core/db/repositories/held-action';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { getDynamoDBClient } from '@agentic-pm/core/db/client';
-import { HeldActionRepository } from '@agentic-pm/core/db/repositories/held-action';
+
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options';
-import type { HeldActionsResponse, HeldAction } from '@/types';
+import type { HeldAction, HeldActionsResponse } from '@/types';
 
 /**
  * GET /api/held-actions
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
     }
 
     const searchParams = request.nextUrl.searchParams;
-    const status = searchParams.get('status') as HeldAction['status'] | null;
+    const status = (searchParams.get("status") as HeldAction["status"]) || undefined;
     const projectId = searchParams.get('projectId');
     const limit = Math.min(
       parseInt(searchParams.get('limit') || '50', 10),
@@ -31,7 +32,7 @@ export async function GET(request: NextRequest) {
     );
 
     // Initialize DynamoDB client and repository
-    const db = getDynamoDBClient();
+    const db = new DynamoDBClient();
     const repo = new HeldActionRepository(db);
 
     let heldActions: HeldAction[] = [];
@@ -83,7 +84,7 @@ export async function HEAD() {
     }
 
     // Initialize DynamoDB client and repository
-    const db = getDynamoDBClient();
+    const db = new DynamoDBClient();
     const repo = new HeldActionRepository(db);
 
     // Get pending count
