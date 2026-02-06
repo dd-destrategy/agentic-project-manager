@@ -2,24 +2,19 @@
 
 import {
   Plus,
-  Send,
-  ImagePlus,
-  X,
   Loader2,
   MessageSquare,
   Archive,
   ClipboardPaste,
-  CheckCircle2,
-  XCircle,
   ChevronRight,
   ChevronLeft,
-  Trash2,
 } from 'lucide-react';
-import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ulid } from 'ulid';
 
-import { Badge } from '@/components/ui/badge';
+import { ChatInput } from '@/components/ingest/chat-input';
+import { ExtractedItemsPanel } from '@/components/ingest/extracted-items-panel';
+import { MessageBubble } from '@/components/ingest/message-bubble';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -35,289 +30,8 @@ import {
   useCreateIngestionSession,
   useSendIngestionMessage,
   useArchiveIngestionSession,
-  useSessionExtractedItems,
-  useApproveExtractedItem,
-  useDismissExtractedItem,
-  useDeleteExtractedItem,
 } from '@/lib/hooks';
 import type { IngestionAttachment, IngestionMessage } from '@/types';
-import { extractedItemTypeLabels } from '@/types';
-
-// ============================================================================
-// Message Bubble
-// ============================================================================
-
-function MessageBubble({ message }: { message: IngestionMessage }) {
-  const isUser = message.role === 'user';
-
-  return (
-    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
-      <div
-        className={`max-w-[85%] rounded-lg px-4 py-3 ${
-          isUser
-            ? 'bg-primary text-primary-foreground'
-            : 'bg-muted text-foreground'
-        }`}
-      >
-        {/* Show attachment indicators for user messages */}
-        {isUser && message.attachments && message.attachments.length > 0 && (
-          <div className="mb-2 flex flex-wrap gap-1">
-            {message.attachments.map((att) => (
-              <Badge key={att.id} variant="secondary" className="text-xs">
-                <ImagePlus className="mr-1 h-3 w-3" />
-                {att.filename || 'Image'}
-              </Badge>
-            ))}
-          </div>
-        )}
-
-        {/* Message content — render markdown-like formatting */}
-        <div className="whitespace-pre-wrap text-sm leading-relaxed">
-          {message.content}
-        </div>
-
-        <div
-          className={`mt-1 text-xs ${
-            isUser ? 'text-primary-foreground/70' : 'text-muted-foreground'
-          }`}
-        >
-          {new Date(message.createdAt).toLocaleTimeString('en-GB', {
-            hour: '2-digit',
-            minute: '2-digit',
-          })}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ============================================================================
-// Attachment Preview
-// ============================================================================
-
-function AttachmentPreview({
-  attachment,
-  onRemove,
-}: {
-  attachment: IngestionAttachment;
-  onRemove: (id: string) => void;
-}) {
-  return (
-    <div className="relative inline-block">
-      <img
-        src={attachment.dataUrl}
-        alt={attachment.filename || 'Attachment'}
-        className="h-20 w-20 rounded-md border object-cover"
-      />
-      <button
-        onClick={() => onRemove(attachment.id)}
-        className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground shadow-sm"
-        aria-label="Remove attachment"
-      >
-        <X className="h-3 w-3" />
-      </button>
-    </div>
-  );
-}
-
-// ============================================================================
-// Chat Input
-// ============================================================================
-
-function ChatInput({
-  onSend,
-  isSending,
-}: {
-  onSend: (content: string, attachments: IngestionAttachment[]) => void;
-  isSending: boolean;
-}) {
-  const [content, setContent] = useState('');
-  const [attachments, setAttachments] = useState<IngestionAttachment[]>([]);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleFileSelect = useCallback(
-    (files: FileList | null) => {
-      if (!files) return;
-
-      const imageFiles = Array.from(files).filter((f) =>
-        f.type.match(/^image\/(png|jpeg|gif|webp)$/)
-      );
-
-      for (const file of imageFiles) {
-        if (attachments.length >= 5) break;
-
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const dataUrl = e.target?.result as string;
-          setAttachments((prev) => [
-            ...prev,
-            {
-              id: ulid(),
-              mimeType: file.type,
-              dataUrl,
-              filename: file.name,
-            },
-          ]);
-        };
-        reader.readAsDataURL(file);
-      }
-    },
-    [attachments.length]
-  );
-
-  // Handle paste events for images
-  const handlePaste = useCallback(
-    (e: React.ClipboardEvent) => {
-      const items = e.clipboardData?.items;
-      if (!items) return;
-
-      const imageItems = Array.from(items).filter((item) =>
-        item.type.match(/^image\//)
-      );
-
-      if (imageItems.length > 0) {
-        e.preventDefault();
-
-        for (const item of imageItems) {
-          if (attachments.length >= 5) break;
-
-          const file = item.getAsFile();
-          if (!file) continue;
-
-          const reader = new FileReader();
-          reader.onload = (ev) => {
-            const dataUrl = ev.target?.result as string;
-            setAttachments((prev) => [
-              ...prev,
-              {
-                id: ulid(),
-                mimeType: file.type,
-                dataUrl,
-                filename: `pasted-image-${Date.now()}.${file.type.split('/')[1]}`,
-              },
-            ]);
-          };
-          reader.readAsDataURL(file);
-        }
-      }
-    },
-    [attachments.length]
-  );
-
-  // Handle drag and drop
-  const handleDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      handleFileSelect(e.dataTransfer.files);
-    },
-    [handleFileSelect]
-  );
-
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-  }, []);
-
-  const removeAttachment = useCallback((id: string) => {
-    setAttachments((prev) => prev.filter((a) => a.id !== id));
-  }, []);
-
-  const handleSubmit = useCallback(() => {
-    const trimmed = content.trim();
-    if (!trimmed && attachments.length === 0) return;
-
-    onSend(trimmed || 'Please analyse these images.', attachments);
-    setContent('');
-    setAttachments([]);
-  }, [content, attachments, onSend]);
-
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        handleSubmit();
-      }
-    },
-    [handleSubmit]
-  );
-
-  return (
-    <div
-      className="border-t bg-background p-4"
-      onDrop={handleDrop}
-      onDragOver={handleDragOver}
-    >
-      {/* Attachment previews */}
-      {attachments.length > 0 && (
-        <div className="mb-3 flex flex-wrap gap-2">
-          {attachments.map((att) => (
-            <AttachmentPreview
-              key={att.id}
-              attachment={att}
-              onRemove={removeAttachment}
-            />
-          ))}
-        </div>
-      )}
-
-      <div className="flex items-end gap-2">
-        {/* File picker button */}
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={isSending || attachments.length >= 5}
-          title="Attach images"
-        >
-          <ImagePlus className="h-4 w-4" />
-        </Button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/png,image/jpeg,image/gif,image/webp"
-          multiple
-          className="hidden"
-          onChange={(e) => handleFileSelect(e.target.files)}
-        />
-
-        {/* Text input */}
-        <Textarea
-          ref={textareaRef}
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          onPaste={handlePaste}
-          onKeyDown={handleKeyDown}
-          placeholder="Paste a screenshot, type a message, or drag an image here..."
-          className="min-h-[44px] max-h-[200px] resize-none"
-          rows={1}
-          disabled={isSending}
-        />
-
-        {/* Send button */}
-        <Button
-          onClick={handleSubmit}
-          disabled={
-            isSending || (content.trim() === '' && attachments.length === 0)
-          }
-          size="icon"
-        >
-          {isSending ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Send className="h-4 w-4" />
-          )}
-        </Button>
-      </div>
-
-      <p className="mt-2 text-xs text-muted-foreground">
-        Press Enter to send, Shift+Enter for new line. Paste images with Ctrl+V.
-        Max 5 images per message.
-      </p>
-    </div>
-  );
-}
 
 // ============================================================================
 // Session List Sidebar
@@ -399,168 +113,6 @@ function SessionList({
 }
 
 // ============================================================================
-// Extracted Items Panel (collapsible sidebar within chat view)
-// ============================================================================
-
-function ExtractedItemsPanel({ sessionId }: { sessionId: string }) {
-  const { data, isLoading } = useSessionExtractedItems(sessionId);
-  const approveMutation = useApproveExtractedItem();
-  const dismissMutation = useDismissExtractedItem();
-  const deleteMutation = useDeleteExtractedItem();
-
-  const items = data?.items ?? [];
-  const pendingCount = items.filter(
-    (i) => i.status === 'pending_review'
-  ).length;
-
-  return (
-    <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b px-3 py-3">
-        <div className="flex items-center gap-2">
-          <h3 className="text-sm font-semibold">Extracted Items</h3>
-          {pendingCount > 0 && (
-            <Badge variant="secondary" className="text-xs">
-              {pendingCount}
-            </Badge>
-          )}
-        </div>
-        <Link
-          href="/extracted"
-          className="text-xs text-primary hover:underline"
-        >
-          View all
-        </Link>
-      </div>
-
-      <div className="flex-1 overflow-y-auto">
-        {isLoading && (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-          </div>
-        )}
-
-        {!isLoading && items.length === 0 && (
-          <div className="flex flex-col items-center justify-center px-4 py-8 text-center">
-            <ListChecksIcon className="mb-2 h-8 w-8 text-muted-foreground/30" />
-            <p className="text-xs text-muted-foreground">
-              Items extracted from your conversation will appear here for
-              review.
-            </p>
-          </div>
-        )}
-
-        <div className="space-y-2 p-2">
-          {items.map((item) => (
-            <div
-              key={item.id}
-              className="rounded-md border bg-card p-2.5 text-sm"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium text-xs">{item.title}</p>
-                  <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
-                    {item.content}
-                  </p>
-                </div>
-              </div>
-              <div className="mt-1.5 flex flex-wrap items-center gap-1">
-                <Badge variant="outline" className="text-[10px] px-1 py-0">
-                  {extractedItemTypeLabels[item.type]}
-                </Badge>
-                <Badge
-                  variant={
-                    item.priority === 'critical'
-                      ? 'destructive'
-                      : item.priority === 'high'
-                        ? 'warning'
-                        : 'secondary'
-                  }
-                  className="text-[10px] px-1 py-0"
-                >
-                  {item.priority}
-                </Badge>
-                <span className="text-[10px] text-muted-foreground ml-auto">
-                  {item.status.replace('_', ' ')}
-                </span>
-              </div>
-              {item.status === 'pending_review' && (
-                <div className="mt-1.5 flex gap-1">
-                  <Button
-                    variant="default"
-                    size="sm"
-                    className="h-6 flex-1 text-[10px]"
-                    onClick={() =>
-                      approveMutation.mutate({
-                        id: item.id,
-                        sessionId: item.sessionId,
-                      })
-                    }
-                    disabled={approveMutation.isPending}
-                  >
-                    <CheckCircle2 className="mr-0.5 h-3 w-3" />
-                    Approve
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-6 flex-1 text-[10px]"
-                    onClick={() =>
-                      dismissMutation.mutate({
-                        id: item.id,
-                        sessionId: item.sessionId,
-                      })
-                    }
-                    disabled={dismissMutation.isPending}
-                  >
-                    <XCircle className="mr-0.5 h-3 w-3" />
-                    Dismiss
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 w-6 p-0 text-destructive hover:text-destructive"
-                    onClick={() =>
-                      deleteMutation.mutate({
-                        id: item.id,
-                        sessionId: item.sessionId,
-                      })
-                    }
-                    disabled={deleteMutation.isPending}
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ListChecksIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <path d="m3 17 2 2 4-4" />
-      <path d="m3 7 2 2 4-4" />
-      <path d="M13 6h8" />
-      <path d="M13 12h8" />
-      <path d="M13 18h8" />
-    </svg>
-  );
-}
-
-// ============================================================================
 // Main Chat View
 // ============================================================================
 
@@ -601,7 +153,6 @@ function ChatView({ sessionId }: { sessionId: string }) {
             setOptimisticMessages([]);
           },
           onError: () => {
-            // Keep optimistic messages but could mark as failed
             setOptimisticMessages([]);
           },
         }
@@ -631,7 +182,7 @@ function ChatView({ sessionId }: { sessionId: string }) {
   return (
     <div className="flex flex-1">
       {/* Chat column */}
-      <div className="flex flex-1 flex-col min-w-0">
+      <div className="flex min-w-0 flex-1 flex-col">
         {/* Header */}
         <div className="flex items-center justify-between border-b px-4 py-3">
           <div>

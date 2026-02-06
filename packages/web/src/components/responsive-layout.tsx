@@ -1,11 +1,15 @@
 'use client';
 
-import { Menu } from 'lucide-react';
+import { ClipboardPaste, Menu } from 'lucide-react';
+import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 
 import { Header } from '@/components/header';
+import { IngestDrawer } from '@/components/ingest-drawer';
 import { Sidebar } from '@/components/sidebar';
+import { Badge } from '@/components/ui/badge';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { usePendingExtractedItems } from '@/lib/hooks';
 
 interface ResponsiveLayoutProps {
   children: React.ReactNode;
@@ -13,6 +17,11 @@ interface ResponsiveLayoutProps {
 
 export function ResponsiveLayout({ children }: ResponsiveLayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const pathname = usePathname();
+
+  // Hide FAB on the full ingest page — the user is already there
+  const hideIngestFab = pathname.startsWith('/ingest');
 
   return (
     <div className="flex h-screen">
@@ -45,6 +54,40 @@ export function ResponsiveLayout({ children }: ResponsiveLayoutProps) {
           {children}
         </main>
       </div>
+
+      {/* Floating ingest button — hidden on /ingest page */}
+      {!hideIngestFab && <IngestFab onClick={() => setDrawerOpen(true)} />}
+
+      {/* Ingest drawer */}
+      <IngestDrawer open={drawerOpen} onOpenChange={setDrawerOpen} />
     </div>
+  );
+}
+
+// ============================================================================
+// Floating Action Button
+// ============================================================================
+
+function IngestFab({ onClick }: { onClick: () => void }) {
+  const { data } = usePendingExtractedItems();
+  const pendingCount = data?.items?.length ?? 0;
+
+  return (
+    <button
+      onClick={onClick}
+      className="fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-105 hover:shadow-xl active:scale-95"
+      aria-label="Open ingestion assistant"
+      title="Open ingestion assistant"
+    >
+      <ClipboardPaste className="h-6 w-6" />
+      {pendingCount > 0 && (
+        <Badge
+          variant="destructive"
+          className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center p-0 text-xs"
+        >
+          {pendingCount > 9 ? '9+' : pendingCount}
+        </Badge>
+      )}
+    </button>
   );
 }
