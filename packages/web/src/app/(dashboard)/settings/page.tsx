@@ -15,7 +15,14 @@ import * as React from 'react';
 import { AutonomyDial } from '@/components/autonomy-dial';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { toast } from '@/lib/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import type { AutonomyLevel } from '@/types';
 
@@ -97,12 +104,35 @@ export default function SettingsPage() {
 
   // Handlers
   const handleAutonomyChange = (level: AutonomyLevel) => {
-    mutation.mutate({ autonomyLevel: level });
+    mutation.mutate(
+      { autonomyLevel: level },
+      {
+        onSuccess: (data) => {
+          toast.success({
+            title: 'Autonomy level updated',
+            description: `Agent autonomy set to ${data.autonomyLevel}.`,
+          });
+        },
+      }
+    );
   };
 
   const handleDryRunToggle = () => {
     if (settings) {
-      mutation.mutate({ dryRun: !settings.dryRun });
+      const newDryRun = !settings.dryRun;
+      mutation.mutate(
+        { dryRun: newDryRun },
+        {
+          onSuccess: () => {
+            toast.success({
+              title: newDryRun ? 'Dry-run mode enabled' : 'Live mode enabled',
+              description: newDryRun
+                ? 'The agent will log actions without executing them.'
+                : 'The agent will now execute actions.',
+            });
+          },
+        }
+      );
     }
   };
 
@@ -146,18 +176,19 @@ export default function SettingsPage() {
       </div>
 
       {/* Pending Acknowledgement Alert */}
-      {settings?.pendingAcknowledgement && !settings.pendingAcknowledgement.acknowledged && (
-        <Alert variant="warning">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>Autonomy change pending</AlertTitle>
-          <AlertDescription>
-            The agent is transitioning from{' '}
-            <strong>{settings.pendingAcknowledgement.fromLevel}</strong> to{' '}
-            <strong>{settings.pendingAcknowledgement.toLevel}</strong> mode. The agent will
-            acknowledge this change on its next cycle.
-          </AlertDescription>
-        </Alert>
-      )}
+      {settings?.pendingAcknowledgement &&
+        !settings.pendingAcknowledgement.acknowledged && (
+          <Alert variant="warning">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Autonomy change pending</AlertTitle>
+            <AlertDescription>
+              The agent is transitioning from{' '}
+              <strong>{settings.pendingAcknowledgement.fromLevel}</strong> to{' '}
+              <strong>{settings.pendingAcknowledgement.toLevel}</strong> mode.
+              The agent will acknowledge this change on its next cycle.
+            </AlertDescription>
+          </Alert>
+        )}
 
       {/* Acknowledged Alert */}
       {settings?.pendingAcknowledgement?.acknowledged && (
@@ -167,7 +198,10 @@ export default function SettingsPage() {
           <AlertDescription>
             The agent acknowledged the change to{' '}
             <strong>{settings.pendingAcknowledgement.toLevel}</strong> mode at{' '}
-            {new Date(settings.pendingAcknowledgement.acknowledgedAt!).toLocaleString('en-GB')}.
+            {new Date(
+              settings.pendingAcknowledgement.acknowledgedAt!
+            ).toLocaleString('en-GB')}
+            .
           </AlertDescription>
         </Alert>
       )}
@@ -181,7 +215,8 @@ export default function SettingsPage() {
               Autonomy Level
             </CardTitle>
             <CardDescription>
-              Control how much the agent can do autonomously without your approval.
+              Control how much the agent can do autonomously without your
+              approval.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -219,7 +254,8 @@ export default function SettingsPage() {
               Dry-Run Mode
             </CardTitle>
             <CardDescription>
-              When enabled, the agent logs what it would do but does not execute actions.
+              When enabled, the agent logs what it would do but does not execute
+              actions.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -255,10 +291,13 @@ export default function SettingsPage() {
                 <div className="flex items-start gap-3">
                   <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5" />
                   <div>
-                    <h4 className="font-medium text-amber-800">Dry-Run Active</h4>
+                    <h4 className="font-medium text-amber-800">
+                      Dry-Run Active
+                    </h4>
                     <p className="mt-1 text-sm text-amber-700">
-                      The agent is in simulation mode. All actions are logged but not executed.
-                      Check the activity feed to see what the agent would do.
+                      The agent is in simulation mode. All actions are logged
+                      but not executed. Check the activity feed to see what the
+                      agent would do.
                     </p>
                   </div>
                 </div>
@@ -268,8 +307,9 @@ export default function SettingsPage() {
                   <div>
                     <h4 className="font-medium text-green-800">Live Mode</h4>
                     <p className="mt-1 text-sm text-green-700">
-                      The agent will execute actions according to your autonomy level settings.
-                      Actions in the hold queue require your review.
+                      The agent will execute actions according to your autonomy
+                      level settings. Actions in the hold queue require your
+                      review.
                     </p>
                   </div>
                 </div>
@@ -369,7 +409,10 @@ function AutonomyLevelDetail({
           <h5 className="text-sm font-medium text-green-700">Can do:</h5>
           <ul className="mt-1 space-y-1">
             {capabilities.map((cap) => (
-              <li key={cap} className="flex items-start gap-2 text-sm text-muted-foreground">
+              <li
+                key={cap}
+                className="flex items-start gap-2 text-sm text-muted-foreground"
+              >
                 <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 shrink-0" />
                 {cap}
               </li>
@@ -380,7 +423,10 @@ function AutonomyLevelDetail({
           <h5 className="text-sm font-medium text-red-700">Cannot do:</h5>
           <ul className="mt-1 space-y-1">
             {restrictions.map((res) => (
-              <li key={res} className="flex items-start gap-2 text-sm text-muted-foreground">
+              <li
+                key={res}
+                className="flex items-start gap-2 text-sm text-muted-foreground"
+              >
                 <AlertTriangle className="h-4 w-4 text-red-400 mt-0.5 shrink-0" />
                 {res}
               </li>

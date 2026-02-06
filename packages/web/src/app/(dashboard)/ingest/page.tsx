@@ -30,6 +30,7 @@ import {
   useCreateIngestionSession,
   useSendIngestionMessage,
   useArchiveIngestionSession,
+  toast,
 } from '@/lib/hooks';
 import type { IngestionAttachment, IngestionMessage } from '@/types';
 
@@ -178,11 +179,26 @@ function ChatView({ sessionId }: { sessionId: string }) {
           attachments: attachments.length > 0 ? attachments : undefined,
         },
         {
-          onSuccess: () => {
+          onSuccess: (data) => {
             setOptimisticMessages([]);
+            if (data.extractedItems && data.extractedItems.length > 0) {
+              const count = data.extractedItems.length;
+              toast.info({
+                title: `${count} item${count !== 1 ? 's' : ''} extracted`,
+                description:
+                  'Check the extracted items panel to review and approve.',
+              });
+            }
           },
-          onError: () => {
+          onError: (error) => {
             setOptimisticMessages([]);
+            toast.error({
+              title: 'Message failed to send',
+              description:
+                error instanceof Error
+                  ? error.message
+                  : 'Could not send message. Please try again.',
+            });
           },
         }
       );
@@ -372,6 +388,10 @@ function NewSessionForm({
       {
         onSuccess: (session) => {
           onCreated(session.id);
+          toast.success({
+            title: 'Session created',
+            description: `"${sessionTitle}" is ready for ingestion.`,
+          });
         },
       }
     );

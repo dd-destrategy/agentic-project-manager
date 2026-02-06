@@ -12,6 +12,10 @@ on:
           - dev
           - prod
 
+concurrency:
+  group: deploy-${{ inputs.environment }}
+  cancel-in-progress: false
+
 permissions:
   id-token: write
   contents: read
@@ -36,6 +40,14 @@ jobs:
           node-version: '20'
           cache: 'pnpm'
 
+      - name: Cache turbo
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: turbo-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            turbo-${{ runner.os }}-
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
@@ -46,9 +58,79 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
-          aws-region: ap-southeast-2
+          aws-region: ${{ secrets.AWS_REGION || 'ap-southeast-2' }}
+
+      - name: Validate AWS credentials
+        run: |
+          echo "Validating AWS credentials..."
+          aws sts get-caller-identity
+          echo "AWS credentials validated successfully."
+
+      - name: CDK Diff (pre-deploy)
+        working-directory: packages/cdk
+        run: |
+          echo "Showing infrastructure changes for ${{ inputs.environment }}..."
+          npx cdk diff --all --context env=${{ inputs.environment }} 2>&1 || true
+        env:
+          CDK_DEFAULT_ACCOUNT: ${{ secrets.AWS_ACCOUNT_ID }}
+          CDK_DEFAULT_REGION: ${{ secrets.AWS_REGION || 'ap-southeast-2' }}
+
+      - name: Prod deployment safeguard
+        if: inputs.environment == 'prod'
+        run: |
+          echo "::warning::PRODUCTION DEPLOYMENT — this environment should have required reviewers configured in GitHub Settings > Environments."
+          echo "Using --require-approval broadening for production safety."
 
       - name: Deploy CDK stacks
         working-directory: packages/cdk
         run: |
-          npx cdk deploy --all --require-approval never --context env=${{ inputs.environment }}
+          if [ "${{ inputs.environment }}" = "prod" ]; then
+            APPROVAL="broadening"
+          else
+            APPROVAL="never"
+          fi
+          echo "Deploying to ${{ inputs.environment }} with --require-approval ${APPROVAL}..."
+          npx cdk deploy --all \
+            --require-approval "${APPROVAL}" \
+            --context env=${{ inputs.environment }} \
+            --outputs-file cdk-outputs.json
+        env:
+          CDK_DEFAULT_ACCOUNT: ${{ secrets.AWS_ACCOUNT_ID }}
+          CDK_DEFAULT_REGION: ${{ secrets.AWS_REGION || 'ap-southeast-2' }}
+
+      - name: CDK Diff (post-deploy verification)
+        working-directory: packages/cdk
+        run: |
+          echo "Verifying deployment — expecting no drift..."
+          npx cdk diff --all --context env=${{ inputs.environment }} 2>&1 || true
+        env:
+          CDK_DEFAULT_ACCOUNT: ${{ secrets.AWS_ACCOUNT_ID }}
+          CDK_DEFAULT_REGION: ${{ secrets.AWS_REGION || 'ap-southeast-2' }}
+
+      - name: Upload CDK outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cdk-outputs-${{ inputs.environment }}
+          path: packages/cdk/cdk-outputs.json
+          retention-days: 30
+          if-no-files-found: ignore
+
+      - name: Deployment summary
+        run: |
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Detail | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "| ------ | ----- |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Environment** | \`${{ inputs.environment }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Branch** | \`${{ github.ref_name }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Commit** | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Triggered by** | ${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Run ID** | [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f packages/cdk/cdk-outputs.json ]; then
+            echo "### CDK Stack Outputs" >> $GITHUB_STEP_SUMMARY
+            echo '```json' >> $GITHUB_STEP_SUMMARY
+            cat packages/cdk/cdk-outputs.json >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi

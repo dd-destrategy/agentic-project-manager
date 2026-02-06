@@ -12,6 +12,7 @@
     "watch": "tsc -w",
     "lint": "eslint lib --ext .ts",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist cdk.out coverage",
