@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options';
+import { DynamoDBClient } from '@agentic-pm/core/db';
+import { AgentConfigRepository } from '@agentic-pm/core/db/repositories';
 
 /**
  * Budget status response type
@@ -50,67 +52,6 @@ const TIER_NAMES: Record<0 | 1 | 2 | 3, string> = {
 };
 
 /**
- * Generate mock usage history for the last 7 days
- */
-function generateMockHistory(): UsageHistoryEntry[] {
-  const history: UsageHistoryEntry[] = [];
-  const now = new Date();
-
-  for (let i = 6; i >= 0; i--) {
-    const date = new Date(now);
-    date.setDate(date.getDate() - i);
-
-    history.push({
-      date: date.toISOString().split('T')[0]!,
-      spend: Math.random() * 0.20 + 0.03, // Random between $0.03 and $0.23
-      tokens: Math.floor(Math.random() * 50000) + 10000, // Random between 10k and 60k
-    });
-  }
-
-  return history;
-}
-
-/**
- * In-memory budget state for development/demo
- * In production, this would be fetched from DynamoDB via BudgetTracker
- */
-function getBudgetState(): BudgetStatusResponse {
-  const now = new Date();
-  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-  const dayOfMonth = now.getDate();
-  const daysRemaining = daysInMonth - dayOfMonth;
-
-  // Simulated values
-  const dailySpend = 0.12;
-  const dailyLimit = 0.23;
-  const monthSpend = dayOfMonth * 0.15; // Average $0.15/day
-  const monthLimit = 8.0;
-  const dailyAverage = monthSpend / dayOfMonth;
-  const projectedMonthSpend = dailyAverage * daysInMonth;
-
-  // Calculate tier based on daily percentage used
-  const dailyPercent = dailySpend / dailyLimit;
-  let tier: 0 | 1 | 2 | 3 = 0;
-  if (dailyPercent >= 0.95) tier = 3;
-  else if (dailyPercent >= 0.85) tier = 2;
-  else if (dailyPercent >= 0.70) tier = 1;
-
-  return {
-    dailySpend,
-    dailyLimit,
-    monthSpend,
-    monthLimit,
-    dailyAverage,
-    tier,
-    tierName: TIER_NAMES[tier],
-    daysRemaining,
-    projectedMonthSpend,
-    onTrack: projectedMonthSpend <= monthLimit,
-    usageHistory: generateMockHistory(),
-  };
-}
-
-/**
  * GET /api/budget
  *
  * Returns the current budget status including daily/monthly spend,
@@ -124,8 +65,39 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorised' }, { status: 401 });
     }
 
-    const budgetStatus = getBudgetState();
-    return NextResponse.json(budgetStatus);
+    // Fetch budget status from DynamoDB
+    const db = new DynamoDBClient();
+    const configRepo = new AgentConfigRepository(db);
+
+    const budgetStatus = await configRepo.getBudgetStatus();
+
+    // Calculate additional metrics
+    const now = new Date();
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const dayOfMonth = now.getDate();
+    const daysRemaining = daysInMonth - dayOfMonth;
+    const dailyAverage = dayOfMonth > 0 ? budgetStatus.monthlySpendUsd / dayOfMonth : 0;
+    const projectedMonthSpend = dailyAverage * daysInMonth;
+
+    // Note: Usage history would need to be stored separately in production
+    // For now, we'll return empty history since we don't have historical data yet
+    const usageHistory: UsageHistoryEntry[] = [];
+
+    const response: BudgetStatusResponse = {
+      dailySpend: budgetStatus.dailySpendUsd,
+      dailyLimit: budgetStatus.dailyLimitUsd,
+      monthSpend: budgetStatus.monthlySpendUsd,
+      monthLimit: budgetStatus.monthlyLimitUsd,
+      dailyAverage,
+      tier: budgetStatus.degradationTier,
+      tierName: TIER_NAMES[budgetStatus.degradationTier],
+      daysRemaining,
+      projectedMonthSpend,
+      onTrack: projectedMonthSpend <= budgetStatus.monthlyLimitUsd,
+      usageHistory,
+    };
+
+    return NextResponse.json(response);
   } catch (error) {
     console.error('Error fetching budget status:', error);
     return NextResponse.json(

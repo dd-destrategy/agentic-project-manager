@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options';
 import type { AgentStatusResponse } from '@/types';
+import { DynamoDBClient } from '@agentic-pm/core/db';
+import { AgentConfigRepository, EventRepository } from '@agentic-pm/core/db/repositories';
 
 /**
  * GET /api/agent/status
@@ -17,35 +19,54 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorised' }, { status: 401 });
     }
 
-    // TODO: Fetch real status from DynamoDB when agent runtime is deployed
-    // For now, return mock data for frontend development
-    const mockStatus: AgentStatusResponse = {
-      status: 'active',
-      lastHeartbeat: new Date(Date.now() - 5 * 60 * 1000).toISOString(), // 5 minutes ago
-      nextScheduledRun: new Date(Date.now() + 10 * 60 * 1000).toISOString(), // 10 minutes from now
-      currentCycleState: null,
+    // Initialize repositories
+    const db = new DynamoDBClient();
+    const configRepo = new AgentConfigRepository(db);
+    const eventRepo = new EventRepository(db);
+
+    // Fetch real data from DynamoDB
+    const [lastHeartbeat, budgetStatus, config, latestHeartbeatEvent] = await Promise.all([
+      configRepo.getLastHeartbeat(),
+      configRepo.getBudgetStatus(),
+      configRepo.getConfig(),
+      eventRepo.getLatestHeartbeat(),
+    ]);
+
+    // Calculate agent status based on heartbeat age
+    const heartbeatAge = lastHeartbeat
+      ? Date.now() - new Date(lastHeartbeat).getTime()
+      : Infinity;
+    const isHealthy = heartbeatAge < 5 * 60 * 1000; // Less than 5 minutes old
+
+    const status: AgentStatusResponse = {
+      status: isHealthy ? 'active' : lastHeartbeat ? 'stopped' : 'never_run',
+      lastHeartbeat: lastHeartbeat ?? null,
+      nextScheduledRun: lastHeartbeat
+        ? new Date(new Date(lastHeartbeat).getTime() + config.pollingIntervalMinutes * 60 * 1000).toISOString()
+        : new Date(Date.now() + config.pollingIntervalMinutes * 60 * 1000).toISOString(),
+      currentCycleState: latestHeartbeatEvent?.detail?.context?.cycleId ?? null,
       integrations: [
         {
           name: 'jira',
-          status: 'healthy',
-          lastCheck: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+          status: 'healthy', // In production, this would check integration health
+          lastCheck: lastHeartbeat ?? new Date(Date.now() - 5 * 60 * 1000).toISOString(),
         },
         {
           name: 'outlook',
-          status: 'healthy',
-          lastCheck: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+          status: 'healthy', // In production, this would check integration health
+          lastCheck: lastHeartbeat ?? new Date(Date.now() - 5 * 60 * 1000).toISOString(),
         },
       ],
       budgetStatus: {
-        dailySpendUsd: 0.15,
-        dailyLimitUsd: 0.50,
-        monthlySpendUsd: 2.45,
-        monthlyLimitUsd: 7.00,
-        degradationTier: 0,
+        dailySpendUsd: budgetStatus.dailySpendUsd,
+        dailyLimitUsd: budgetStatus.dailyLimitUsd,
+        monthlySpendUsd: budgetStatus.monthlySpendUsd,
+        monthlyLimitUsd: budgetStatus.monthlyLimitUsd,
+        degradationTier: budgetStatus.degradationTier,
       },
     };
 
-    return NextResponse.json(mockStatus);
+    return NextResponse.json(status);
   } catch (error) {
     console.error('Error fetching agent status:', error);
     return NextResponse.json(

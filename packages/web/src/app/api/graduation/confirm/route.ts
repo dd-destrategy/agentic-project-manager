@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options';
 import { confirmGraduationSchema } from '@/schemas/api';
+import { DynamoDBClient } from '@agentic-pm/core/db';
+import { AgentConfigRepository, EventRepository } from '@agentic-pm/core/db/repositories';
+import type { AutonomyLevel } from '@agentic-pm/core/types';
 
 /**
  * Graduation confirmation response
@@ -40,32 +43,61 @@ export async function POST(request: NextRequest) {
 
     const { targetLevel } = result.data;
 
-    // In production, this would:
-    // 1. Validate graduation criteria are still met
-    // 2. Update autonomy level in DynamoDB
-    // 3. Log the graduation event
-    // 4. Notify the agent of the level change
+    const db = new DynamoDBClient();
+    const configRepo = new AgentConfigRepository(db);
+    const eventRepo = new EventRepository(db);
 
-    // For demo purposes, simulate graduation
-    const previousLevel = targetLevel - 1;
-    const newLevel = targetLevel;
+    // Get current autonomy level
+    const currentSettings = await configRepo.getAutonomySettings();
+    const levelMap = { monitoring: 0, artefact: 1, tactical: 2 };
+    const reverseMap: Record<number, AutonomyLevel> = {
+      0: 'monitoring',
+      1: 'artefact',
+      2: 'tactical',
+    };
+    const currentLevel = levelMap[currentSettings.autonomyLevel] || 0;
+
+    // Validate target level is one step up
+    if (targetLevel !== currentLevel + 1) {
+      return NextResponse.json(
+        { error: 'Target level must be exactly one level above current level' },
+        { status: 400 }
+      );
+    }
+
+    // Update autonomy level
+    const newAutonomyLevel = reverseMap[targetLevel];
+    if (!newAutonomyLevel) {
+      return NextResponse.json({ error: 'Invalid target level' }, { status: 400 });
+    }
+
+    await configRepo.setAutonomyLevel(newAutonomyLevel);
+
+    // Reset spot check stats for new level
+    await configRepo.resetSpotCheckStats();
+
+    // Log graduation event
     const graduatedAt = new Date().toISOString();
+    await eventRepo.create({
+      eventType: 'autonomy_level_changed',
+      severity: 'info',
+      summary: `Agent graduated from Level ${currentLevel} to Level ${targetLevel}`,
+      detail: {
+        context: {
+          previousLevel: currentLevel,
+          newLevel: targetLevel,
+          graduatedBy: session.user?.email,
+        },
+      },
+    });
 
     const response: GraduationConfirmResponse = {
       success: true,
-      previousLevel,
-      newLevel,
-      message: `Successfully graduated from Level ${previousLevel} to Level ${newLevel}`,
+      previousLevel: currentLevel,
+      newLevel: targetLevel,
+      message: `Successfully graduated from Level ${currentLevel} to Level ${targetLevel}`,
       graduatedAt,
     };
-
-    // Log graduation event (in production this would persist to DynamoDB)
-    console.log('Graduation confirmed:', {
-      previousLevel,
-      newLevel,
-      graduatedAt,
-      user: session.user?.email,
-    });
 
     return NextResponse.json(response);
   } catch (error) {
