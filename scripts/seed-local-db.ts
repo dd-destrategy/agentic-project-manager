@@ -15,7 +15,7 @@ const ENDPOINT = 'http://127.0.0.1:4566';
 
 const rawClient = new AWSDynamoDBClient({
   region: 'ap-southeast-2',
-  endpointUrl: ENDPOINT,
+  endpoint: ENDPOINT,
   credentials: { accessKeyId: 'test', secretAccessKey: 'test' },
 });
 const docClient = DynamoDBDocumentClient.from(rawClient, {

@@ -110,7 +110,21 @@ export class DynamoDBClient {
   private tableName: string;
 
   constructor(config?: DynamoDBClientConfig, tableName?: string) {
+    // Auto-detect local endpoint from env var when no explicit config is given.
+    // DYNAMODB_ENDPOINT is set for local dev (e.g. http://127.0.0.1:4566).
+    // Uses `endpoint` (not `endpointUrl`) — the latter is silently ignored
+    // by SDK v3.983 and resolves to the real AWS hostname instead.
+    const localEndpoint = process.env.DYNAMODB_ENDPOINT;
+    const localConfig: DynamoDBClientConfig =
+      localEndpoint && !config?.endpoint
+        ? {
+            endpoint: localEndpoint,
+            credentials: { accessKeyId: 'local', secretAccessKey: 'local' },
+          }
+        : {};
+
     const baseClient = new AWSDynamoDBClient({
+      ...localConfig,
       ...config,
       maxAttempts: 1, // We handle retries ourselves for better control
     });
@@ -225,7 +239,10 @@ export class DynamoDBClient {
       );
       return true;
     } catch (error) {
-      if (error instanceof DynamoDBError && error.code === 'ConditionalCheckFailedException') {
+      if (
+        error instanceof DynamoDBError &&
+        error.code === 'ConditionalCheckFailedException'
+      ) {
         return false;
       }
       throw error;
@@ -260,7 +277,10 @@ export class DynamoDBClient {
 
       // Merge additional expression attribute values for filter expressions
       if (options?.additionalExpressionAttributeValues) {
-        Object.assign(expressionAttributeValues, options.additionalExpressionAttributeValues);
+        Object.assign(
+          expressionAttributeValues,
+          options.additionalExpressionAttributeValues
+        );
       }
 
       const input: QueryCommandInput = {
@@ -343,13 +363,17 @@ export class DynamoDBClient {
     }
   ): Promise<{ items: T[]; lastKey?: Record<string, unknown> }> {
     return this.executeWithRetry(async () => {
-      const expressionAttributeValues: Record<string, unknown> = options?.gsi1skPrefix
-        ? { ':pk': gsi1pk, ':skPrefix': options.gsi1skPrefix }
-        : { ':pk': gsi1pk };
+      const expressionAttributeValues: Record<string, unknown> =
+        options?.gsi1skPrefix
+          ? { ':pk': gsi1pk, ':skPrefix': options.gsi1skPrefix }
+          : { ':pk': gsi1pk };
 
       // Merge additional expression attribute values for filter expressions
       if (options?.additionalExpressionAttributeValues) {
-        Object.assign(expressionAttributeValues, options.additionalExpressionAttributeValues);
+        Object.assign(
+          expressionAttributeValues,
+          options.additionalExpressionAttributeValues
+        );
       }
 
       const input: QueryCommandInput = {

@@ -17,7 +17,7 @@ const ENDPOINT = 'http://127.0.0.1:4566';
 
 const client = new DynamoDBClient({
   region: 'ap-southeast-2',
-  endpointUrl: ENDPOINT,
+  endpoint: ENDPOINT,
   credentials: { accessKeyId: 'test', secretAccessKey: 'test' },
 });
 
