@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-
+import { getDynamoDBClient } from '@agentic-pm/core/db/client';
+import { HeldActionRepository } from '@agentic-pm/core/db/repositories/held-action';
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options';
 import type { HeldActionsResponse, HeldAction } from '@/types';
 
@@ -29,98 +30,33 @@ export async function GET(request: NextRequest) {
       100
     );
 
-    // TODO: Replace with real DynamoDB queries when agent runtime is deployed
-    // For now, return mock data for frontend development
-    const mockHeldActions: HeldAction[] = [
-      {
-        id: 'held-1',
-        projectId: 'proj-1',
-        actionType: 'email_stakeholder',
-        payload: {
-          to: ['john.smith@example.com', 'sarah.jones@example.com'],
-          subject: 'Sprint 14 Status Update - Action Required',
-          bodyText: `Hi Team,
+    // Initialize DynamoDB client and repository
+    const db = getDynamoDBClient();
+    const repo = new HeldActionRepository(db);
 
-I wanted to provide a quick update on Sprint 14 progress:
+    let heldActions: HeldAction[] = [];
 
-- Completed: 18 story points (56%)
-- In Progress: 8 story points (25%)
-- Blocked: 6 story points (19%)
-
-The blocked items are related to the API integration dependency we discussed. I recommend we schedule a quick sync to unblock these items.
-
-Please let me know your availability for a 15-minute call tomorrow.
-
-Best regards,
-Agentic PM`,
-          context: 'Weekly sprint status communication to stakeholders',
-        },
-        heldUntil: new Date(Date.now() + 25 * 60 * 1000).toISOString(), // 25 mins from now
-        status: 'pending',
-        createdAt: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
-      },
-      {
-        id: 'held-2',
-        projectId: 'proj-1',
-        actionType: 'jira_status_change',
-        payload: {
-          issueKey: 'PROJ-234',
-          transitionId: '31',
-          transitionName: 'Start Progress',
-          fromStatus: 'To Do',
-          toStatus: 'In Progress',
-          reason: 'Dependencies resolved, ready to begin work',
-        },
-        heldUntil: new Date(Date.now() + 12 * 60 * 1000).toISOString(), // 12 mins from now
-        status: 'pending',
-        createdAt: new Date(Date.now() - 3 * 60 * 1000).toISOString(),
-      },
-      {
-        id: 'held-3',
-        projectId: 'proj-1',
-        actionType: 'email_stakeholder',
-        payload: {
-          to: ['product.owner@example.com'],
-          subject: 'Risk Alert: Dependency Delay Impact',
-          bodyText: `Hi,
-
-I've identified a potential risk that may impact the current sprint:
-
-Risk: Third-party API integration delay
-Impact: Could delay 3 user stories (estimated 8 story points)
-Mitigation: Propose parallel development with mock service
-
-Recommended action: Schedule meeting with tech lead to discuss alternatives.
-
-Regards,
-Agentic PM`,
-          context: 'Proactive risk communication based on detected blockers',
-        },
-        heldUntil: new Date(Date.now() + 45 * 60 * 1000).toISOString(), // 45 mins from now
-        status: 'pending',
-        createdAt: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
-      },
-    ];
-
-    // Filter by status (default to pending)
-    const filterStatus = status ?? 'pending';
-    let filteredActions = mockHeldActions.filter(
-      (a) => a.status === filterStatus
-    );
-
-    // Filter by projectId if specified
     if (projectId) {
-      filteredActions = filteredActions.filter(
-        (a) => a.projectId === projectId
-      );
+      // Query actions for specific project
+      const result = await repo.getByProject(projectId, { status, limit });
+      heldActions = result.items;
+    } else if (status === 'pending' || !status) {
+      // Query all pending actions (default)
+      const result = await repo.getPending({ limit });
+      heldActions = result.items;
+    } else if (status === 'executed') {
+      // Query recently executed actions
+      const result = await repo.getRecentlyExecuted({ limit });
+      heldActions = result.items;
+    } else {
+      // For other statuses without specific queries, return empty
+      // (or implement scan if needed in future)
+      heldActions = [];
     }
 
-    // Apply limit
-    const paginatedActions = filteredActions.slice(0, limit);
-
     const response: HeldActionsResponse = {
-      heldActions: paginatedActions,
-      count: filteredActions.length,
+      heldActions,
+      count: heldActions.length,
     };
 
     return NextResponse.json(response);
@@ -146,8 +82,12 @@ export async function HEAD() {
       return new NextResponse(null, { status: 401 });
     }
 
-    // TODO: Replace with real DynamoDB query
-    const pendingCount = 3;
+    // Initialize DynamoDB client and repository
+    const db = getDynamoDBClient();
+    const repo = new HeldActionRepository(db);
+
+    // Get pending count
+    const pendingCount = await repo.countPending();
 
     return new NextResponse(null, {
       status: 200,

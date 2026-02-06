@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
+import { getDynamoDBClient } from '@agentic-pm/core/db/client';
+import { EventRepository } from '@agentic-pm/core/db/repositories/event';
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options';
 import type { ActivityStatsResponse, ActivityStats } from '@/types';
 
@@ -17,41 +19,93 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorised' }, { status: 401 });
     }
 
-    // TODO: Fetch real statistics from DynamoDB when agent runtime is deployed
-    // This will aggregate events from the last 24 hours
-    // For now, return mock data for frontend development
+    // Initialize DynamoDB client and repository
+    const db = getDynamoDBClient();
+    const eventRepo = new EventRepository(db);
 
-    const mockLast24Hours: ActivityStats = {
-      cyclesRun: 96, // 24 hours * 4 cycles per hour (15 min intervals)
-      signalsDetected: 12,
-      actionsTaken: 8,
-      actionsHeld: 2,
-      artefactsUpdated: 5,
-      escalationsCreated: 1,
-      escalationsResolved: 0,
-      llmCostUsd: 0.15,
-      tokensUsed: 4500,
+    // Get date strings for queries
+    const now = new Date();
+    const today = now.toISOString().split('T')[0]!;
+    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString().split('T')[0]!;
+
+    // Fetch events for today and yesterday
+    const todayEvents = await eventRepo.getByDate(today, { limit: 1000 });
+    const yesterdayEvents = await eventRepo.getByDate(yesterday, { limit: 1000 });
+
+    // Helper to aggregate stats from events
+    const aggregateStats = (events: typeof todayEvents.items): ActivityStats => {
+      const stats: ActivityStats = {
+        cyclesRun: 0,
+        signalsDetected: 0,
+        actionsTaken: 0,
+        actionsHeld: 0,
+        artefactsUpdated: 0,
+        escalationsCreated: 0,
+        escalationsResolved: 0,
+        llmCostUsd: 0,
+        tokensUsed: 0,
+      };
+
+      for (const event of events) {
+        switch (event.eventType) {
+          case 'heartbeat':
+          case 'heartbeat_with_changes':
+            stats.cyclesRun++;
+            break;
+          case 'signal_detected':
+            stats.signalsDetected++;
+            break;
+          case 'action_executed':
+            stats.actionsTaken++;
+            break;
+          case 'action_held':
+            stats.actionsHeld++;
+            break;
+          case 'artefact_updated':
+            stats.artefactsUpdated++;
+            break;
+          case 'escalation_created':
+            stats.escalationsCreated++;
+            break;
+          case 'escalation_decided':
+            stats.escalationsResolved++;
+            break;
+        }
+
+        // Accumulate costs if available
+        if (event.detail?.context?.llmCostUsd) {
+          stats.llmCostUsd += event.detail.context.llmCostUsd as number;
+        }
+        if (event.detail?.context?.tokensUsed) {
+          stats.tokensUsed += event.detail.context.tokensUsed as number;
+        }
+      }
+
+      return stats;
     };
 
-    const mockToday: ActivityStats = {
-      cyclesRun: 42,
-      signalsDetected: 6,
-      actionsTaken: 4,
-      actionsHeld: 1,
-      artefactsUpdated: 3,
-      escalationsCreated: 1,
-      escalationsResolved: 0,
-      llmCostUsd: 0.08,
-      tokensUsed: 2100,
-    };
+    // Aggregate stats for today
+    const todayStats = aggregateStats(todayEvents.items);
+
+    // For last 24 hours, combine today and yesterday (filter by actual timestamp)
+    const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+    const last24HoursEvents = [
+      ...todayEvents.items,
+      ...yesterdayEvents.items.filter(e => e.createdAt >= twentyFourHoursAgo)
+    ];
+    const last24HoursStats = aggregateStats(last24HoursEvents);
+
+    // Calculate comparison (today vs previous day)
+    const previousDayEvents = yesterdayEvents.items.filter(e => e.createdAt < twentyFourHoursAgo);
+    const previousStats = aggregateStats(previousDayEvents);
 
     const response: ActivityStatsResponse = {
-      last24Hours: mockLast24Hours,
-      today: mockToday,
+      last24Hours: last24HoursStats,
+      today: todayStats,
       comparison: {
-        cyclesChange: 0, // Cycles are consistent
-        signalsChange: 3, // 3 more signals than previous period
-        actionsChange: 2, // 2 more actions than previous period
+        cyclesChange: todayStats.cyclesRun - previousStats.cyclesRun,
+        signalsChange: todayStats.signalsDetected - previousStats.signalsDetected,
+        actionsChange: todayStats.actionsTaken - previousStats.actionsTaken,
       },
     };
 

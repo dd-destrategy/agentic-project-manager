@@ -20,7 +20,8 @@ export const decideEscalationSchema = z.object({
  * Schema for approving a held action
  */
 export const approveHeldActionSchema = z.object({
-  actionId: z.string().uuid(),
+  actionId: z.string(),
+  projectId: z.string(),
 });
 
 /**
@@ -34,6 +35,7 @@ export const confirmGraduationSchema = z.object({
  * Schema for cancelling a held action
  */
 export const cancelHeldActionSchema = z.object({
+  projectId: z.string(),
   reason: z.string().optional(),
 });
 

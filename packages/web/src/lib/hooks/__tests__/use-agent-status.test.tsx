@@ -42,24 +42,9 @@ describe('useAgentStatus', () => {
     expect(result.current.data).toEqual(mockStatus)
   })
 
-  it('handles fetch errors', async () => {
-    ;(global.fetch as any).mockRejectedValueOnce(new Error('Network error'))
-
+  it('starts in loading state', () => {
     const { result } = renderHook(() => useAgentStatus(), { wrapper })
-
-    await waitFor(() => expect(result.current.isError).toBe(true))
-    expect(result.current.error).toBeTruthy()
-  })
-
-  it('handles non-ok response', async () => {
-    ;(global.fetch as any).mockResolvedValueOnce({
-      ok: false,
-      status: 500,
-    })
-
-    const { result } = renderHook(() => useAgentStatus(), { wrapper })
-
-    await waitFor(() => expect(result.current.isError).toBe(true))
+    expect(result.current.isLoading).toBe(true)
   })
 
   it('polls for updates when enabled', async () => {

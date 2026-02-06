@@ -42,7 +42,7 @@ describe('Progress', () => {
 
   it('renders indicator with correct width transform', () => {
     const { container } = render(<Progress value={60} />)
-    const indicator = container.querySelector('[data-state="loading"]')
+    const indicator = container.querySelector('[role="progressbar"] > div')
     expect(indicator).toHaveStyle({ transform: 'translateX(-40%)' })
   })
 
@@ -56,7 +56,7 @@ describe('Progress', () => {
     const { container } = render(
       <Progress value={50} indicatorClassName="custom-indicator" />
     )
-    const indicator = container.querySelector('[data-state="loading"]')
+    const indicator = container.querySelector('[role="progressbar"] > div')
     expect(indicator).toHaveClass('custom-indicator')
   })
 })
