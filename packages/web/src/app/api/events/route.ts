@@ -1,9 +1,10 @@
-import { DynamoDBClient } from '@agentic-pm/core/db';
 import { EventRepository } from '@agentic-pm/core/db/repositories';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options';
+import { unauthorised, internalError } from '@/lib/api-error';
+import { getDbClient } from '@/lib/db';
 import type { EventsResponse } from '@/types';
 
 /**
@@ -20,16 +21,19 @@ export async function GET(request: NextRequest) {
     // Verify authentication
     const session = await getServerSession(authOptions);
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorised' }, { status: 401 });
+      return unauthorised();
     }
 
     const searchParams = request.nextUrl.searchParams;
-    const limit = Math.min(parseInt(searchParams.get('limit') || '20', 10), 100);
+    const limit = Math.min(
+      parseInt(searchParams.get('limit') || '20', 10),
+      100
+    );
     const _cursor = searchParams.get('cursor'); // TODO: implement pagination with cursor
     const projectId = searchParams.get('projectId');
 
-    // Fetch events from DynamoDB
-    const db = new DynamoDBClient();
+    // Fetch events from DynamoDB (C03: singleton)
+    const db = getDbClient();
     const eventRepo = new EventRepository(db);
 
     let result;
@@ -50,9 +54,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(response);
   } catch (error) {
     console.error('Error fetching events:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch events' },
-      { status: 500 }
-    );
+    return internalError('Failed to fetch events');
   }
 }

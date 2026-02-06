@@ -1,36 +1,7 @@
 version: '3.8'
 
 services:
-  # DynamoDB Local for development
-  dynamodb-local:
-    image: amazon/dynamodb-local:latest
-    container_name: agentic-pm-dynamodb
-    ports:
-      - '8000:8000'
-    command: '-jar DynamoDBLocal.jar -sharedDb -dbPath /data'
-    volumes:
-      - dynamodb-data:/data
-    healthcheck:
-      test: ['CMD-SHELL', 'curl -s http://localhost:8000/shell/ || exit 1']
-      interval: 10s
-      timeout: 5s
-      retries: 3
-
-  # DynamoDB Admin UI (connects to LocalStack DynamoDB)
-  dynamodb-admin:
-    image: aaronshaf/dynamodb-admin:latest
-    container_name: agentic-pm-dynamodb-admin
-    ports:
-      - '8001:8001'
-    environment:
-      - DYNAMO_ENDPOINT=http://localstack:4566
-      - AWS_REGION=ap-southeast-2
-      - AWS_ACCESS_KEY_ID=test
-      - AWS_SECRET_ACCESS_KEY=test
-    depends_on:
-      - localstack
-
-  # LocalStack for other AWS services (SES, Secrets Manager)
+  # LocalStack for AWS services (DynamoDB, SES, Secrets Manager)
   localstack:
     image: localstack/localstack:latest
     container_name: agentic-pm-localstack
@@ -48,6 +19,21 @@ services:
       timeout: 5s
       retries: 3
 
+  # DynamoDB Admin UI (connects to LocalStack DynamoDB on port 4566)
+  dynamodb-admin:
+    image: aaronshaf/dynamodb-admin:latest
+    container_name: agentic-pm-dynamodb-admin
+    ports:
+      - '8001:8001'
+    environment:
+      - DYNAMO_ENDPOINT=http://localstack:4566
+      - AWS_REGION=ap-southeast-2
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+    depends_on:
+      localstack:
+        condition: service_healthy
+
   # MailHog for email testing
   mailhog:
     image: mailhog/mailhog:latest
@@ -57,5 +43,4 @@ services:
       - '8025:8025' # Web UI
 
 volumes:
-  dynamodb-data:
   localstack-data:

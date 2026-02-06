@@ -1,4 +1,3 @@
-import { DynamoDBClient } from '@agentic-pm/core/db';
 import { AgentConfigRepository } from '@agentic-pm/core/db/repositories/agent-config';
 import { GraduationStateRepository } from '@agentic-pm/core/db/repositories/graduation-state';
 import type { GraduationTier } from '@agentic-pm/core/db/repositories/graduation-state';
@@ -7,13 +6,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options';
-
-/**
- * Graduation tier levels (mapped to autonomy levels)
- * - Level 1 (monitoring): Base level
- * - Level 2 (artefact): After graduation
- * - Level 3 (tactical): After second graduation
- */
+import { unauthorised, validationError, internalError } from '@/lib/api-error';
+import { getDbClient } from '@/lib/db';
+import { graduationRequestSchema } from '@/schemas/api';
 
 /**
  * Graduation state for a single action type
@@ -47,17 +42,6 @@ interface GraduationEvidence {
     minAccuracyRate: number;
     currentApprovals: number;
     currentAccuracyRate: number;
-  };
-}
-
-/**
- * Create DynamoDB client and repositories
- */
-function createRepositories() {
-  const dbClient = new DynamoDBClient();
-  return {
-    configRepo: new AgentConfigRepository(dbClient),
-    graduationRepo: new GraduationStateRepository(dbClient),
   };
 }
 
@@ -98,14 +82,24 @@ function calculateBlockers(evidence: GraduationEvidence): string[] {
   const blockers: string[] = [];
 
   // Check approval count
-  if (evidence.graduationRequirements.currentApprovals < evidence.graduationRequirements.minApprovals) {
-    const needed = evidence.graduationRequirements.minApprovals - evidence.graduationRequirements.currentApprovals;
+  if (
+    evidence.graduationRequirements.currentApprovals <
+    evidence.graduationRequirements.minApprovals
+  ) {
+    const needed =
+      evidence.graduationRequirements.minApprovals -
+      evidence.graduationRequirements.currentApprovals;
     blockers.push(`Need ${needed} more consecutive approvals`);
   }
 
   // Check accuracy rate
-  if (evidence.graduationRequirements.currentAccuracyRate < evidence.graduationRequirements.minAccuracyRate) {
-    const needed = (evidence.graduationRequirements.minAccuracyRate * 100).toFixed(0);
+  if (
+    evidence.graduationRequirements.currentAccuracyRate <
+    evidence.graduationRequirements.minAccuracyRate
+  ) {
+    const needed = (
+      evidence.graduationRequirements.minAccuracyRate * 100
+    ).toFixed(0);
     blockers.push(`Spot check accuracy below ${needed}%`);
   }
 
@@ -117,7 +111,9 @@ function calculateBlockers(evidence: GraduationEvidence): string[] {
   // Check recent cancellations
   const recentCancellation = evidence.actionStates.find((a) => {
     if (!a.lastCancellationAt) return false;
-    const daysSince = (Date.now() - new Date(a.lastCancellationAt).getTime()) / (24 * 60 * 60 * 1000);
+    const daysSince =
+      (Date.now() - new Date(a.lastCancellationAt).getTime()) /
+      (24 * 60 * 60 * 1000);
     return daysSince < 7;
   });
 
@@ -139,17 +135,17 @@ export async function GET() {
     // Verify authentication
     const session = await getServerSession(authOptions);
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorised' }, { status: 401 });
+      return unauthorised();
     }
 
-    // Fetch data from DynamoDB
-    const { configRepo, graduationRepo } = createRepositories();
+    // Fetch data from DynamoDB (C03: singleton)
+    const dbClient = getDbClient();
+    const configRepo = new AgentConfigRepository(dbClient);
+    const graduationRepo = new GraduationStateRepository(dbClient);
 
     const [autonomyLevel, spotCheckStats, actionStates] = await Promise.all([
       configRepo.getAutonomyLevel(),
       configRepo.getSpotCheckStats(),
-      // For demo purposes, we'll use a default project ID
-      // In production, this would come from the user's active projects
       graduationRepo.getByProject('demo-project'),
     ]);
 
@@ -161,19 +157,22 @@ export async function GET() {
     if (spotCheckStats.lastCheckAt) {
       const lastCheck = new Date(spotCheckStats.lastCheckAt);
       const now = new Date();
-      daysSinceLastCheck = Math.floor((now.getTime() - lastCheck.getTime()) / (24 * 60 * 60 * 1000));
+      daysSinceLastCheck = Math.floor(
+        (now.getTime() - lastCheck.getTime()) / (24 * 60 * 60 * 1000)
+      );
     }
 
     // Calculate minimum approvals needed (minimum across all action types)
-    const minApprovals = actionStates.length > 0
-      ? Math.min(...actionStates.map(a => a.consecutiveApprovals))
-      : 0;
+    const minApprovals =
+      actionStates.length > 0
+        ? Math.min(...actionStates.map((a) => a.consecutiveApprovals))
+        : 0;
 
     // Build graduation evidence
     const evidence: GraduationEvidence = {
       currentLevel,
       targetLevel,
-      actionStates: actionStates.map(state => ({
+      actionStates: actionStates.map((state) => ({
         actionType: state.actionType,
         consecutiveApprovals: state.consecutiveApprovals,
         tier: state.tier,
@@ -204,38 +203,40 @@ export async function GET() {
     return NextResponse.json(evidence);
   } catch (error) {
     console.error('Error fetching graduation evidence:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch graduation evidence' },
-      { status: 500 }
-    );
+    return internalError('Failed to fetch graduation evidence');
   }
 }
 
 /**
- * POST /api/graduation/confirm
+ * POST /api/graduation
  *
  * Confirms graduation to a higher autonomy level.
  * Resets spot check statistics and increments the autonomy level.
+ * C05: Validated with Zod schema.
  */
 export async function POST(request: NextRequest) {
   try {
     // Verify authentication
     const session = await getServerSession(authOptions);
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorised' }, { status: 401 });
+      return unauthorised();
     }
 
     const body = await request.json();
-    const { targetLevel } = body;
 
-    if (!targetLevel || targetLevel < 2 || targetLevel > 3) {
-      return NextResponse.json(
-        { error: 'Invalid target level. Must be 2 or 3.' },
-        { status: 400 }
+    // C05: Validate with Zod schema
+    const parseResult = graduationRequestSchema.safeParse(body);
+    if (!parseResult.success) {
+      return validationError(
+        'Invalid graduation request',
+        parseResult.error.flatten()
       );
     }
 
-    const { configRepo } = createRepositories();
+    const { targetLevel } = parseResult.data;
+
+    const dbClient = getDbClient();
+    const configRepo = new AgentConfigRepository(dbClient);
 
     // Get current level
     const currentLevel = await configRepo.getAutonomyLevel();
@@ -243,9 +244,8 @@ export async function POST(request: NextRequest) {
 
     // Validate graduation is allowed
     if (currentLevelNum >= targetLevel) {
-      return NextResponse.json(
-        { error: 'Cannot graduate to a level at or below current level' },
-        { status: 400 }
+      return validationError(
+        'Cannot graduate to a level at or below current level'
       );
     }
 
@@ -259,9 +259,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, newLevel });
   } catch (error) {
     console.error('Error confirming graduation:', error);
-    return NextResponse.json(
-      { error: 'Failed to confirm graduation' },
-      { status: 500 }
-    );
+    return internalError('Failed to confirm graduation');
   }
 }

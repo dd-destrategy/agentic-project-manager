@@ -1,9 +1,10 @@
-import { DynamoDBClient } from '@agentic-pm/core/db';
 import { AgentConfigRepository } from '@agentic-pm/core/db/repositories';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options';
+import { unauthorised, internalError } from '@/lib/api-error';
+import { getDbClient } from '@/lib/db';
 
 /**
  * Budget status response type
@@ -63,21 +64,26 @@ export async function GET() {
     // Verify authentication
     const session = await getServerSession(authOptions);
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorised' }, { status: 401 });
+      return unauthorised();
     }
 
-    // Fetch budget status from DynamoDB
-    const db = new DynamoDBClient();
+    // Fetch budget status from DynamoDB (C03: singleton)
+    const db = getDbClient();
     const configRepo = new AgentConfigRepository(db);
 
     const budgetStatus = await configRepo.getBudgetStatus();
 
     // Calculate additional metrics
     const now = new Date();
-    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const daysInMonth = new Date(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      0
+    ).getDate();
     const dayOfMonth = now.getDate();
     const daysRemaining = daysInMonth - dayOfMonth;
-    const dailyAverage = dayOfMonth > 0 ? budgetStatus.monthlySpendUsd / dayOfMonth : 0;
+    const dailyAverage =
+      dayOfMonth > 0 ? budgetStatus.monthlySpendUsd / dayOfMonth : 0;
     const projectedMonthSpend = dailyAverage * daysInMonth;
 
     // Note: Usage history would need to be stored separately in production
@@ -101,9 +107,6 @@ export async function GET() {
     return NextResponse.json(response);
   } catch (error) {
     console.error('Error fetching budget status:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch budget status' },
-      { status: 500 }
-    );
+    return internalError('Failed to fetch budget status');
   }
 }

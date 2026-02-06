@@ -5,6 +5,13 @@
  */
 
 export {
+  CircuitBreaker,
+  CircuitBreakerOpenError,
+  type CircuitBreakerState,
+  type CircuitBreakerOptions,
+} from './circuit-breaker.js';
+
+export {
   JiraClient,
   RateLimiter,
   formatJiraTimestamp,

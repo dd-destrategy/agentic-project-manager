@@ -1,9 +1,10 @@
-import { DynamoDBClient } from '@agentic-pm/core/db';
 import { ArtefactRepository } from '@agentic-pm/core/db/repositories';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options';
+import { unauthorised, badRequest, internalError } from '@/lib/api-error';
+import { getDbClient } from '@/lib/db';
 import type { ArtefactType } from '@/types';
 
 interface Artefact {
@@ -35,17 +36,17 @@ export async function GET(
     // Verify authentication
     const session = await getServerSession(authOptions);
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorised' }, { status: 401 });
+      return unauthorised();
     }
 
     const { projectId } = await params;
 
     if (!projectId) {
-      return NextResponse.json({ error: 'Project ID is required' }, { status: 400 });
+      return badRequest('Project ID is required');
     }
 
-    // Fetch real artefacts from DynamoDB
-    const db = new DynamoDBClient();
+    // Fetch real artefacts from DynamoDB (C03: singleton)
+    const db = getDbClient();
     const artefactRepo = new ArtefactRepository(db);
 
     const artefactsFromDb = await artefactRepo.getAllForProject(projectId);
@@ -56,7 +57,9 @@ export async function GET(
       projectId: art.projectId,
       type: art.type,
       content: JSON.stringify(art.content),
-      previousVersion: art.previousVersion ? JSON.stringify(art.previousVersion) : undefined,
+      previousVersion: art.previousVersion
+        ? JSON.stringify(art.previousVersion)
+        : undefined,
       version: art.version,
       updatedAt: art.updatedAt,
       createdAt: art.createdAt,
@@ -70,9 +73,6 @@ export async function GET(
     return NextResponse.json(response);
   } catch (error) {
     console.error('Error fetching artefacts:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch artefacts' },
-      { status: 500 }
-    );
+    return internalError('Failed to fetch artefacts');
   }
 }

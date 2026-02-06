@@ -1,15 +1,28 @@
-import { DynamoDBClient } from '@agentic-pm/core/db';
 import {
   IngestionSessionRepository,
   ExtractedItemRepository,
 } from '@agentic-pm/core/db/repositories';
+import { BudgetTracker, PRICING } from '@agentic-pm/core/llm';
 import Anthropic from '@anthropic-ai/sdk';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { ulid } from 'ulid';
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options';
+import {
+  unauthorised,
+  notFound,
+  validationError,
+  budgetExceeded,
+  llmError,
+  internalError,
+  rateLimited,
+} from '@/lib/api-error';
+import { getDbClient } from '@/lib/db';
 import { sendIngestionMessageSchema } from '@/schemas/ingest';
+
+/** Maximum messages per ingestion session (enforced before LLM call) */
+const MAX_SESSION_MESSAGES = 50;
 
 const SYSTEM_PROMPT = `You are a project management assistant embedded in the Agentic PM Workbench.
 The user is pasting screenshots, chat logs, emails, or other project-related content for you to analyse.
@@ -182,7 +195,7 @@ export async function POST(
   try {
     const session = await getServerSession(authOptions);
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorised' }, { status: 401 });
+      return unauthorised();
     }
 
     const { id } = await params;
@@ -190,23 +203,42 @@ export async function POST(
 
     const parseResult = sendIngestionMessageSchema.safeParse(body);
     if (!parseResult.success) {
-      return NextResponse.json(
-        { error: parseResult.error.flatten() },
-        { status: 400 }
+      return validationError(
+        'Invalid message payload',
+        parseResult.error.flatten()
       );
     }
 
     const { content, attachments } = parseResult.data;
 
-    const db = new DynamoDBClient();
+    const db = getDbClient();
     const sessionRepo = new IngestionSessionRepository(db);
     const extractRepo = new ExtractedItemRepository(db);
 
     const ingestionSession = await sessionRepo.getById(id);
     if (!ingestionSession) {
-      return NextResponse.json(
-        { error: 'Ingestion session not found' },
-        { status: 404 }
+      return notFound('Ingestion session not found');
+    }
+
+    // C14: Enforce message limit before processing
+    if (ingestionSession.messages.length >= MAX_SESSION_MESSAGES) {
+      return validationError(
+        `Session has reached the maximum of ${MAX_SESSION_MESSAGES} messages. Please start a new session.`
+      );
+    }
+
+    // C01: Check daily budget before making LLM call
+    const budgetTracker = new BudgetTracker(db);
+    await budgetTracker.loadFromDb();
+
+    if (!budgetTracker.canMakeCall()) {
+      return budgetExceeded(
+        'Daily LLM budget exhausted. Please try again tomorrow.',
+        {
+          dailySpendUsd: budgetTracker.getState().dailySpendUsd,
+          dailyLimitUsd: budgetTracker.getState().dailyLimitUsd,
+          degradationTier: budgetTracker.getState().degradationTier,
+        }
       );
     }
 
@@ -231,10 +263,7 @@ export async function POST(
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
-      return NextResponse.json(
-        { error: 'LLM API key not configured' },
-        { status: 500 }
-      );
+      return llmError('LLM API key not configured');
     }
 
     const anthropic = new Anthropic({ apiKey });
@@ -250,6 +279,20 @@ export async function POST(
       tool_choice: { type: 'auto' },
     });
 
+    // C01: Record usage with BudgetTracker
+    const inputTokens = response.usage.input_tokens;
+    const outputTokens = response.usage.output_tokens;
+    const pricing = PRICING['claude-sonnet-4-5-20250514'];
+    const costUsd =
+      (inputTokens / 1_000_000) * pricing.input +
+      (outputTokens / 1_000_000) * pricing.output;
+
+    await budgetTracker.recordUsage(
+      { inputTokens, outputTokens, costUsd },
+      'ingestion_message',
+      'claude-sonnet-4-5-20250514'
+    );
+
     // Parse response: text blocks for conversation, tool_use blocks for extraction
     const textParts: string[] = [];
     let extractedRawItems: Array<{
@@ -259,16 +302,26 @@ export async function POST(
       target_artefact: string;
       priority: string;
     }> = [];
+    let toolUsed = false;
 
     for (const block of response.content) {
       if (block.type === 'text') {
         textParts.push(block.text);
       } else if (block.type === 'tool_use' && block.name === 'extract_items') {
+        toolUsed = true;
         const input = block.input as { items?: typeof extractedRawItems };
         if (input.items && Array.isArray(input.items)) {
           extractedRawItems = input.items;
         }
       }
+    }
+
+    // C12: Track whether the tool was called
+    if (!toolUsed && extractedRawItems.length === 0) {
+      console.warn(
+        `[ingest/${id}] Claude responded without calling extract_items tool. ` +
+          'Extractable items may have been missed.'
+      );
     }
 
     const assistantContent =
@@ -327,27 +380,21 @@ export async function POST(
       userMessage,
       assistantMessage,
       extractedItems: savedItems.length > 0 ? savedItems : undefined,
+      toolUsed,
     });
   } catch (error) {
     console.error('Error processing ingestion message:', error);
 
     if (error instanceof Anthropic.AuthenticationError) {
-      return NextResponse.json(
-        { error: 'LLM authentication failed. Check API key configuration.' },
-        { status: 500 }
+      return llmError(
+        'LLM authentication failed. Check API key configuration.'
       );
     }
 
     if (error instanceof Anthropic.RateLimitError) {
-      return NextResponse.json(
-        { error: 'LLM rate limited. Please try again shortly.' },
-        { status: 429 }
-      );
+      return rateLimited('LLM rate limited. Please try again shortly.');
     }
 
-    return NextResponse.json(
-      { error: 'Failed to process message' },
-      { status: 500 }
-    );
+    return internalError('Failed to process message');
   }
 }

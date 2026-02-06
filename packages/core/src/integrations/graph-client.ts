@@ -11,6 +11,8 @@
  * - Delta query support for incremental sync
  */
 
+import { CircuitBreaker } from './circuit-breaker.js';
+
 /**
  * Azure AD configuration for client credentials flow
  */
@@ -125,6 +127,7 @@ export class GraphClient {
   private accessToken: string | null = null;
   private tokenExpiry: number = 0;
   private rateLimiter: GraphRateLimiter;
+  private circuitBreaker: CircuitBreaker;
   private consecutiveErrors: number = 0;
   private readonly maxConsecutiveErrors: number = 3;
 
@@ -136,6 +139,11 @@ export class GraphClient {
   constructor(config: AzureADConfig) {
     this.config = config;
     this.rateLimiter = new GraphRateLimiter(1000, 60000);
+    this.circuitBreaker = new CircuitBreaker({
+      serviceName: 'outlook-graph',
+      failureThreshold: 3,
+      resetTimeoutMs: 60_000,
+    });
   }
 
   /**
@@ -184,70 +192,71 @@ export class GraphClient {
   /**
    * Make an authenticated request to Graph API
    */
-  async request<T>(
-    endpoint: string,
-    options: RequestInit = {}
-  ): Promise<T> {
-    await this.rateLimiter.waitForSlot();
+  async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+    return this.circuitBreaker.execute(async () => {
+      await this.rateLimiter.waitForSlot();
 
-    const token = await this.getAccessToken();
-    const url = endpoint.startsWith('http')
-      ? endpoint
-      : `${GraphClient.GRAPH_BASE_URL}${endpoint}`;
+      const token = await this.getAccessToken();
+      const url = endpoint.startsWith('http')
+        ? endpoint
+        : `${GraphClient.GRAPH_BASE_URL}${endpoint}`;
 
-    try {
-      this.rateLimiter.recordRequest();
+      try {
+        this.rateLimiter.recordRequest();
 
-      const response = await fetch(url, {
-        ...options,
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          ...options.headers,
-        },
-      });
+        const response = await fetch(url, {
+          ...options,
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            ...options.headers,
+          },
+        });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        const error = new Error(
-          `Graph API error: ${response.status} ${response.statusText} - ${errorText}`
-        );
+        if (!response.ok) {
+          const errorText = await response.text();
+          const error = new Error(
+            `Graph API error: ${response.status} ${response.statusText} - ${errorText}`
+          );
+          this.consecutiveErrors++;
+
+          // Handle throttling (429)
+          if (response.status === 429) {
+            const retryAfter = response.headers.get('Retry-After');
+            const waitTime = retryAfter
+              ? parseInt(retryAfter, 10) * 1000
+              : 60000;
+            await new Promise((resolve) => setTimeout(resolve, waitTime));
+            return this.request<T>(endpoint, options);
+          }
+
+          throw error;
+        }
+
+        // Reset error counter on success
+        this.consecutiveErrors = 0;
+
+        // Handle 204 No Content
+        if (response.status === 204) {
+          return {} as T;
+        }
+
+        return (await response.json()) as T;
+      } catch (error) {
         this.consecutiveErrors++;
 
-        // Handle throttling (429)
-        if (response.status === 429) {
-          const retryAfter = response.headers.get('Retry-After');
-          const waitTime = retryAfter ? parseInt(retryAfter, 10) * 1000 : 60000;
-          await new Promise((resolve) => setTimeout(resolve, waitTime));
-          return this.request<T>(endpoint, options);
+        // Exponential backoff on network errors
+        if (this.consecutiveErrors <= this.maxConsecutiveErrors) {
+          const backoffMs = Math.min(
+            1000 * Math.pow(2, this.consecutiveErrors),
+            30000
+          );
+          await new Promise((resolve) => setTimeout(resolve, backoffMs));
         }
 
         throw error;
       }
-
-      // Reset error counter on success
-      this.consecutiveErrors = 0;
-
-      // Handle 204 No Content
-      if (response.status === 204) {
-        return {} as T;
-      }
-
-      return (await response.json()) as T;
-    } catch (error) {
-      this.consecutiveErrors++;
-
-      // Exponential backoff on network errors
-      if (this.consecutiveErrors <= this.maxConsecutiveErrors) {
-        const backoffMs = Math.min(
-          1000 * Math.pow(2, this.consecutiveErrors),
-          30000
-        );
-        await new Promise((resolve) => setTimeout(resolve, backoffMs));
-      }
-
-      throw error;
-    }
+    });
   }
 
   /**
@@ -309,6 +318,13 @@ export class GraphClient {
    */
   getConsecutiveErrors(): number {
     return this.consecutiveErrors;
+  }
+
+  /**
+   * Get circuit breaker state (for monitoring)
+   */
+  getCircuitBreakerState(): string {
+    return this.circuitBreaker.getState();
   }
 }
 

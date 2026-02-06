@@ -12,6 +12,7 @@
 import type { RawSignal, IntegrationSource, Project } from '../types/index.js';
 import { parseJiraCredentials } from '../types/index.js';
 
+import { CircuitBreaker } from './circuit-breaker.js';
 import type { IntegrationHealthCheck, SignalSource } from './types.js';
 
 /**
@@ -272,6 +273,7 @@ export class JiraClient implements SignalSource {
   protected config: JiraConfig;
   protected authHeader: string;
   protected rateLimiter: RateLimiter;
+  protected circuitBreaker: CircuitBreaker;
   protected lastError: Error | null = null;
   protected consecutiveErrors: number = 0;
   protected readonly maxConsecutiveErrors: number = 3;
@@ -282,6 +284,11 @@ export class JiraClient implements SignalSource {
       `${config.email}:${config.apiToken}`
     ).toString('base64');
     this.rateLimiter = new RateLimiter(100, 60000);
+    this.circuitBreaker = new CircuitBreaker({
+      serviceName: 'jira',
+      failureThreshold: 3,
+      resetTimeoutMs: 60_000,
+    });
   }
 
   /**
@@ -291,61 +298,69 @@ export class JiraClient implements SignalSource {
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
-    // Wait for rate limit slot
-    await this.rateLimiter.waitForSlot();
+    return this.circuitBreaker.execute(async () => {
+      // Wait for rate limit slot
+      await this.rateLimiter.waitForSlot();
 
-    const url = `${this.config.baseUrl}${endpoint}`;
+      const url = `${this.config.baseUrl}${endpoint}`;
 
-    try {
-      this.rateLimiter.recordRequest();
+      try {
+        this.rateLimiter.recordRequest();
 
-      const response = await fetch(url, {
-        ...options,
-        headers: {
-          Authorization: `Basic ${this.authHeader}`,
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-          ...options.headers,
-        },
-      });
+        const response = await fetch(url, {
+          ...options,
+          headers: {
+            Authorization: `Basic ${this.authHeader}`,
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+            ...options.headers,
+          },
+        });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        const error = new Error(
-          `Jira API error: ${response.status} ${response.statusText} - ${errorText}`
-        );
-        this.lastError = error;
+        if (!response.ok) {
+          const errorText = await response.text();
+          const error = new Error(
+            `Jira API error: ${response.status} ${response.statusText} - ${errorText}`
+          );
+          this.lastError = error;
+          this.consecutiveErrors++;
+
+          // Check if we should back off
+          if (response.status === 429) {
+            // Rate limited by Jira - wait and retry
+            const retryAfter = response.headers.get('Retry-After');
+            const waitTime = retryAfter
+              ? parseInt(retryAfter, 10) * 1000
+              : 60000;
+            await new Promise((resolve) => setTimeout(resolve, waitTime));
+            return this.request<T>(endpoint, options);
+          }
+
+          throw error;
+        }
+
+        // Success - reset error counter
+        this.consecutiveErrors = 0;
+        this.lastError = null;
+
+        return (await response.json()) as T;
+      } catch (error) {
+        this.lastError =
+          error instanceof Error ? error : new Error(String(error));
         this.consecutiveErrors++;
 
-        // Check if we should back off
-        if (response.status === 429) {
-          // Rate limited by Jira - wait and retry
-          const retryAfter = response.headers.get('Retry-After');
-          const waitTime = retryAfter ? parseInt(retryAfter, 10) * 1000 : 60000;
-          await new Promise((resolve) => setTimeout(resolve, waitTime));
-          return this.request<T>(endpoint, options);
+        // Exponential backoff on network errors
+        if (this.consecutiveErrors <= this.maxConsecutiveErrors) {
+          const backoffMs = Math.min(
+            1000 * Math.pow(2, this.consecutiveErrors),
+            30000
+          );
+          await new Promise((resolve) => setTimeout(resolve, backoffMs));
         }
 
         throw error;
       }
-
-      // Success - reset error counter
-      this.consecutiveErrors = 0;
-      this.lastError = null;
-
-      return (await response.json()) as T;
-    } catch (error) {
-      this.lastError = error instanceof Error ? error : new Error(String(error));
-      this.consecutiveErrors++;
-
-      // Exponential backoff on network errors
-      if (this.consecutiveErrors <= this.maxConsecutiveErrors) {
-        const backoffMs = Math.min(1000 * Math.pow(2, this.consecutiveErrors), 30000);
-        await new Promise((resolve) => setTimeout(resolve, backoffMs));
-      }
-
-      throw error;
-    }
+    });
   }
 
   /**
@@ -650,6 +665,13 @@ export class JiraClient implements SignalSource {
    */
   getBaseUrl(): string {
     return this.config.baseUrl;
+  }
+
+  /**
+   * Get circuit breaker state (for monitoring)
+   */
+  getCircuitBreakerState(): string {
+    return this.circuitBreaker.getState();
   }
 }
 

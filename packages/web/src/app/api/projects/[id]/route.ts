@@ -1,4 +1,3 @@
-import { DynamoDBClient } from '@agentic-pm/core/db/client';
 import { EscalationRepository } from '@agentic-pm/core/db/repositories/escalation';
 import { EventRepository } from '@agentic-pm/core/db/repositories/event';
 import { ProjectRepository } from '@agentic-pm/core/db/repositories/project';
@@ -6,6 +5,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options';
+import {
+  unauthorised,
+  badRequest,
+  notFound,
+  validationError,
+  internalError,
+} from '@/lib/api-error';
+import { getDbClient } from '@/lib/db';
+import { updateProjectSchema } from '@/schemas/api';
 import type { Project, HealthStatus } from '@/types';
 
 interface ProjectDetailResponse {
@@ -28,17 +36,17 @@ export async function GET(
     // Verify authentication
     const session = await getServerSession(authOptions);
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorised' }, { status: 401 });
+      return unauthorised();
     }
 
     const { id } = await params;
 
     if (!id) {
-      return NextResponse.json({ error: 'Project ID is required' }, { status: 400 });
+      return badRequest('Project ID is required');
     }
 
-    // Initialize DynamoDB repositories
-    const dbClient = new DynamoDBClient();
+    // Initialise DynamoDB repositories (C03: singleton)
+    const dbClient = getDbClient();
     const projectRepo = new ProjectRepository(dbClient);
     const escalationRepo = new EscalationRepository(dbClient);
     const eventRepo = new EventRepository(dbClient);
@@ -47,7 +55,7 @@ export async function GET(
     const project = await projectRepo.getById(id);
 
     if (!project) {
-      return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+      return notFound('Project not found');
     }
 
     // Get pending escalations count
@@ -58,7 +66,10 @@ export async function GET(
     const lastActivity = projectEvents.items[0]?.createdAt ?? project.updatedAt;
 
     // Calculate health status
-    const healthStatus = calculateHealthStatus(pendingEscalations, lastActivity);
+    const healthStatus = calculateHealthStatus(
+      pendingEscalations,
+      lastActivity
+    );
 
     const response: ProjectDetailResponse = {
       project: {
@@ -71,17 +82,15 @@ export async function GET(
     return NextResponse.json(response);
   } catch (error) {
     console.error('Error fetching project:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch project' },
-      { status: 500 }
-    );
+    return internalError('Failed to fetch project');
   }
 }
 
 /**
  * PATCH /api/projects/[id]
  *
- * Updates a project.
+ * Updates a project. C02: Validated with Zod schema to prevent
+ * arbitrary field injection.
  */
 export async function PATCH(
   request: NextRequest,
@@ -91,24 +100,35 @@ export async function PATCH(
     // Verify authentication
     const session = await getServerSession(authOptions);
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorised' }, { status: 401 });
+      return unauthorised();
     }
 
     const { id } = await params;
     const body = await request.json();
 
-    // Initialize DynamoDB client and repository
-    const dbClient = new DynamoDBClient();
+    // C02: Validate body against schema — only allows known fields
+    const parseResult = updateProjectSchema.safeParse(body);
+    if (!parseResult.success) {
+      return validationError(
+        'Invalid project update data',
+        parseResult.error.flatten()
+      );
+    }
+
+    const validatedBody = parseResult.data;
+
+    // Initialise DynamoDB client and repository (C03: singleton)
+    const dbClient = getDbClient();
     const projectRepo = new ProjectRepository(dbClient);
 
     // Check if project exists
     const existingProject = await projectRepo.getById(id);
     if (!existingProject) {
-      return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+      return notFound('Project not found');
     }
 
-    // Update project
-    await projectRepo.update(id, body);
+    // Update project with validated fields only
+    await projectRepo.update(id, validatedBody);
 
     // Fetch updated project
     const updatedProject = await projectRepo.getById(id);
@@ -116,10 +136,7 @@ export async function PATCH(
     return NextResponse.json({ project: updatedProject });
   } catch (error) {
     console.error('Error updating project:', error);
-    return NextResponse.json(
-      { error: 'Failed to update project' },
-      { status: 500 }
-    );
+    return internalError('Failed to update project');
   }
 }
 
@@ -136,19 +153,19 @@ export async function DELETE(
     // Verify authentication
     const session = await getServerSession(authOptions);
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorised' }, { status: 401 });
+      return unauthorised();
     }
 
     const { id } = await params;
 
-    // Initialize DynamoDB client and repository
-    const dbClient = new DynamoDBClient();
+    // Initialise DynamoDB client and repository (C03: singleton)
+    const dbClient = getDbClient();
     const projectRepo = new ProjectRepository(dbClient);
 
     // Check if project exists
     const existingProject = await projectRepo.getById(id);
     if (!existingProject) {
-      return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+      return notFound('Project not found');
     }
 
     // Archive project (soft delete)
@@ -157,10 +174,7 @@ export async function DELETE(
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error deleting project:', error);
-    return NextResponse.json(
-      { error: 'Failed to delete project' },
-      { status: 500 }
-    );
+    return internalError('Failed to delete project');
   }
 }
 

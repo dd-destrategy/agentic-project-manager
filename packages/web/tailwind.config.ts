@@ -43,11 +43,44 @@ const config: Config = {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
         },
+        glass: {
+          DEFAULT: 'var(--glass-bg)',
+          hover: 'var(--glass-bg-hover)',
+          border: 'var(--glass-border)',
+          'border-subtle': 'var(--glass-border-subtle)',
+        },
       },
       borderRadius: {
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
+        xl: 'calc(var(--radius) + 4px)',
+        '2xl': 'calc(var(--radius) + 8px)',
+      },
+      backdropBlur: {
+        glass: 'var(--glass-blur)',
+        'glass-lg': '24px',
+      },
+      backdropSaturate: {
+        glass: 'var(--glass-saturate)',
+      },
+      boxShadow: {
+        glass: 'var(--glass-shadow)',
+        'glass-lg': 'var(--glass-shadow-lg)',
+      },
+      keyframes: {
+        'glass-shimmer': {
+          '0%': { backgroundPosition: '-200% 0' },
+          '100%': { backgroundPosition: '200% 0' },
+        },
+        'glass-glow': {
+          '0%, 100%': { boxShadow: 'var(--glass-shadow)' },
+          '50%': { boxShadow: 'var(--glass-shadow-lg)' },
+        },
+      },
+      animation: {
+        'glass-shimmer': 'glass-shimmer 2s ease-in-out infinite',
+        'glass-glow': 'glass-glow 3s ease-in-out infinite',
       },
     },
   },

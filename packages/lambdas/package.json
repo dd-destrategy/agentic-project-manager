@@ -16,6 +16,7 @@
   "dependencies": {
     "@agentic-pm/core": "workspace:*",
     "@aws-sdk/client-dynamodb": "^3.500.0",
+    "@aws-sdk/client-cloudwatch": "^3.500.0",
     "@aws-sdk/client-secrets-manager": "^3.500.0",
     "@aws-sdk/lib-dynamodb": "^3.500.0",
     "ulid": "^2.3.0"

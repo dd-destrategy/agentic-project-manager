@@ -1,4 +1,5 @@
 import * as cdk from 'aws-cdk-lib';
+import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as targets from 'aws-cdk-lib/aws-events-targets';
@@ -6,6 +7,7 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as kms from 'aws-cdk-lib/aws-kms';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as logs from 'aws-cdk-lib/aws-logs';
+import * as sns from 'aws-cdk-lib/aws-sns';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
 import * as sfn from 'aws-cdk-lib/aws-stepfunctions';
 import * as tasks from 'aws-cdk-lib/aws-stepfunctions-tasks';
@@ -41,9 +43,10 @@ export class AgentStack extends cdk.Stack {
       alias: 'agentic-pm-logs',
       description: 'KMS key for encrypting CloudWatch logs',
       enableKeyRotation: true,
-      removalPolicy: props.config.envName === 'prod'
-        ? cdk.RemovalPolicy.RETAIN
-        : cdk.RemovalPolicy.DESTROY,
+      removalPolicy:
+        props.config.envName === 'prod'
+          ? cdk.RemovalPolicy.RETAIN
+          : cdk.RemovalPolicy.DESTROY,
     });
 
     // Grant CloudWatch Logs permission to use the key
@@ -57,7 +60,9 @@ export class AgentStack extends cdk.Stack {
           'kms:Describe*',
         ],
         principals: [
-          new iam.ServicePrincipal(`logs.${cdk.Stack.of(this).region}.amazonaws.com`),
+          new iam.ServicePrincipal(
+            `logs.${cdk.Stack.of(this).region}.amazonaws.com`
+          ),
         ],
         resources: ['*'],
         conditions: {
@@ -80,6 +85,36 @@ export class AgentStack extends cdk.Stack {
       exportName: `${this.stackName}-DLQUrl`,
     });
 
+    // DLQ monitoring: alarm when any messages land in the dead-letter queue.
+    // This ensures failed Lambda invocations are noticed promptly.
+    const dlqAlarmTopic = new sns.Topic(this, 'DLQAlarmTopic', {
+      topicName: 'agentic-pm-dlq-alarm',
+      displayName: 'Agentic PM — Dead-Letter Queue Alarm',
+    });
+
+    new cloudwatch.Alarm(this, 'DLQMessagesAlarm', {
+      alarmName: 'agentic-pm-dlq-messages-visible',
+      alarmDescription:
+        'One or more messages have arrived in the Lambda dead-letter queue, ' +
+        'indicating failed invocations that require investigation.',
+      metric: this.deadLetterQueue.metricApproximateNumberOfMessagesVisible({
+        period: cdk.Duration.minutes(1),
+        statistic: 'Sum',
+      }),
+      threshold: 0,
+      comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
+      evaluationPeriods: 1,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+      actionsEnabled: props.config.enableAlarms,
+    }).addAlarmAction({
+      bind: () => ({ alarmActionArn: dlqAlarmTopic.topicArn }),
+    });
+
+    new cdk.CfnOutput(this, 'DLQAlarmTopicArn', {
+      value: dlqAlarmTopic.topicArn,
+      exportName: `${this.stackName}-DLQAlarmTopicArn`,
+    });
+
     // Create Lambda functions
     this.lambdaFunctions = this.createLambdaFunctions(props);
 
@@ -90,7 +125,9 @@ export class AgentStack extends cdk.Stack {
     this.createSchedule(props);
   }
 
-  private createLambdaFunctions(props: AgentStackProps): Map<string, lambda.Function> {
+  private createLambdaFunctions(
+    props: AgentStackProps
+  ): Map<string, lambda.Function> {
     const functions = new Map<string, lambda.Function>();
 
     const lambdaConfigs = [
@@ -255,7 +292,10 @@ export class AgentStack extends cdk.Stack {
 
     // Housekeeping check - runs after main flow (with or without changes)
     const checkHousekeeping = new sfn.Choice(this, 'HousekeepingDue?')
-      .when(sfn.Condition.booleanEquals('$.housekeepingDue', true), housekeeping)
+      .when(
+        sfn.Condition.booleanEquals('$.housekeepingDue', true),
+        housekeeping
+      )
       .otherwise(success);
 
     // Connect housekeeping to success
@@ -273,7 +313,10 @@ export class AgentStack extends cdk.Stack {
       .otherwise(noChangesPass);
 
     const needsReasoning = new sfn.Choice(this, 'NeedsReasoning?')
-      .when(sfn.Condition.booleanEquals('$.needsComplexReasoning', true), reasoning)
+      .when(
+        sfn.Condition.booleanEquals('$.needsComplexReasoning', true),
+        reasoning
+      )
       .otherwise(execute);
 
     // Chain states for the main processing path

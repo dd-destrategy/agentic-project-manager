@@ -4,6 +4,13 @@
 
 import type { Context } from 'aws-lambda';
 
+export {
+  SecretsCache,
+  secretsCache,
+  getCachedSecret,
+} from './secrets-cache.js';
+export { MetricsEmitter, metrics, type MetricName } from './metrics.js';
+
 /**
  * Environment configuration
  */

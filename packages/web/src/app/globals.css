@@ -4,7 +4,7 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
+    --background: 220 20% 97%;
     --foreground: 222.2 84% 4.9%;
     --card: 0 0% 100%;
     --card-foreground: 222.2 84% 4.9%;
@@ -23,7 +23,20 @@
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
     --ring: 222.2 84% 4.9%;
-    --radius: 0.5rem;
+    --radius: 0.75rem;
+
+    /* Liquid Glass tokens — light mode */
+    --glass-bg: rgba(255, 255, 255, 0.55);
+    --glass-bg-hover: rgba(255, 255, 255, 0.7);
+    --glass-border: rgba(255, 255, 255, 0.5);
+    --glass-border-subtle: rgba(0, 0, 0, 0.06);
+    --glass-blur: 16px;
+    --glass-saturate: 180%;
+    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
+    --glass-shadow-lg: 0 12px 48px rgba(0, 0, 0, 0.1);
+    --glass-card-bg: rgba(255, 255, 255, 0.6);
+    --glass-sidebar-bg: rgba(255, 255, 255, 0.45);
+    --glass-header-bg: rgba(255, 255, 255, 0.65);
   }
 
   .dark {
@@ -46,6 +59,19 @@
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 212.7 26.8% 83.9%;
+
+    /* Liquid Glass tokens — dark mode */
+    --glass-bg: rgba(30, 30, 46, 0.6);
+    --glass-bg-hover: rgba(40, 40, 60, 0.7);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --glass-border-subtle: rgba(255, 255, 255, 0.04);
+    --glass-blur: 20px;
+    --glass-saturate: 180%;
+    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    --glass-shadow-lg: 0 12px 48px rgba(0, 0, 0, 0.4);
+    --glass-card-bg: rgba(30, 30, 46, 0.55);
+    --glass-sidebar-bg: rgba(20, 20, 35, 0.6);
+    --glass-header-bg: rgba(25, 25, 40, 0.7);
   }
 }
 
@@ -53,7 +79,157 @@
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground;
+    /* Subtle gradient background — makes glass panels pop */
+    background-image:
+      radial-gradient(ellipse at 20% 0%, hsl(210 60% 95% / 0.5) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 100%, hsl(250 50% 94% / 0.4) 0%, transparent 50%);
+    background-attachment: fixed;
+    min-height: 100vh;
+  }
+
+  .dark body {
+    background-image:
+      radial-gradient(ellipse at 20% 0%, hsl(230 60% 12% / 0.5) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 100%, hsl(260 50% 10% / 0.4) 0%, transparent 50%);
+  }
+}
+
+/* ===========================================================================
+   Liquid Glass utility classes
+   =========================================================================== */
+
+@layer components {
+  /* Base glass material */
+  .glass {
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow);
+    transition: background 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  }
+
+  /* Graceful degradation for browsers without backdrop-filter */
+  @supports not (backdrop-filter: blur(1px)) {
+    .glass {
+      background: hsl(var(--card) / 0.95);
+    }
+    .glass-card {
+      background: hsl(var(--card) / 0.97);
+    }
+    .glass-sidebar {
+      background: hsl(var(--card) / 0.98);
+    }
+    .glass-header {
+      background: hsl(var(--card) / 0.97);
+    }
+  }
+
+  .glass:hover {
+    background: var(--glass-bg-hover);
+  }
+
+  /* Glass card — slightly more opaque for readability */
+  .glass-card {
+    background: var(--glass-card-bg);
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow);
+    border-radius: var(--radius);
+    transition: background 0.2s ease, box-shadow 0.25s ease, transform 0.2s ease;
+  }
+
+  .glass-card:hover {
+    box-shadow: var(--glass-shadow-lg);
+  }
+
+  /* Glass sidebar — tinted, taller blur */
+  .glass-sidebar {
+    background: var(--glass-sidebar-bg);
+    backdrop-filter: blur(20px) saturate(var(--glass-saturate));
+    -webkit-backdrop-filter: blur(20px) saturate(var(--glass-saturate));
+    border-right: 1px solid var(--glass-border-subtle);
+    box-shadow: var(--glass-shadow);
+    transition: background 0.2s ease;
+  }
+
+  /* Glass header — sticky with blur */
+  .glass-header {
+    background: var(--glass-header-bg);
+    backdrop-filter: blur(20px) saturate(var(--glass-saturate));
+    -webkit-backdrop-filter: blur(20px) saturate(var(--glass-saturate));
+    border-bottom: 1px solid var(--glass-border-subtle);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    transition: background 0.2s ease;
+  }
+
+  /* Glass overlay — for modals and sheets */
+  .glass-overlay {
+    background: rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  .dark .glass-overlay {
+    background: rgba(0, 0, 0, 0.5);
+  }
+
+  /* Glass panel content — for dialog / sheet panels */
+  .glass-panel {
+    background: var(--glass-bg);
+    backdrop-filter: blur(24px) saturate(200%);
+    -webkit-backdrop-filter: blur(24px) saturate(200%);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow-lg);
+  }
+
+  /* Glass nav item — hover effect for navigation links */
+  .glass-nav-item {
+    border-radius: calc(var(--radius) - 2px);
+    transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .glass-nav-item:hover {
+    background: var(--glass-bg-hover);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  }
+
+  .glass-nav-item[aria-current='page'] {
+    background: var(--glass-bg-hover);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  }
+
+  .dark .glass-nav-item:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  }
+
+  .dark .glass-nav-item[aria-current='page'] {
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+  }
+}
+
+/* ===========================================================================
+   Glass shimmer animation (for hover / loading states)
+   =========================================================================== */
+
+@keyframes glass-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes glass-glow {
+  0%, 100% {
+    box-shadow: var(--glass-shadow);
+  }
+  50% {
+    box-shadow: var(--glass-shadow-lg);
   }
 }

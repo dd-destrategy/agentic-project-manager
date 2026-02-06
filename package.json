@@ -29,7 +29,7 @@
     "cdk:synth": "pnpm --filter @agentic-pm/cdk synth",
     "cdk:deploy": "pnpm --filter @agentic-pm/cdk deploy",
     "cdk:diff": "pnpm --filter @agentic-pm/cdk diff",
-    "db:local": "docker-compose up dynamodb-local -d",
+    "db:local": "docker-compose up localstack -d",
     "db:setup": "npx tsx scripts/setup-local-db.ts",
     "db:seed": "npx tsx scripts/seed-local-db.ts",
     "db:reset": "pnpm db:setup && pnpm db:seed",

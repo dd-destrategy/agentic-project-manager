@@ -65,3 +65,43 @@ export type UpdateAutonomySettingsInput = z.infer<
 export type AutonomyAcknowledgeInput = z.infer<
   typeof autonomyAcknowledgeSchema
 >;
+
+// ============================================================================
+// Project schemas (C02 + C05)
+// ============================================================================
+
+/**
+ * Schema for PATCH /api/projects/[id]
+ * Only allows safe, known fields to prevent arbitrary field injection.
+ */
+export const updateProjectSchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  description: z.string().max(2000).optional(),
+  status: z.enum(['active', 'paused', 'archived']).optional(),
+  autonomyLevel: z.enum(['monitoring', 'artefact', 'tactical']).optional(),
+  config: z.record(z.unknown()).optional(),
+});
+
+/**
+ * Schema for POST /api/projects
+ */
+export const createProjectSchema = z.object({
+  name: z.string().min(1).max(200),
+  source: z.enum(['jira', 'outlook', 'asana', 'ses']),
+  sourceProjectKey: z.string().min(1).max(100),
+  description: z.string().max(2000).optional(),
+  autonomyLevel: z.enum(['monitoring', 'artefact', 'tactical']).optional(),
+  config: z.record(z.unknown()).optional(),
+});
+
+/**
+ * Schema for POST /api/graduation (the route.ts POST in graduation/)
+ * Note: graduation/confirm already uses confirmGraduationSchema above.
+ */
+export const graduationRequestSchema = z.object({
+  targetLevel: z.number().int().min(2).max(3),
+});
+
+export type UpdateProjectInput = z.infer<typeof updateProjectSchema>;
+export type CreateProjectInput = z.infer<typeof createProjectSchema>;
+export type GraduationRequestInput = z.infer<typeof graduationRequestSchema>;

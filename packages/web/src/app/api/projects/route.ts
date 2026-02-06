@@ -1,4 +1,3 @@
-import { DynamoDBClient } from '@agentic-pm/core/db/client';
 import { EscalationRepository } from '@agentic-pm/core/db/repositories/escalation';
 import { EventRepository } from '@agentic-pm/core/db/repositories/event';
 import { ProjectRepository } from '@agentic-pm/core/db/repositories/project';
@@ -6,23 +5,28 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options';
+import { unauthorised, validationError, internalError } from '@/lib/api-error';
+import { getDbClient } from '@/lib/db';
+import { createProjectSchema } from '@/schemas/api';
 import type { ProjectListResponse, ProjectSummary, Project } from '@/types';
 
 /**
  * GET /api/projects
  *
  * Returns a list of all projects with summary information.
+ * C04: Uses Promise.all to batch escalation counts and events in parallel
+ * instead of sequential N+1 queries per project.
  */
 export async function GET() {
   try {
     // Verify authentication
     const session = await getServerSession(authOptions);
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorised' }, { status: 401 });
+      return unauthorised();
     }
 
-    // Initialize DynamoDB repositories
-    const dbClient = new DynamoDBClient();
+    // Initialise DynamoDB repositories (C03: singleton client)
+    const dbClient = getDbClient();
     const projectRepo = new ProjectRepository(dbClient);
     const escalationRepo = new EscalationRepository(dbClient);
     const eventRepo = new EventRepository(dbClient);
@@ -30,22 +34,30 @@ export async function GET() {
     // Fetch active projects from DynamoDB
     const result = await projectRepo.getActive({ limit: 100 });
 
-    // Enrich projects with summary information
-    const projectSummaries: ProjectSummary[] = await Promise.all(
-      result.items.map(async (project) => {
-        // Get pending escalations count
-        const pendingEscalations = await escalationRepo.countPendingByProject(
-          project.id
-        );
+    // C04: Fetch all pending escalations in one query, then group by project
+    const [allPendingEscalations, projectEventResults] = await Promise.all([
+      escalationRepo.getPending({ limit: 500 }),
+      Promise.all(
+        result.items.map((project) =>
+          eventRepo.getByProject(project.id, { limit: 1 })
+        )
+      ),
+    ]);
 
-        // Get latest activity from events
-        const projectEvents = await eventRepo.getByProject(project.id, {
-          limit: 1,
-        });
+    // Group pending escalation counts by projectId
+    const escalationCountByProject = new Map<string, number>();
+    for (const escalation of allPendingEscalations.items) {
+      const count = escalationCountByProject.get(escalation.projectId) ?? 0;
+      escalationCountByProject.set(escalation.projectId, count + 1);
+    }
+
+    // Build summaries using pre-fetched data
+    const projectSummaries: ProjectSummary[] = result.items.map(
+      (project, index) => {
+        const pendingEscalations =
+          escalationCountByProject.get(project.id) ?? 0;
         const lastActivity =
-          projectEvents.items[0]?.createdAt ?? project.updatedAt;
-
-        // Calculate health status based on pending escalations and recent activity
+          projectEventResults[index]?.items[0]?.createdAt ?? project.updatedAt;
         const healthStatus = calculateHealthStatus(
           pendingEscalations,
           lastActivity
@@ -63,7 +75,7 @@ export async function GET() {
           lastActivity,
           updatedAt: project.updatedAt,
         };
-      })
+      }
     );
 
     const response: ProjectListResponse = {
@@ -74,43 +86,47 @@ export async function GET() {
     return NextResponse.json(response);
   } catch (error) {
     console.error('Error fetching projects:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch projects' },
-      { status: 500 }
-    );
+    return internalError('Failed to fetch projects');
   }
 }
 
 /**
  * POST /api/projects
  *
- * Creates a new project.
+ * Creates a new project. C05: Validated with Zod schema.
  */
 export async function POST(request: NextRequest) {
   try {
     // Verify authentication
     const session = await getServerSession(authOptions);
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorised' }, { status: 401 });
+      return unauthorised();
     }
 
     const body = await request.json();
-    const { name, description, source, sourceProjectKey, autonomyLevel, config } =
-      body;
 
-    // Validate required fields
-    if (!name || !source || !sourceProjectKey) {
-      return NextResponse.json(
-        { error: 'Missing required fields: name, source, sourceProjectKey' },
-        { status: 400 }
+    // C05: Validate with Zod schema
+    const parseResult = createProjectSchema.safeParse(body);
+    if (!parseResult.success) {
+      return validationError(
+        'Invalid project data',
+        parseResult.error.flatten()
       );
     }
 
-    // Initialize DynamoDB client and repository
-    const dbClient = new DynamoDBClient();
+    const {
+      name,
+      description,
+      source,
+      sourceProjectKey,
+      autonomyLevel,
+      config,
+    } = parseResult.data;
+
+    // Initialise DynamoDB client and repository (C03: singleton)
+    const dbClient = getDbClient();
     const projectRepo = new ProjectRepository(dbClient);
 
-    // Generate project ID (simple approach - can be improved)
     const projectId = `proj-${Date.now()}`;
     const now = new Date().toISOString();
 
@@ -129,16 +145,10 @@ export async function POST(request: NextRequest) {
 
     await projectRepo.create(newProject);
 
-    return NextResponse.json(
-      { project: newProject },
-      { status: 201 }
-    );
+    return NextResponse.json({ project: newProject }, { status: 201 });
   } catch (error) {
     console.error('Error creating project:', error);
-    return NextResponse.json(
-      { error: 'Failed to create project' },
-      { status: 500 }
-    );
+    return internalError('Failed to create project');
   }
 }
 

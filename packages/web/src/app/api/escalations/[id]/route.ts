@@ -1,9 +1,16 @@
-import { DynamoDBClient } from '@agentic-pm/core/db';
 import { EscalationRepository } from '@agentic-pm/core/db/repositories';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options';
+import {
+  unauthorised,
+  badRequest,
+  notFound,
+  validationError,
+  internalError,
+} from '@/lib/api-error';
+import { getDbClient } from '@/lib/db';
 import { decideEscalationSchema } from '@/schemas/api';
 
 /**
@@ -19,7 +26,7 @@ export async function GET(
     // Verify authentication
     const session = await getServerSession(authOptions);
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorised' }, { status: 401 });
+      return unauthorised();
     }
 
     const { id } = await params;
@@ -28,28 +35,22 @@ export async function GET(
     // Note: We need projectId to query. In production, we'd use a GSI or get from query params
     const projectId = request.nextUrl.searchParams.get('projectId');
     if (!projectId) {
-      return NextResponse.json(
-        { error: 'projectId query parameter is required' },
-        { status: 400 }
-      );
+      return badRequest('projectId query parameter is required');
     }
 
-    const db = new DynamoDBClient();
+    const db = getDbClient();
     const escalationRepo = new EscalationRepository(db);
 
     const escalation = await escalationRepo.getById(projectId, id);
 
     if (!escalation) {
-      return NextResponse.json({ error: 'Escalation not found' }, { status: 404 });
+      return notFound('Escalation not found');
     }
 
     return NextResponse.json(escalation);
   } catch (error) {
     console.error('Error fetching escalation:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch escalation' },
-      { status: 500 }
-    );
+    return internalError('Failed to fetch escalation');
   }
 }
 
@@ -69,7 +70,7 @@ export async function POST(
     // Verify authentication
     const session = await getServerSession(authOptions);
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorised' }, { status: 401 });
+      return unauthorised();
     }
 
     const { id } = await params;
@@ -77,7 +78,10 @@ export async function POST(
 
     const result = decideEscalationSchema.safeParse(body);
     if (!result.success) {
-      return NextResponse.json({ error: result.error.flatten() }, { status: 400 });
+      return validationError(
+        'Invalid escalation decision',
+        result.error.flatten()
+      );
     }
 
     const { decision, notes } = result.data;
@@ -85,31 +89,29 @@ export async function POST(
     // Get projectId from query params
     const projectId = request.nextUrl.searchParams.get('projectId');
     if (!projectId) {
-      return NextResponse.json(
-        { error: 'projectId query parameter is required' },
-        { status: 400 }
-      );
+      return badRequest('projectId query parameter is required');
     }
 
-    // Record decision in DynamoDB
-    const db = new DynamoDBClient();
+    // Record decision in DynamoDB (C03: singleton)
+    const db = getDbClient();
     const escalationRepo = new EscalationRepository(db);
 
-    const updatedEscalation = await escalationRepo.recordDecision(projectId, id, {
-      userDecision: decision,
-      userNotes: notes,
-    });
+    const updatedEscalation = await escalationRepo.recordDecision(
+      projectId,
+      id,
+      {
+        userDecision: decision,
+        userNotes: notes,
+      }
+    );
 
     if (!updatedEscalation) {
-      return NextResponse.json({ error: 'Escalation not found' }, { status: 404 });
+      return notFound('Escalation not found');
     }
 
     return NextResponse.json(updatedEscalation);
   } catch (error) {
     console.error('Error recording decision:', error);
-    return NextResponse.json(
-      { error: 'Failed to record decision' },
-      { status: 500 }
-    );
+    return internalError('Failed to record decision');
   }
 }

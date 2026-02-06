@@ -1,10 +1,14 @@
-import { DynamoDBClient } from '@agentic-pm/core/db';
-import { AgentConfigRepository, EventRepository } from '@agentic-pm/core/db/repositories';
+import {
+  AgentConfigRepository,
+  EventRepository,
+} from '@agentic-pm/core/db/repositories';
 import type { AutonomyLevel } from '@agentic-pm/core/types';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options';
+import { unauthorised, validationError, internalError } from '@/lib/api-error';
+import { getDbClient } from '@/lib/db';
 import { confirmGraduationSchema } from '@/schemas/api';
 
 /**
@@ -33,18 +37,21 @@ export async function POST(request: NextRequest) {
     // Verify authentication
     const session = await getServerSession(authOptions);
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorised' }, { status: 401 });
+      return unauthorised();
     }
 
     const body = await request.json();
     const result = confirmGraduationSchema.safeParse(body);
     if (!result.success) {
-      return NextResponse.json({ error: result.error.flatten() }, { status: 400 });
+      return validationError(
+        'Invalid graduation confirmation',
+        result.error.flatten()
+      );
     }
 
     const { targetLevel } = result.data;
 
-    const db = new DynamoDBClient();
+    const db = getDbClient();
     const configRepo = new AgentConfigRepository(db);
     const eventRepo = new EventRepository(db);
 
@@ -60,16 +67,15 @@ export async function POST(request: NextRequest) {
 
     // Validate target level is one step up
     if (targetLevel !== currentLevel + 1) {
-      return NextResponse.json(
-        { error: 'Target level must be exactly one level above current level' },
-        { status: 400 }
+      return validationError(
+        'Target level must be exactly one level above current level'
       );
     }
 
     // Update autonomy level
     const newAutonomyLevel = reverseMap[targetLevel];
     if (!newAutonomyLevel) {
-      return NextResponse.json({ error: 'Invalid target level' }, { status: 400 });
+      return validationError('Invalid target level');
     }
 
     await configRepo.setAutonomyLevel(newAutonomyLevel);
@@ -103,9 +109,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(response);
   } catch (error) {
     console.error('Error confirming graduation:', error);
-    return NextResponse.json(
-      { error: 'Failed to confirm graduation' },
-      { status: 500 }
-    );
+    return internalError('Failed to confirm graduation');
   }
 }

@@ -34,11 +34,11 @@ export function ResponsiveLayout({ children }: ResponsiveLayoutProps) {
       <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
         <SheetTrigger asChild>
           <button
-            className="fixed left-4 top-4 z-50 flex h-10 w-10 items-center justify-center rounded-md border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground md:hidden"
+            className="glass fixed left-4 top-4 z-50 flex h-10 w-10 items-center justify-center rounded-xl shadow-glass hover:shadow-glass-lg md:hidden"
             aria-label="Open navigation menu"
             aria-expanded={mobileMenuOpen}
           >
-            <Menu className="h-5 w-5" />
+            <Menu className="h-5 w-5" aria-hidden="true" />
           </button>
         </SheetTrigger>
         <SheetContent side="left" className="w-64 p-0">
@@ -47,10 +47,14 @@ export function ResponsiveLayout({ children }: ResponsiveLayoutProps) {
       </Sheet>
 
       {/* Main content area */}
-      <div className="flex flex-1 flex-col">
+      <div className="flex flex-1 flex-col overflow-hidden">
         <Header />
         {/* Add top padding on mobile to account for hamburger button */}
-        <main className="flex-1 overflow-auto p-6 pt-20 md:pt-6">
+        <main
+          className="flex-1 overflow-auto p-6 pt-20 md:pt-6"
+          role="main"
+          aria-label="Page content"
+        >
           {children}
         </main>
       </div>
@@ -75,15 +79,19 @@ function IngestFab({ onClick }: { onClick: () => void }) {
   return (
     <button
       onClick={onClick}
-      className="fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-105 hover:shadow-xl active:scale-95"
-      aria-label="Open ingestion assistant"
-      title="Open ingestion assistant"
+      className="glass fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-2xl text-foreground shadow-glass-lg transition-transform hover:scale-105 hover:shadow-glass-lg active:scale-95"
+      aria-label={
+        pendingCount > 0
+          ? `Open ingestion assistant — ${pendingCount} pending items`
+          : 'Open ingestion assistant'
+      }
     >
-      <ClipboardPaste className="h-6 w-6" />
+      <ClipboardPaste className="h-6 w-6" aria-hidden="true" />
       {pendingCount > 0 && (
         <Badge
           variant="destructive"
           className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center p-0 text-xs"
+          aria-hidden="true"
         >
           {pendingCount > 9 ? '9+' : pendingCount}
         </Badge>
