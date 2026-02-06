@@ -6,8 +6,16 @@
 
 export { useAgentStatus, formatLastHeartbeat } from './use-agent-status';
 export { useEvents, useInfiniteEvents, formatEventTime } from './use-events';
-export { useProjects, getTotalPendingEscalations, formatLastActivity } from './use-projects';
-export { useProject, getHealthVariant, formatHealthStatus } from './use-project';
+export {
+  useProjects,
+  getTotalPendingEscalations,
+  formatLastActivity,
+} from './use-projects';
+export {
+  useProject,
+  getHealthVariant,
+  formatHealthStatus,
+} from './use-project';
 export {
   useArtefacts,
   parseArtefactContent,
@@ -41,8 +49,12 @@ export {
   isEmailPayload,
   isJiraPayload,
 } from './use-held-actions';
-export {
-  useGraduationEvidence,
-  useConfirmGraduation,
-} from './use-graduation';
+export { useGraduationEvidence, useConfirmGraduation } from './use-graduation';
 export { useBudgetStatus } from './use-budget';
+export {
+  useIngestionSessions,
+  useIngestionSession,
+  useCreateIngestionSession,
+  useSendIngestionMessage,
+  useArchiveIngestionSession,
+} from './use-ingestion';

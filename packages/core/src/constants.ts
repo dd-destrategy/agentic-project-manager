@@ -41,6 +41,7 @@ export const KEY_PREFIX = {
   GLOBAL: 'GLOBAL',
   STATUS: 'STATUS#',
   CONFIG: 'CONFIG#',
+  INGEST: 'INGEST#',
 } as const;
 
 /** GSI1 key prefixes */
@@ -50,6 +51,8 @@ export const GSI1_PREFIX = {
   ESCALATION_DECIDED: 'ESCALATION#decided',
   ACTIONS_HELD: 'ACTIONS#held',
   EVENT_DATE: 'EVENT#', // Followed by date
+  INGEST_ACTIVE: 'INGEST#active',
+  INGEST_ARCHIVED: 'INGEST#archived',
 } as const;
 
 /** Autonomy level numeric values for comparison */

@@ -6,6 +6,7 @@ import {
   AlertCircle,
   Settings,
   Activity,
+  ClipboardPaste,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -14,6 +15,7 @@ import { cn } from '@/lib/utils';
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { name: 'Ingest', href: '/ingest', icon: ClipboardPaste },
   { name: 'Projects', href: '/projects', icon: FolderKanban },
   { name: 'Activity', href: '/activity', icon: Activity },
   { name: 'Escalations', href: '/escalations', icon: AlertCircle },

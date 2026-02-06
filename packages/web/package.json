@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@agentic-pm/core": "workspace:*",
+    "@anthropic-ai/sdk": "^0.32.0",
     "@aws-sdk/client-dynamodb": "^3.500.0",
     "@aws-sdk/lib-dynamodb": "^3.500.0",
     "@radix-ui/react-alert-dialog": "^1.1.15",
@@ -43,6 +44,7 @@
     "react-dom": "^18.2.0",
     "tailwind-merge": "^2.2.0",
     "tailwindcss-animate": "^1.0.7",
+    "ulid": "^2.3.0",
     "zod": "^3.22.0"
   },
   "devDependencies": {

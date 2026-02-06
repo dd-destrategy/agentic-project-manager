@@ -43,7 +43,13 @@ export type EscalationStatus = 'pending' | 'decided' | 'expired' | 'superseded';
 
 export type HealthStatus = 'healthy' | 'warning' | 'error';
 
-export type AgentStatusType = 'active' | 'paused' | 'error' | 'starting' | 'stopped' | 'never_run';
+export type AgentStatusType =
+  | 'active'
+  | 'paused'
+  | 'error'
+  | 'starting'
+  | 'stopped'
+  | 'never_run';
 
 // ============================================================================
 // Entity Interfaces
@@ -273,17 +279,26 @@ export const eventTypeIcons: Record<EventType, string> = {
   error: 'alert-circle',
 };
 
-export const severityConfig: Record<EventSeverity, { className: string; label: string }> = {
+export const severityConfig: Record<
+  EventSeverity,
+  { className: string; label: string }
+> = {
   info: { className: 'text-blue-600 bg-blue-50', label: 'Info' },
   warning: { className: 'text-amber-600 bg-amber-50', label: 'Warning' },
   error: { className: 'text-red-600 bg-red-50', label: 'Error' },
   critical: { className: 'text-red-800 bg-red-100', label: 'Critical' },
 };
 
-export const autonomyLevelConfig: Record<AutonomyLevel, { label: string; description: string }> = {
+export const autonomyLevelConfig: Record<
+  AutonomyLevel,
+  { label: string; description: string }
+> = {
   monitoring: { label: 'Monitoring', description: 'Observe and log only' },
   artefact: { label: 'Artefact', description: 'Update artefacts autonomously' },
-  tactical: { label: 'Tactical', description: 'Send communications via hold queue' },
+  tactical: {
+    label: 'Tactical',
+    description: 'Send communications via hold queue',
+  },
 };
 
 // ============================================================================
@@ -345,7 +360,11 @@ export type HeldActionType = 'email_stakeholder' | 'jira_status_change';
 /**
  * Held action status
  */
-export type HeldActionStatus = 'pending' | 'approved' | 'cancelled' | 'executed';
+export type HeldActionStatus =
+  | 'pending'
+  | 'approved'
+  | 'cancelled'
+  | 'executed';
 
 /**
  * Email stakeholder payload
@@ -373,7 +392,9 @@ export interface JiraStatusChangePayload {
 /**
  * Union of all held action payload types
  */
-export type HeldActionPayload = EmailStakeholderPayload | JiraStatusChangePayload;
+export type HeldActionPayload =
+  | EmailStakeholderPayload
+  | JiraStatusChangePayload;
 
 /**
  * Held action entity
@@ -408,4 +429,68 @@ export interface HeldActionsResponse {
 export interface HeldActionResponse {
   heldAction: HeldAction;
   success: boolean;
+}
+
+// ============================================================================
+// Ingestion Session Types
+// ============================================================================
+
+export type IngestionSessionStatus = 'active' | 'archived';
+
+export type IngestionMessageRole = 'user' | 'assistant';
+
+/**
+ * An attachment on a user message (pasted screenshot, dragged image, etc.)
+ */
+export interface IngestionAttachment {
+  /** Unique ID for the attachment */
+  id: string;
+  /** MIME type (image/png, image/jpeg, etc.) */
+  mimeType: string;
+  /** Base64-encoded data URL */
+  dataUrl: string;
+  /** Optional filename */
+  filename?: string;
+}
+
+/**
+ * A single message in an ingestion conversation
+ */
+export interface IngestionMessage {
+  id: string;
+  role: IngestionMessageRole;
+  content: string;
+  attachments?: IngestionAttachment[];
+  createdAt: string;
+}
+
+/**
+ * An ingestion session — a conversation where the user pastes content
+ * and discusses it with the AI to extract PM-relevant information.
+ */
+export interface IngestionSession {
+  id: string;
+  title: string;
+  status: IngestionSessionStatus;
+  messages: IngestionMessage[];
+  /** Optional project this session relates to */
+  projectId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * API response for listing ingestion sessions
+ */
+export interface IngestionSessionsResponse {
+  sessions: Omit<IngestionSession, 'messages'>[];
+  count: number;
+}
+
+/**
+ * API response for sending a message
+ */
+export interface IngestionMessageResponse {
+  userMessage: IngestionMessage;
+  assistantMessage: IngestionMessage;
 }
