@@ -42,7 +42,11 @@ export class EventRepository {
   /**
    * Get a specific event by project and ID
    */
-  async getById(projectId: string | null, eventId: string, timestamp: string): Promise<Event | null> {
+  async getById(
+    projectId: string | null,
+    eventId: string,
+    timestamp: string
+  ): Promise<Event | null> {
     const pk = projectId
       ? `${KEY_PREFIX.PROJECT}${projectId}`
       : KEY_PREFIX.GLOBAL;
@@ -58,26 +62,43 @@ export class EventRepository {
     projectId: string,
     options?: EventQueryOptions
   ): Promise<QueryResult<Event>> {
+    // Build filter expression for server-side filtering
+    const filterParts: string[] = [];
+    const expressionAttributeNames: Record<string, string> = {};
+    const additionalExpressionAttributeValues: Record<string, unknown> = {};
+
+    if (options?.eventType) {
+      filterParts.push('#eventType = :eventType');
+      expressionAttributeNames['#eventType'] = 'eventType';
+      additionalExpressionAttributeValues[':eventType'] = options.eventType;
+    }
+    if (options?.severity) {
+      filterParts.push('#severity = :severity');
+      expressionAttributeNames['#severity'] = 'severity';
+      additionalExpressionAttributeValues[':severity'] = options.severity;
+    }
+
     const result = await this.db.query<Event>(
       `${KEY_PREFIX.PROJECT}${projectId}`,
       KEY_PREFIX.EVENT,
       {
         limit: options?.limit ?? 50,
         ascending: options?.ascending ?? false,
+        filterExpression:
+          filterParts.length > 0 ? filterParts.join(' AND ') : undefined,
+        expressionAttributeNames:
+          Object.keys(expressionAttributeNames).length > 0
+            ? expressionAttributeNames
+            : undefined,
+        additionalExpressionAttributeValues:
+          Object.keys(additionalExpressionAttributeValues).length > 0
+            ? additionalExpressionAttributeValues
+            : undefined,
       }
     );
 
-    // Apply client-side filtering if needed
-    let items = result.items;
-    if (options?.eventType) {
-      items = items.filter((e) => e.eventType === options.eventType);
-    }
-    if (options?.severity) {
-      items = items.filter((e) => e.severity === options.severity);
-    }
-
     return {
-      items,
+      items: result.items,
       hasMore: !!result.lastKey,
       nextCursor: result.lastKey
         ? Buffer.from(JSON.stringify(result.lastKey)).toString('base64')
@@ -89,25 +110,43 @@ export class EventRepository {
    * Get global events (not associated with a specific project)
    */
   async getGlobal(options?: EventQueryOptions): Promise<QueryResult<Event>> {
+    // Build filter expression for server-side filtering
+    const filterParts: string[] = [];
+    const expressionAttributeNames: Record<string, string> = {};
+    const additionalExpressionAttributeValues: Record<string, unknown> = {};
+
+    if (options?.eventType) {
+      filterParts.push('#eventType = :eventType');
+      expressionAttributeNames['#eventType'] = 'eventType';
+      additionalExpressionAttributeValues[':eventType'] = options.eventType;
+    }
+    if (options?.severity) {
+      filterParts.push('#severity = :severity');
+      expressionAttributeNames['#severity'] = 'severity';
+      additionalExpressionAttributeValues[':severity'] = options.severity;
+    }
+
     const result = await this.db.query<Event>(
       KEY_PREFIX.GLOBAL,
       KEY_PREFIX.EVENT,
       {
         limit: options?.limit ?? 50,
         ascending: options?.ascending ?? false,
+        filterExpression:
+          filterParts.length > 0 ? filterParts.join(' AND ') : undefined,
+        expressionAttributeNames:
+          Object.keys(expressionAttributeNames).length > 0
+            ? expressionAttributeNames
+            : undefined,
+        additionalExpressionAttributeValues:
+          Object.keys(additionalExpressionAttributeValues).length > 0
+            ? additionalExpressionAttributeValues
+            : undefined,
       }
     );
 
-    let items = result.items;
-    if (options?.eventType) {
-      items = items.filter((e) => e.eventType === options.eventType);
-    }
-    if (options?.severity) {
-      items = items.filter((e) => e.severity === options.severity);
-    }
-
     return {
-      items,
+      items: result.items,
       hasMore: !!result.lastKey,
       nextCursor: result.lastKey
         ? Buffer.from(JSON.stringify(result.lastKey)).toString('base64')
@@ -122,24 +161,42 @@ export class EventRepository {
     date: string,
     options?: EventQueryOptions
   ): Promise<QueryResult<Event>> {
+    // Build filter expression for server-side filtering
+    const filterParts: string[] = [];
+    const expressionAttributeNames: Record<string, string> = {};
+    const additionalExpressionAttributeValues: Record<string, unknown> = {};
+
+    if (options?.eventType) {
+      filterParts.push('#eventType = :eventType');
+      expressionAttributeNames['#eventType'] = 'eventType';
+      additionalExpressionAttributeValues[':eventType'] = options.eventType;
+    }
+    if (options?.severity) {
+      filterParts.push('#severity = :severity');
+      expressionAttributeNames['#severity'] = 'severity';
+      additionalExpressionAttributeValues[':severity'] = options.severity;
+    }
+
     const result = await this.db.queryGSI1<Event>(
       `${GSI1_PREFIX.EVENT_DATE}${date}`,
       {
         limit: options?.limit ?? 50,
         ascending: options?.ascending ?? false,
+        filterExpression:
+          filterParts.length > 0 ? filterParts.join(' AND ') : undefined,
+        expressionAttributeNames:
+          Object.keys(expressionAttributeNames).length > 0
+            ? expressionAttributeNames
+            : undefined,
+        additionalExpressionAttributeValues:
+          Object.keys(additionalExpressionAttributeValues).length > 0
+            ? additionalExpressionAttributeValues
+            : undefined,
       }
     );
 
-    let items = result.items;
-    if (options?.eventType) {
-      items = items.filter((e) => e.eventType === options.eventType);
-    }
-    if (options?.severity) {
-      items = items.filter((e) => e.severity === options.severity);
-    }
-
     return {
-      items,
+      items: result.items,
       hasMore: !!result.lastKey,
       nextCursor: result.lastKey
         ? Buffer.from(JSON.stringify(result.lastKey)).toString('base64')
@@ -277,10 +334,7 @@ export class EventRepository {
   /**
    * Count events by type for a given date range
    */
-  async countByType(
-    date: string,
-    eventType?: EventType
-  ): Promise<number> {
+  async countByType(date: string, eventType?: EventType): Promise<number> {
     const result = await this.getByDate(date, { eventType, limit: 1000 });
     return result.items.length;
   }

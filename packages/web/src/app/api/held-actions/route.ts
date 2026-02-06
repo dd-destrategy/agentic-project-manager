@@ -14,6 +14,7 @@ import type { HeldAction, HeldActionsResponse } from '@/types';
  * - status: 'pending' | 'approved' | 'cancelled' | 'executed' (default: 'pending')
  * - projectId: filter by project (optional)
  * - limit: number of actions to return (default: 50)
+ * - cursor: pagination cursor (base64-encoded lastEvaluatedKey)
  */
 export async function GET(request: NextRequest) {
   try {
@@ -24,7 +25,8 @@ export async function GET(request: NextRequest) {
     }
 
     const searchParams = request.nextUrl.searchParams;
-    const status = (searchParams.get("status") as HeldAction["status"]) || undefined;
+    const status =
+      (searchParams.get('status') as HeldAction['status']) || undefined;
     const projectId = searchParams.get('projectId');
     const limit = Math.min(
       parseInt(searchParams.get('limit') || '50', 10),
@@ -35,29 +37,27 @@ export async function GET(request: NextRequest) {
     const db = new DynamoDBClient();
     const repo = new HeldActionRepository(db);
 
-    let heldActions: HeldAction[] = [];
+    let result;
 
     if (projectId) {
       // Query actions for specific project
-      const result = await repo.getByProject(projectId, { status, limit });
-      heldActions = result.items;
+      result = await repo.getByProject(projectId, { status, limit });
     } else if (status === 'pending' || !status) {
       // Query all pending actions (default)
-      const result = await repo.getPending({ limit });
-      heldActions = result.items;
+      result = await repo.getPending({ limit });
     } else if (status === 'executed') {
       // Query recently executed actions
-      const result = await repo.getRecentlyExecuted({ limit });
-      heldActions = result.items;
+      result = await repo.getRecentlyExecuted({ limit });
     } else {
       // For other statuses without specific queries, return empty
-      // (or implement scan if needed in future)
-      heldActions = [];
+      result = { items: [], hasMore: false };
     }
 
     const response: HeldActionsResponse = {
-      heldActions,
-      count: heldActions.length,
+      heldActions: result.items,
+      count: result.items.length,
+      nextCursor: result.nextCursor,
+      hasMore: result.hasMore,
     };
 
     return NextResponse.json(response);

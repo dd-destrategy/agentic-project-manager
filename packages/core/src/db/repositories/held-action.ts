@@ -20,7 +20,11 @@ export type HeldActionType = 'email_stakeholder' | 'jira_status_change';
 /**
  * Held action status
  */
-export type HeldActionStatus = 'pending' | 'approved' | 'cancelled' | 'executed';
+export type HeldActionStatus =
+  | 'pending'
+  | 'approved'
+  | 'cancelled'
+  | 'executed';
 
 /**
  * Email stakeholder payload
@@ -48,7 +52,9 @@ export interface JiraStatusChangePayload {
 /**
  * Union of all payload types
  */
-export type HeldActionPayload = EmailStakeholderPayload | JiraStatusChangePayload;
+export type HeldActionPayload =
+  | EmailStakeholderPayload
+  | JiraStatusChangePayload;
 
 /**
  * Held action entity
@@ -118,7 +124,10 @@ export class HeldActionRepository {
   /**
    * Get a held action by ID
    */
-  async getById(projectId: string, actionId: string): Promise<HeldAction | null> {
+  async getById(
+    projectId: string,
+    actionId: string
+  ): Promise<HeldAction | null> {
     const item = await this.db.get<HeldActionItem>(
       `${KEY_PREFIX.PROJECT}${projectId}`,
       `HELD#${actionId}`
@@ -134,21 +143,32 @@ export class HeldActionRepository {
     projectId: string,
     options?: HeldActionQueryOptions
   ): Promise<QueryResult<HeldAction>> {
+    // Build filter expression for server-side filtering
+    let filterExpression: string | undefined;
+    let expressionAttributeNames: Record<string, string> | undefined;
+    let additionalExpressionAttributeValues:
+      | Record<string, unknown>
+      | undefined;
+
+    if (options?.status) {
+      filterExpression = '#status = :status';
+      expressionAttributeNames = { '#status': 'status' };
+      additionalExpressionAttributeValues = { ':status': options.status };
+    }
+
     const result = await this.db.query<HeldActionItem>(
       `${KEY_PREFIX.PROJECT}${projectId}`,
       'HELD#',
       {
         limit: options?.limit ?? 50,
         ascending: options?.ascending ?? false,
+        filterExpression,
+        expressionAttributeNames,
+        additionalExpressionAttributeValues,
       }
     );
 
-    let items = result.items.map((item) => this.toHeldAction(item));
-
-    // Apply client-side filtering if needed
-    if (options?.status) {
-      items = items.filter((a) => a.status === options.status);
-    }
+    const items = result.items.map((item) => this.toHeldAction(item));
 
     return {
       items,
@@ -163,13 +183,10 @@ export class HeldActionRepository {
    * Get all pending held actions (across all projects)
    */
   async getPending(options?: QueryOptions): Promise<QueryResult<HeldAction>> {
-    const result = await this.db.queryGSI1<HeldActionItem>(
-      'HELD#PENDING',
-      {
-        limit: options?.limit ?? 100,
-        ascending: options?.ascending ?? true, // Ascending to get oldest first
-      }
-    );
+    const result = await this.db.queryGSI1<HeldActionItem>('HELD#PENDING', {
+      limit: options?.limit ?? 100,
+      ascending: options?.ascending ?? true, // Ascending to get oldest first
+    });
 
     return {
       items: result.items.map((item) => this.toHeldAction(item)),
@@ -206,10 +223,9 @@ export class HeldActionRepository {
    * Count pending held actions
    */
   async countPending(): Promise<number> {
-    const result = await this.db.queryGSI1<HeldActionItem>(
-      'HELD#PENDING',
-      { limit: 100 }
-    );
+    const result = await this.db.queryGSI1<HeldActionItem>('HELD#PENDING', {
+      limit: 100,
+    });
     return result.items.length;
   }
 
@@ -217,7 +233,10 @@ export class HeldActionRepository {
    * Count pending actions by project
    */
   async countPendingByProject(projectId: string): Promise<number> {
-    const result = await this.getByProject(projectId, { status: 'pending', limit: 100 });
+    const result = await this.getByProject(projectId, {
+      status: 'pending',
+      limit: 100,
+    });
     return result.items.length;
   }
 
@@ -227,7 +246,9 @@ export class HeldActionRepository {
   async create(options: CreateHeldActionOptions): Promise<HeldAction> {
     const id = ulid();
     const createdAt = new Date().toISOString();
-    const heldUntil = new Date(Date.now() + options.holdMinutes * 60 * 1000).toISOString();
+    const heldUntil = new Date(
+      Date.now() + options.holdMinutes * 60 * 1000
+    ).toISOString();
 
     const item: HeldActionItem = {
       PK: `${KEY_PREFIX.PROJECT}${options.projectId}`,
@@ -291,7 +312,10 @@ export class HeldActionRepository {
       return this.getById(projectId, actionId);
     } catch (error) {
       // If conditional check failed, action was already processed
-      if (error instanceof Error && error.message.includes('ConditionalCheckFailed')) {
+      if (
+        error instanceof Error &&
+        error.message.includes('ConditionalCheckFailed')
+      ) {
         return null;
       }
       throw error;
@@ -343,7 +367,10 @@ export class HeldActionRepository {
       return this.getById(projectId, actionId);
     } catch (error) {
       // If conditional check failed, action was already processed
-      if (error instanceof Error && error.message.includes('ConditionalCheckFailed')) {
+      if (
+        error instanceof Error &&
+        error.message.includes('ConditionalCheckFailed')
+      ) {
         return null;
       }
       throw error;
@@ -409,13 +436,10 @@ export class HeldActionRepository {
   async getRecentlyExecuted(
     options?: QueryOptions & { days?: number }
   ): Promise<QueryResult<HeldAction>> {
-    const result = await this.db.queryGSI1<HeldActionItem>(
-      'HELD#EXECUTED',
-      {
-        limit: options?.limit ?? 50,
-        ascending: options?.ascending ?? false,
-      }
-    );
+    const result = await this.db.queryGSI1<HeldActionItem>('HELD#EXECUTED', {
+      limit: options?.limit ?? 50,
+      ascending: options?.ascending ?? false,
+    });
 
     return {
       items: result.items.map((item) => this.toHeldAction(item)),

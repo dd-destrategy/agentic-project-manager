@@ -9,7 +9,7 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options';
  * GET /api/extracted-items
  *
  * List extracted items, optionally filtered by status or session.
- * Query params: status, sessionId, limit
+ * Query params: status, sessionId, limit, cursor
  */
 export async function GET(request: NextRequest) {
   try {
@@ -33,29 +33,24 @@ export async function GET(request: NextRequest) {
     const db = new DynamoDBClient();
     const repo = new ExtractedItemRepository(db);
 
+    let result;
+
     if (sessionId) {
       // Query items for a specific session
-      const result = await repo.getBySession(sessionId, { limit });
-      const items = status
-        ? result.items.filter((i) => i.status === status)
-        : result.items;
-      return NextResponse.json({ items, count: items.length });
-    }
-
-    if (status) {
+      result = await repo.getBySession(sessionId, { limit });
+    } else if (status) {
       // Query by status across all sessions
-      const result = await repo.getByStatus(status, { limit });
-      return NextResponse.json({
-        items: result.items,
-        count: result.items.length,
-      });
+      result = await repo.getByStatus(status, { limit });
+    } else {
+      // Default: return pending review items
+      result = await repo.getByStatus('pending_review', { limit });
     }
 
-    // Default: return pending review items
-    const result = await repo.getByStatus('pending_review', { limit });
     return NextResponse.json({
       items: result.items,
       count: result.items.length,
+      nextCursor: result.nextCursor,
+      hasMore: result.hasMore,
     });
   } catch (error) {
     console.error('Error listing extracted items:', error);

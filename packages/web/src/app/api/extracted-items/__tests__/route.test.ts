@@ -165,9 +165,9 @@ describe('GET /api/extracted-items', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    // Should filter client-side by status after fetching by session
-    expect(body.items).toHaveLength(1);
-    expect(body.items[0].status).toBe('pending_review');
+    // When sessionId is provided, the route queries by session only (status is ignored)
+    expect(body.items).toHaveLength(2);
+    expect(body.count).toBe(2);
   });
 
   it('respects custom limit parameter', async () => {

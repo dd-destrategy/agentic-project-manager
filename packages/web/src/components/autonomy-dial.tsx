@@ -33,7 +33,8 @@ const AUTONOMY_LEVELS: {
     level: 'artefact',
     label: 'Maintain',
     shortLabel: 'Maintain',
-    description: 'Update artefacts and send internal notifications autonomously.',
+    description:
+      'Update artefacts and send internal notifications autonomously.',
     icon: FileEdit,
     color: 'text-amber-600',
     bgColor: 'bg-amber-50',
@@ -78,7 +79,12 @@ export function AutonomyDial({
   return (
     <div className={cn('space-y-4', className)}>
       {/* Dial Track */}
-      <div className="relative">
+      <div
+        className="relative"
+        role="radiogroup"
+        aria-label="Autonomy level selection"
+        aria-describedby="autonomy-description"
+      >
         {/* Background Track */}
         <div className="flex h-12 rounded-lg border bg-muted/30 p-1">
           {AUTONOMY_LEVELS.map((config, _index) => {
@@ -89,6 +95,9 @@ export function AutonomyDial({
               <button
                 key={config.level}
                 type="button"
+                role="radio"
+                aria-checked={isActive}
+                aria-label={`${config.label}: ${config.description}`}
                 onClick={() => onChange(config.level)}
                 disabled={disabled}
                 className={cn(
@@ -99,7 +108,7 @@ export function AutonomyDial({
                   disabled && 'cursor-not-allowed opacity-50'
                 )}
               >
-                <Icon className="h-4 w-4" />
+                <Icon className="h-4 w-4" aria-hidden="true" />
                 <span className="hidden sm:inline">{config.label}</span>
               </button>
             );
@@ -113,7 +122,9 @@ export function AutonomyDial({
               key={config.level}
               className={cn(
                 'h-1.5 w-1.5 rounded-full transition-colors',
-                index <= currentIndex ? currentConfig?.color.replace('text-', 'bg-') : 'bg-muted'
+                index <= currentIndex
+                  ? currentConfig?.color.replace('text-', 'bg-')
+                  : 'bg-muted'
               )}
             />
           ))}
@@ -122,21 +133,29 @@ export function AutonomyDial({
 
       {/* Current Level Description */}
       <div
+        id="autonomy-description"
         className={cn(
           'rounded-lg border p-4 transition-colors',
           currentConfig?.bgColor,
           currentConfig?.borderColor
         )}
+        role="status"
+        aria-live="polite"
       >
         <div className="flex items-start gap-3">
           {currentConfig && (
             <>
-              <currentConfig.icon className={cn('h-5 w-5 mt-0.5', currentConfig.color)} />
+              <currentConfig.icon
+                className={cn('h-5 w-5 mt-0.5', currentConfig.color)}
+                aria-hidden="true"
+              />
               <div className="flex-1">
                 <h4 className={cn('font-medium', currentConfig.color)}>
                   {currentConfig.label} Mode
                 </h4>
-                <p className="mt-1 text-sm text-muted-foreground">{currentConfig.description}</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {currentConfig.description}
+                </p>
               </div>
             </>
           )}
@@ -145,13 +164,23 @@ export function AutonomyDial({
 
       {/* Warning for higher autonomy levels */}
       {showWarning && value !== 'monitoring' && (
-        <div className="flex items-start gap-2 rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-sm">
-          <AlertTriangle className="h-4 w-4 text-yellow-600 mt-0.5" />
+        <div
+          className="flex items-start gap-2 rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-sm"
+          role="alert"
+          aria-live="assertive"
+        >
+          <AlertTriangle
+            className="h-4 w-4 text-yellow-600 mt-0.5"
+            aria-hidden="true"
+          />
           <div>
-            <span className="font-medium text-yellow-800">Higher autonomy enabled.</span>
+            <span className="font-medium text-yellow-800">
+              Higher autonomy enabled.
+            </span>
             <span className="text-yellow-700">
               {' '}
-              The agent will take actions autonomously. Review the hold queue regularly.
+              The agent will take actions autonomously. Review the hold queue
+              regularly.
             </span>
           </div>
         </div>
@@ -169,7 +198,8 @@ export function AutonomyDialCompact({
   disabled = false,
   className,
 }: Omit<AutonomyDialProps, 'showWarning'>) {
-  const currentConfig = AUTONOMY_LEVELS.find((l) => l.level === value) ?? AUTONOMY_LEVELS[0];
+  const currentConfig =
+    AUTONOMY_LEVELS.find((l) => l.level === value) ?? AUTONOMY_LEVELS[0];
   const Icon = currentConfig?.icon ?? Eye;
 
   return (

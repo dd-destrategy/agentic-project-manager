@@ -195,11 +195,15 @@ export interface EventsResponse {
 export interface ProjectListResponse {
   projects: ProjectSummary[];
   count: number;
+  nextCursor?: string;
+  hasMore?: boolean;
 }
 
 export interface EscalationsResponse {
   escalations: Escalation[];
   count: number;
+  nextCursor?: string;
+  hasMore?: boolean;
 }
 
 /**
@@ -421,6 +425,8 @@ export interface HeldAction {
 export interface HeldActionsResponse {
   heldActions: HeldAction[];
   count: number;
+  nextCursor?: string;
+  hasMore?: boolean;
 }
 
 /**
@@ -485,6 +491,8 @@ export interface IngestionSession {
 export interface IngestionSessionsResponse {
   sessions: Omit<IngestionSession, 'messages'>[];
   count: number;
+  nextCursor?: string;
+  hasMore?: boolean;
 }
 
 /**
@@ -563,6 +571,8 @@ export interface ExtractedItem {
 export interface ExtractedItemsResponse {
   items: ExtractedItem[];
   count: number;
+  nextCursor?: string;
+  hasMore?: boolean;
 }
 
 /**

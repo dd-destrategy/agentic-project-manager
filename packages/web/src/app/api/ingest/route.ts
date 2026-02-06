@@ -9,7 +9,8 @@ import { createIngestionSessionSchema } from '@/schemas/ingest';
 /**
  * GET /api/ingest
  *
- * List ingestion sessions.
+ * List ingestion sessions with pagination support.
+ * Query params: status, limit, cursor
  */
 export async function GET(request: NextRequest) {
   try {
@@ -38,6 +39,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       sessions: result.items,
       count: result.items.length,
+      nextCursor: result.nextCursor,
+      hasMore: result.hasMore,
     });
   } catch (error) {
     console.error('Error listing ingestion sessions:', error);

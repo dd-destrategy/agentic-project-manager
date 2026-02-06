@@ -117,6 +117,7 @@ describe('EscalationRepository', () => {
     });
 
     it('should filter by status', async () => {
+      // Mock returns only items matching the filter (server-side FilterExpression)
       const mockItems = [
         {
           escalationId: 'esc-1',
@@ -126,15 +127,6 @@ describe('EscalationRepository', () => {
           options: [],
           status: 'pending' as EscalationStatus,
           createdAt: '2024-01-15T10:00:00.000Z',
-        },
-        {
-          escalationId: 'esc-2',
-          projectId: 'project-1',
-          title: 'Escalation 2',
-          context: { situation: 'Test' },
-          options: [],
-          status: 'decided' as EscalationStatus,
-          createdAt: '2024-01-14T10:00:00.000Z',
         },
       ];
 
@@ -231,6 +223,7 @@ describe('EscalationRepository', () => {
 
   describe('countPendingByProject', () => {
     it('should count pending escalations for a project', async () => {
+      // Mock returns only pending items (server-side FilterExpression filters out decided)
       const mockItems = [
         {
           escalationId: 'esc-1',
@@ -247,14 +240,6 @@ describe('EscalationRepository', () => {
           context: {},
           options: [],
           createdAt: '2024-01-14T10:00:00.000Z',
-        },
-        {
-          escalationId: 'esc-3',
-          projectId: 'project-1',
-          status: 'decided' as EscalationStatus,
-          context: {},
-          options: [],
-          createdAt: '2024-01-13T10:00:00.000Z',
         },
       ];
 

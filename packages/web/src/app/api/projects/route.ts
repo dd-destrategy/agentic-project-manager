@@ -16,8 +16,9 @@ import type { ProjectListResponse, ProjectSummary, Project } from '@/types';
  * Returns a list of all projects with summary information.
  * C04: Uses Promise.all to batch escalation counts and events in parallel
  * instead of sequential N+1 queries per project.
+ * C10: Supports cursor-based pagination via query params.
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     // Verify authentication
     const session = await getServerSession(authOptions);
@@ -25,14 +26,21 @@ export async function GET() {
       return unauthorised();
     }
 
+    // Parse pagination params
+    const searchParams = request.nextUrl.searchParams;
+    const limit = Math.min(
+      parseInt(searchParams.get('limit') || '100', 10),
+      100
+    );
+
     // Initialise DynamoDB repositories (C03: singleton client)
     const dbClient = getDbClient();
     const projectRepo = new ProjectRepository(dbClient);
     const escalationRepo = new EscalationRepository(dbClient);
     const eventRepo = new EventRepository(dbClient);
 
-    // Fetch active projects from DynamoDB
-    const result = await projectRepo.getActive({ limit: 100 });
+    // Fetch active projects from DynamoDB with pagination
+    const result = await projectRepo.getActive({ limit });
 
     // C04: Fetch all pending escalations in one query, then group by project
     const [allPendingEscalations, projectEventResults] = await Promise.all([
@@ -81,6 +89,8 @@ export async function GET() {
     const response: ProjectListResponse = {
       projects: projectSummaries,
       count: projectSummaries.length,
+      nextCursor: result.nextCursor,
+      hasMore: result.hasMore,
     };
 
     return NextResponse.json(response);

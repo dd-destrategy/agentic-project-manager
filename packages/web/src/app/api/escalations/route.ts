@@ -15,6 +15,7 @@ import type { Escalation, EscalationsResponse } from '@/types';
  * - status: 'pending' | 'decided' | 'expired' | 'superseded' (default: pending)
  * - projectId: filter by project (optional)
  * - limit: number of escalations to return (default: 20)
+ * - cursor: pagination cursor (base64-encoded lastEvaluatedKey)
  */
 export async function GET(request: NextRequest) {
   try {
@@ -37,32 +38,31 @@ export async function GET(request: NextRequest) {
     const dbClient = getDbClient();
     const escalationRepo = new EscalationRepository(dbClient);
 
-    let escalations: Escalation[] = [];
+    let result;
 
     if (projectId) {
       // Get escalations for specific project
-      const result = await escalationRepo.getByProject(projectId, {
+      result = await escalationRepo.getByProject(projectId, {
         status,
         limit,
       });
-      escalations = result.items;
     } else if (status === 'pending' || !status) {
       // Get all pending escalations across projects
-      const result = await escalationRepo.getPending({ limit });
-      escalations = result.items;
+      result = await escalationRepo.getPending({ limit });
     } else if (status === 'decided') {
       // Get recently decided escalations
-      const result = await escalationRepo.getRecentDecided({ limit });
-      escalations = result.items;
+      result = await escalationRepo.getRecentDecided({ limit });
     } else {
       // For other statuses, we'd need to scan (not ideal)
-      // For now, return empty array
-      escalations = [];
+      // For now, return empty result
+      result = { items: [], hasMore: false };
     }
 
     const response: EscalationsResponse = {
-      escalations,
-      count: escalations.length,
+      escalations: result.items,
+      count: result.items.length,
+      nextCursor: result.nextCursor,
+      hasMore: result.hasMore,
     };
 
     return NextResponse.json(response);

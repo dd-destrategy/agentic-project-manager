@@ -51,8 +51,11 @@ import { GET, PATCH, POST } from '../route';
 // Helpers
 // ============================================================================
 
-function createRequest(url: string, init?: RequestInit): NextRequest {
-  return new NextRequest(new URL(url, 'http://localhost:3000'), init);
+function createRequest(
+  url: string,
+  init?: Record<string, unknown>
+): NextRequest {
+  return new NextRequest(new URL(url, 'http://localhost:3000'), init as never);
 }
 
 const MOCK_SESSION = {

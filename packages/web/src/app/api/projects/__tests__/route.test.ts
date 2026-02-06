@@ -91,7 +91,9 @@ describe('GET /api/projects', () => {
   it('returns 401 when not authenticated', async () => {
     mockGetServerSession.mockResolvedValueOnce(null);
 
-    const response = await GET();
+    const response = await GET(
+      createRequest('http://localhost:3000/api/projects')
+    );
     const body = await response.json();
 
     expect(response.status).toBe(401);
@@ -118,7 +120,9 @@ describe('GET /api/projects', () => {
     mockGetPending.mockResolvedValueOnce({ items: [] });
     mockGetByProject.mockResolvedValueOnce({ items: [{ createdAt: now }] });
 
-    const response = await GET();
+    const response = await GET(
+      createRequest('http://localhost:3000/api/projects')
+    );
     const body = await response.json();
 
     expect(response.status).toBe(200);
@@ -149,7 +153,9 @@ describe('GET /api/projects', () => {
     mockGetPending.mockResolvedValueOnce({ items: [{ projectId: 'proj-2' }] });
     mockGetByProject.mockResolvedValueOnce({ items: [{ createdAt: now }] });
 
-    const response = await GET();
+    const response = await GET(
+      createRequest('http://localhost:3000/api/projects')
+    );
     const body = await response.json();
 
     expect(response.status).toBe(200);
@@ -183,7 +189,9 @@ describe('GET /api/projects', () => {
     });
     mockGetByProject.mockResolvedValueOnce({ items: [] });
 
-    const response = await GET();
+    const response = await GET(
+      createRequest('http://localhost:3000/api/projects')
+    );
     const body = await response.json();
 
     expect(response.status).toBe(200);
@@ -195,7 +203,9 @@ describe('GET /api/projects', () => {
     mockGetActive.mockResolvedValueOnce({ items: [] });
     mockGetPending.mockResolvedValueOnce({ items: [] });
 
-    const response = await GET();
+    const response = await GET(
+      createRequest('http://localhost:3000/api/projects')
+    );
     const body = await response.json();
 
     expect(response.status).toBe(200);
@@ -209,7 +219,9 @@ describe('GET /api/projects', () => {
       new Error('DynamoDB connection failed')
     );
 
-    const response = await GET();
+    const response = await GET(
+      createRequest('http://localhost:3000/api/projects')
+    );
     const body = await response.json();
 
     expect(response.status).toBe(500);

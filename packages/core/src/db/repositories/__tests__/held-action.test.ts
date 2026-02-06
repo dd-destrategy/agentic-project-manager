@@ -125,6 +125,7 @@ describe('HeldActionRepository', () => {
     });
 
     it('should filter by status', async () => {
+      // Mock returns only items matching the filter (server-side FilterExpression)
       const mockItems = [
         {
           actionId: 'action-1',
@@ -134,15 +135,6 @@ describe('HeldActionRepository', () => {
           heldUntil: '2024-01-15T10:30:00.000Z',
           status: 'pending' as HeldActionStatus,
           createdAt: '2024-01-15T10:00:00.000Z',
-        },
-        {
-          actionId: 'action-2',
-          projectId: 'project-1',
-          actionType: 'jira_status_change',
-          payload: {},
-          heldUntil: '2024-01-15T11:00:00.000Z',
-          status: 'executed' as HeldActionStatus,
-          createdAt: '2024-01-15T10:30:00.000Z',
         },
       ];
 

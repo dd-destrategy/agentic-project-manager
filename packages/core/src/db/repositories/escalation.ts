@@ -79,7 +79,10 @@ export class EscalationRepository {
   /**
    * Get an escalation by ID
    */
-  async getById(projectId: string, escalationId: string): Promise<Escalation | null> {
+  async getById(
+    projectId: string,
+    escalationId: string
+  ): Promise<Escalation | null> {
     const item = await this.db.get<EscalationItem>(
       `${KEY_PREFIX.PROJECT}${projectId}`,
       `${KEY_PREFIX.ESCALATION}${escalationId}`
@@ -95,21 +98,32 @@ export class EscalationRepository {
     projectId: string,
     options?: EscalationQueryOptions
   ): Promise<QueryResult<Escalation>> {
+    // Build filter expression for server-side filtering
+    let filterExpression: string | undefined;
+    let expressionAttributeNames: Record<string, string> | undefined;
+    let additionalExpressionAttributeValues:
+      | Record<string, unknown>
+      | undefined;
+
+    if (options?.status) {
+      filterExpression = '#status = :status';
+      expressionAttributeNames = { '#status': 'status' };
+      additionalExpressionAttributeValues = { ':status': options.status };
+    }
+
     const result = await this.db.query<EscalationItem>(
       `${KEY_PREFIX.PROJECT}${projectId}`,
       KEY_PREFIX.ESCALATION,
       {
         limit: options?.limit ?? 50,
         ascending: options?.ascending ?? false,
+        filterExpression,
+        expressionAttributeNames,
+        additionalExpressionAttributeValues,
       }
     );
 
-    let items = result.items.map((item) => this.toEscalation(item));
-
-    // Apply client-side filtering if needed
-    if (options?.status) {
-      items = items.filter((e) => e.status === options.status);
-    }
+    const items = result.items.map((item) => this.toEscalation(item));
 
     return {
       items,
@@ -156,7 +170,10 @@ export class EscalationRepository {
    * Get pending escalation count by project
    */
   async countPendingByProject(projectId: string): Promise<number> {
-    const result = await this.getByProject(projectId, { status: 'pending', limit: 100 });
+    const result = await this.getByProject(projectId, {
+      status: 'pending',
+      limit: 100,
+    });
     return result.items.length;
   }
 
@@ -295,7 +312,9 @@ export class EscalationRepository {
     options?: QueryOptions & { days?: number }
   ): Promise<QueryResult<Escalation>> {
     const days = options?.days ?? 7;
-    const cutoffDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+    const cutoffDate = new Date(
+      Date.now() - days * 24 * 60 * 60 * 1000
+    ).toISOString();
 
     const result = await this.db.queryGSI1<EscalationItem>(
       GSI1_PREFIX.ESCALATION_DECIDED,
