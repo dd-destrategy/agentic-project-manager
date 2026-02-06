@@ -16,16 +16,19 @@ services:
       timeout: 5s
       retries: 3
 
-  # DynamoDB Admin UI
+  # DynamoDB Admin UI (connects to LocalStack DynamoDB)
   dynamodb-admin:
     image: aaronshaf/dynamodb-admin:latest
     container_name: agentic-pm-dynamodb-admin
     ports:
       - '8001:8001'
     environment:
-      - DYNAMO_ENDPOINT=http://dynamodb-local:8000
+      - DYNAMO_ENDPOINT=http://localstack:4566
+      - AWS_REGION=ap-southeast-2
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
     depends_on:
-      - dynamodb-local
+      - localstack
 
   # LocalStack for other AWS services (SES, Secrets Manager)
   localstack:
@@ -34,7 +37,7 @@ services:
     ports:
       - '4566:4566'
     environment:
-      - SERVICES=ses,secretsmanager
+      - SERVICES=dynamodb,ses,secretsmanager
       - DEBUG=0
       - DATA_DIR=/var/lib/localstack/data
     volumes:
