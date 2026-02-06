@@ -7,6 +7,7 @@ import {
   Settings,
   Activity,
   ClipboardPaste,
+  ListChecks,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -16,6 +17,7 @@ import { cn } from '@/lib/utils';
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Ingest', href: '/ingest', icon: ClipboardPaste },
+  { name: 'Extracted', href: '/extracted', icon: ListChecks },
   { name: 'Projects', href: '/projects', icon: FolderKanban },
   { name: 'Activity', href: '/activity', icon: Activity },
   { name: 'Escalations', href: '/escalations', icon: AlertCircle },

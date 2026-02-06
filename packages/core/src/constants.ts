@@ -53,6 +53,10 @@ export const GSI1_PREFIX = {
   EVENT_DATE: 'EVENT#', // Followed by date
   INGEST_ACTIVE: 'INGEST#active',
   INGEST_ARCHIVED: 'INGEST#archived',
+  EXTRACT_PENDING: 'EXTRACT#pending_review',
+  EXTRACT_APPROVED: 'EXTRACT#approved',
+  EXTRACT_APPLIED: 'EXTRACT#applied',
+  EXTRACT_DISMISSED: 'EXTRACT#dismissed',
 } as const;
 
 /** Autonomy level numeric values for comparison */

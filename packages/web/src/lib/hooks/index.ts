@@ -58,3 +58,12 @@ export {
   useSendIngestionMessage,
   useArchiveIngestionSession,
 } from './use-ingestion';
+export {
+  useExtractedItems,
+  usePendingExtractedItems,
+  useSessionExtractedItems,
+  useUpdateExtractedItem,
+  useApproveExtractedItem,
+  useDismissExtractedItem,
+  useDeleteExtractedItem,
+} from './use-extracted-items';

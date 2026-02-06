@@ -1,5 +1,8 @@
 import { DynamoDBClient } from '@agentic-pm/core/db';
-import { IngestionSessionRepository } from '@agentic-pm/core/db/repositories';
+import {
+  IngestionSessionRepository,
+  ExtractedItemRepository,
+} from '@agentic-pm/core/db/repositories';
 import Anthropic from '@anthropic-ai/sdk';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
@@ -23,7 +26,69 @@ When analysing screenshots or images:
 - Extract any text, data, or status information visible
 - Identify the source tool if recognisable (Jira, Teams, Outlook, Slack, etc.)
 
+IMPORTANT: Whenever you identify concrete PM items (risks, action items, decisions, blockers, status updates, dependencies, or stakeholder requests), you MUST call the extract_items tool to capture them as structured data. Always call extract_items alongside your conversational response when there are items to extract. Each item needs a type, title, content, target artefact, and priority.
+
 Keep responses focused and actionable. Use British English spelling. Do not make up information that isn't visible in the shared content.`;
+
+/** Tool definition for structured item extraction */
+const EXTRACT_ITEMS_TOOL: Anthropic.Tool = {
+  name: 'extract_items',
+  description:
+    "Extract structured PM items from the conversation. Call this whenever you identify actionable items like risks, action items, decisions, blockers, status updates, dependencies, or stakeholder requests in the user's content. Each item will be added to a review queue for the PM to approve before applying to artefacts.",
+  input_schema: {
+    type: 'object' as const,
+    properties: {
+      items: {
+        type: 'array',
+        description: 'List of extracted PM items',
+        items: {
+          type: 'object',
+          properties: {
+            type: {
+              type: 'string',
+              enum: [
+                'risk',
+                'action_item',
+                'decision',
+                'blocker',
+                'status_update',
+                'dependency',
+                'stakeholder_request',
+              ],
+              description: 'Category of the extracted item',
+            },
+            title: {
+              type: 'string',
+              description: 'One-line summary of the item (max 120 chars)',
+            },
+            content: {
+              type: 'string',
+              description:
+                'Full detail including context, impact, and any relevant specifics',
+            },
+            target_artefact: {
+              type: 'string',
+              enum: [
+                'raid_log',
+                'delivery_state',
+                'backlog_summary',
+                'decision_log',
+              ],
+              description: 'Which PM artefact this item should be added to',
+            },
+            priority: {
+              type: 'string',
+              enum: ['critical', 'high', 'medium', 'low'],
+              description: 'Urgency / importance of the item',
+            },
+          },
+          required: ['type', 'title', 'content', 'target_artefact', 'priority'],
+        },
+      },
+    },
+    required: ['items'],
+  },
+};
 
 /**
  * Build the Anthropic messages array from session history + new message
@@ -39,7 +104,6 @@ function buildMessages(
 ): Anthropic.MessageParam[] {
   const messages: Anthropic.MessageParam[] = [];
 
-  // Add existing conversation history
   for (const msg of sessionMessages) {
     if (msg.role === 'user') {
       const contentBlocks: (
@@ -47,7 +111,6 @@ function buildMessages(
         | Anthropic.ImageBlockParam
       )[] = [];
 
-      // Add image attachments
       if (msg.attachments?.length) {
         for (const att of msg.attachments) {
           const base64Data = att.dataUrl.replace(
@@ -76,7 +139,6 @@ function buildMessages(
     }
   }
 
-  // Add the new user message
   const newContentBlocks: (
     | Anthropic.TextBlockParam
     | Anthropic.ImageBlockParam
@@ -110,9 +172,8 @@ function buildMessages(
  * POST /api/ingest/[id]/messages
  *
  * Send a message (with optional image attachments) to an ingestion session.
- * The AI processes the content and responds.
- *
- * Body: { content: string, attachments?: Array<{ id, mimeType, dataUrl, filename? }> }
+ * The AI processes the content, responds conversationally, and extracts
+ * structured PM items via tool-use.
  */
 export async function POST(
   request: NextRequest,
@@ -137,11 +198,11 @@ export async function POST(
 
     const { content, attachments } = parseResult.data;
 
-    // Fetch the existing session
     const db = new DynamoDBClient();
-    const repo = new IngestionSessionRepository(db);
+    const sessionRepo = new IngestionSessionRepository(db);
+    const extractRepo = new ExtractedItemRepository(db);
 
-    const ingestionSession = await repo.getById(id);
+    const ingestionSession = await sessionRepo.getById(id);
     if (!ingestionSession) {
       return NextResponse.json(
         { error: 'Ingestion session not found' },
@@ -149,7 +210,6 @@ export async function POST(
       );
     }
 
-    // Create the user message record
     const userMessage = {
       id: ulid(),
       role: 'user' as const,
@@ -163,14 +223,12 @@ export async function POST(
       createdAt: new Date().toISOString(),
     };
 
-    // Build messages for Claude API call
     const anthropicMessages = buildMessages(
       ingestionSession.messages,
       content,
       attachments
     );
 
-    // Call Claude API
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
       return NextResponse.json(
@@ -181,19 +239,40 @@ export async function POST(
 
     const anthropic = new Anthropic({ apiKey });
 
+    // Call Claude with tools — model responds with text AND calls extract_items
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-5-20250514',
       max_tokens: 4096,
       temperature: 0.3,
       system: SYSTEM_PROMPT,
       messages: anthropicMessages,
+      tools: [EXTRACT_ITEMS_TOOL],
+      tool_choice: { type: 'auto' },
     });
 
-    // Extract text response
-    const assistantContent = response.content
-      .filter((block): block is Anthropic.TextBlock => block.type === 'text')
-      .map((block) => block.text)
-      .join('\n');
+    // Parse response: text blocks for conversation, tool_use blocks for extraction
+    const textParts: string[] = [];
+    let extractedRawItems: Array<{
+      type: string;
+      title: string;
+      content: string;
+      target_artefact: string;
+      priority: string;
+    }> = [];
+
+    for (const block of response.content) {
+      if (block.type === 'text') {
+        textParts.push(block.text);
+      } else if (block.type === 'tool_use' && block.name === 'extract_items') {
+        const input = block.input as { items?: typeof extractedRawItems };
+        if (input.items && Array.isArray(input.items)) {
+          extractedRawItems = input.items;
+        }
+      }
+    }
+
+    const assistantContent =
+      textParts.join('\n') || 'I have extracted the items from your content.';
 
     const assistantMessage = {
       id: ulid(),
@@ -202,23 +281,52 @@ export async function POST(
       createdAt: new Date().toISOString(),
     };
 
-    // Store both messages — but strip image data from stored attachments
-    // to keep DynamoDB item size manageable. We keep the metadata only.
+    // Store messages (strip base64 from stored attachments)
     const storedUserMessage = {
       ...userMessage,
       attachments: userMessage.attachments?.map((a) => ({
         id: a.id,
         mimeType: a.mimeType,
-        dataUrl: '', // Strip base64 data for storage
+        dataUrl: '',
         filename: a.filename,
       })),
     };
 
-    await repo.addMessages(id, [storedUserMessage, assistantMessage]);
+    await sessionRepo.addMessages(id, [storedUserMessage, assistantMessage]);
+
+    // Persist extracted items to DynamoDB
+    const savedItems = [];
+    if (extractedRawItems.length > 0) {
+      const createOptions = extractedRawItems.map((raw) => ({
+        sessionId: id,
+        messageId: assistantMessage.id,
+        type: raw.type as
+          | 'risk'
+          | 'action_item'
+          | 'decision'
+          | 'blocker'
+          | 'status_update'
+          | 'dependency'
+          | 'stakeholder_request',
+        title: raw.title,
+        content: raw.content,
+        targetArtefact: raw.target_artefact as
+          | 'raid_log'
+          | 'delivery_state'
+          | 'backlog_summary'
+          | 'decision_log',
+        priority: raw.priority as 'critical' | 'high' | 'medium' | 'low',
+        projectId: ingestionSession.projectId,
+      }));
+
+      const created = await extractRepo.createBatch(createOptions);
+      savedItems.push(...created);
+    }
 
     return NextResponse.json({
       userMessage,
       assistantMessage,
+      extractedItems: savedItems.length > 0 ? savedItems : undefined,
     });
   } catch (error) {
     console.error('Error processing ingestion message:', error);

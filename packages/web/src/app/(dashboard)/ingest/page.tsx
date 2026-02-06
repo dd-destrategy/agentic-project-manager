@@ -9,7 +9,13 @@ import {
   MessageSquare,
   Archive,
   ClipboardPaste,
+  CheckCircle2,
+  XCircle,
+  ChevronRight,
+  ChevronLeft,
+  Trash2,
 } from 'lucide-react';
+import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ulid } from 'ulid';
 
@@ -29,8 +35,13 @@ import {
   useCreateIngestionSession,
   useSendIngestionMessage,
   useArchiveIngestionSession,
+  useSessionExtractedItems,
+  useApproveExtractedItem,
+  useDismissExtractedItem,
+  useDeleteExtractedItem,
 } from '@/lib/hooks';
 import type { IngestionAttachment, IngestionMessage } from '@/types';
+import { extractedItemTypeLabels } from '@/types';
 
 // ============================================================================
 // Message Bubble
@@ -388,6 +399,168 @@ function SessionList({
 }
 
 // ============================================================================
+// Extracted Items Panel (collapsible sidebar within chat view)
+// ============================================================================
+
+function ExtractedItemsPanel({ sessionId }: { sessionId: string }) {
+  const { data, isLoading } = useSessionExtractedItems(sessionId);
+  const approveMutation = useApproveExtractedItem();
+  const dismissMutation = useDismissExtractedItem();
+  const deleteMutation = useDeleteExtractedItem();
+
+  const items = data?.items ?? [];
+  const pendingCount = items.filter(
+    (i) => i.status === 'pending_review'
+  ).length;
+
+  return (
+    <div className="flex h-full flex-col">
+      <div className="flex items-center justify-between border-b px-3 py-3">
+        <div className="flex items-center gap-2">
+          <h3 className="text-sm font-semibold">Extracted Items</h3>
+          {pendingCount > 0 && (
+            <Badge variant="secondary" className="text-xs">
+              {pendingCount}
+            </Badge>
+          )}
+        </div>
+        <Link
+          href="/extracted"
+          className="text-xs text-primary hover:underline"
+        >
+          View all
+        </Link>
+      </div>
+
+      <div className="flex-1 overflow-y-auto">
+        {isLoading && (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          </div>
+        )}
+
+        {!isLoading && items.length === 0 && (
+          <div className="flex flex-col items-center justify-center px-4 py-8 text-center">
+            <ListChecksIcon className="mb-2 h-8 w-8 text-muted-foreground/30" />
+            <p className="text-xs text-muted-foreground">
+              Items extracted from your conversation will appear here for
+              review.
+            </p>
+          </div>
+        )}
+
+        <div className="space-y-2 p-2">
+          {items.map((item) => (
+            <div
+              key={item.id}
+              className="rounded-md border bg-card p-2.5 text-sm"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium text-xs">{item.title}</p>
+                  <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
+                    {item.content}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                <Badge variant="outline" className="text-[10px] px-1 py-0">
+                  {extractedItemTypeLabels[item.type]}
+                </Badge>
+                <Badge
+                  variant={
+                    item.priority === 'critical'
+                      ? 'destructive'
+                      : item.priority === 'high'
+                        ? 'warning'
+                        : 'secondary'
+                  }
+                  className="text-[10px] px-1 py-0"
+                >
+                  {item.priority}
+                </Badge>
+                <span className="text-[10px] text-muted-foreground ml-auto">
+                  {item.status.replace('_', ' ')}
+                </span>
+              </div>
+              {item.status === 'pending_review' && (
+                <div className="mt-1.5 flex gap-1">
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="h-6 flex-1 text-[10px]"
+                    onClick={() =>
+                      approveMutation.mutate({
+                        id: item.id,
+                        sessionId: item.sessionId,
+                      })
+                    }
+                    disabled={approveMutation.isPending}
+                  >
+                    <CheckCircle2 className="mr-0.5 h-3 w-3" />
+                    Approve
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-6 flex-1 text-[10px]"
+                    onClick={() =>
+                      dismissMutation.mutate({
+                        id: item.id,
+                        sessionId: item.sessionId,
+                      })
+                    }
+                    disabled={dismissMutation.isPending}
+                  >
+                    <XCircle className="mr-0.5 h-3 w-3" />
+                    Dismiss
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                    onClick={() =>
+                      deleteMutation.mutate({
+                        id: item.id,
+                        sessionId: item.sessionId,
+                      })
+                    }
+                    disabled={deleteMutation.isPending}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ListChecksIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="m3 17 2 2 4-4" />
+      <path d="m3 7 2 2 4-4" />
+      <path d="M13 6h8" />
+      <path d="M13 12h8" />
+      <path d="M13 18h8" />
+    </svg>
+  );
+}
+
+// ============================================================================
 // Main Chat View
 // ============================================================================
 
@@ -395,6 +568,7 @@ function ChatView({ sessionId }: { sessionId: string }) {
   const { data: session, isLoading } = useIngestionSession(sessionId);
   const sendMessage = useSendIngestionMessage();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [showExtracted, setShowExtracted] = useState(true);
   const [optimisticMessages, setOptimisticMessages] = useState<
     IngestionMessage[]
   >([]);
@@ -455,58 +629,85 @@ function ChatView({ sessionId }: { sessionId: string }) {
   const allMessages = [...session.messages, ...optimisticMessages];
 
   return (
-    <div className="flex flex-1 flex-col">
-      {/* Header */}
-      <div className="border-b px-4 py-3">
-        <h2 className="font-semibold">{session.title}</h2>
-        <p className="text-xs text-muted-foreground">
-          Created{' '}
-          {new Date(session.createdAt).toLocaleDateString('en-GB', {
-            day: 'numeric',
-            month: 'short',
-            year: 'numeric',
-          })}
-        </p>
-      </div>
-
-      {/* Messages area */}
-      <div className="flex-1 overflow-y-auto p-4">
-        {allMessages.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <ClipboardPaste className="mb-4 h-12 w-12 text-muted-foreground/30" />
-            <h3 className="text-lg font-medium text-muted-foreground">
-              Paste content to get started
-            </h3>
-            <p className="mt-2 max-w-sm text-sm text-muted-foreground">
-              Paste screenshots (Ctrl+V), drag images, or type text from chats,
-              emails, or meeting notes. The AI will help you extract and
-              organise the information.
+    <div className="flex flex-1">
+      {/* Chat column */}
+      <div className="flex flex-1 flex-col min-w-0">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b px-4 py-3">
+          <div>
+            <h2 className="font-semibold">{session.title}</h2>
+            <p className="text-xs text-muted-foreground">
+              Created{' '}
+              {new Date(session.createdAt).toLocaleDateString('en-GB', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+              })}
             </p>
           </div>
-        )}
-
-        <div className="space-y-4">
-          {allMessages.map((msg) => (
-            <MessageBubble key={msg.id} message={msg} />
-          ))}
-
-          {sendMessage.isPending && (
-            <div className="flex justify-start">
-              <div className="rounded-lg bg-muted px-4 py-3">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Analysing...
-                </div>
-              </div>
-            </div>
-          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowExtracted((v) => !v)}
+            title={
+              showExtracted ? 'Hide extracted items' : 'Show extracted items'
+            }
+          >
+            {showExtracted ? (
+              <ChevronRight className="h-4 w-4" />
+            ) : (
+              <ChevronLeft className="h-4 w-4" />
+            )}
+            <span className="ml-1 text-xs">Extracted</span>
+          </Button>
         </div>
 
-        <div ref={messagesEndRef} />
+        {/* Messages area */}
+        <div className="flex-1 overflow-y-auto p-4">
+          {allMessages.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <ClipboardPaste className="mb-4 h-12 w-12 text-muted-foreground/30" />
+              <h3 className="text-lg font-medium text-muted-foreground">
+                Paste content to get started
+              </h3>
+              <p className="mt-2 max-w-sm text-sm text-muted-foreground">
+                Paste screenshots (Ctrl+V), drag images, or type text from
+                chats, emails, or meeting notes. The AI will help you extract
+                and organise the information.
+              </p>
+            </div>
+          )}
+
+          <div className="space-y-4">
+            {allMessages.map((msg) => (
+              <MessageBubble key={msg.id} message={msg} />
+            ))}
+
+            {sendMessage.isPending && (
+              <div className="flex justify-start">
+                <div className="rounded-lg bg-muted px-4 py-3">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Analysing...
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* Input area */}
+        <ChatInput onSend={handleSend} isSending={sendMessage.isPending} />
       </div>
 
-      {/* Input area */}
-      <ChatInput onSend={handleSend} isSending={sendMessage.isPending} />
+      {/* Extracted items panel */}
+      {showExtracted && (
+        <div className="w-72 flex-shrink-0 border-l bg-card">
+          <ExtractedItemsPanel sessionId={sessionId} />
+        </div>
+      )}
     </div>
   );
 }

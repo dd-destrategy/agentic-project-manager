@@ -493,4 +493,103 @@ export interface IngestionSessionsResponse {
 export interface IngestionMessageResponse {
   userMessage: IngestionMessage;
   assistantMessage: IngestionMessage;
+  extractedItems?: ExtractedItem[];
 }
+
+// ============================================================================
+// Extracted Item Types
+// ============================================================================
+
+export type ExtractedItemType =
+  | 'risk'
+  | 'action_item'
+  | 'decision'
+  | 'blocker'
+  | 'status_update'
+  | 'dependency'
+  | 'stakeholder_request';
+
+export type ExtractedItemStatus =
+  | 'pending_review'
+  | 'approved'
+  | 'applied'
+  | 'dismissed';
+
+export type TargetArtefact =
+  | 'raid_log'
+  | 'delivery_state'
+  | 'backlog_summary'
+  | 'decision_log';
+
+export type ExtractedItemPriority = 'critical' | 'high' | 'medium' | 'low';
+
+/**
+ * A structured item extracted from an ingestion conversation by the AI.
+ * These sit in a staging area for PM review before being applied to artefacts.
+ */
+export interface ExtractedItem {
+  id: string;
+  /** The ingestion session this item was extracted from */
+  sessionId: string;
+  /** The specific message that triggered extraction */
+  messageId: string;
+  /** Category of the extracted item */
+  type: ExtractedItemType;
+  /** One-line summary */
+  title: string;
+  /** Full detail / description */
+  content: string;
+  /** Which PM artefact this should be added to */
+  targetArtefact: TargetArtefact;
+  /** Urgency / importance */
+  priority: ExtractedItemPriority;
+  /** Review status */
+  status: ExtractedItemStatus;
+  /** Optional project association */
+  projectId?: string;
+  createdAt: string;
+  updatedAt: string;
+  /** When the item was applied to an artefact */
+  appliedAt?: string;
+  /** When the item was dismissed */
+  dismissedAt?: string;
+  /** Why the item was dismissed */
+  dismissReason?: string;
+}
+
+/**
+ * API response for listing extracted items
+ */
+export interface ExtractedItemsResponse {
+  items: ExtractedItem[];
+  count: number;
+}
+
+/**
+ * Counts of extracted items by status (for badges/dashboards)
+ */
+export interface ExtractedItemCounts {
+  pendingReview: number;
+  approved: number;
+  applied: number;
+  dismissed: number;
+}
+
+/** Labels for extracted item types */
+export const extractedItemTypeLabels: Record<ExtractedItemType, string> = {
+  risk: 'Risk',
+  action_item: 'Action Item',
+  decision: 'Decision',
+  blocker: 'Blocker',
+  status_update: 'Status Update',
+  dependency: 'Dependency',
+  stakeholder_request: 'Stakeholder Request',
+};
+
+/** Labels for target artefacts */
+export const targetArtefactLabels: Record<TargetArtefact, string> = {
+  raid_log: 'RAID Log',
+  delivery_state: 'Delivery State',
+  backlog_summary: 'Backlog Summary',
+  decision_log: 'Decision Log',
+};
