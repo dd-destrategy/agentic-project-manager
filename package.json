@@ -30,6 +30,7 @@
     "cdk:deploy": "pnpm --filter @agentic-pm/cdk deploy",
     "cdk:diff": "pnpm --filter @agentic-pm/cdk diff",
     "db:local": "docker-compose up dynamodb-local -d",
+    "validate-env": "bash scripts/validate-env.sh",
     "prepare": "husky"
   },
   "devDependencies": {
