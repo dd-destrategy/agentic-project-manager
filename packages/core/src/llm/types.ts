@@ -5,7 +5,9 @@
 /**
  * Supported Claude model IDs
  */
-export type ModelId = 'claude-3-5-haiku-20241022' | 'claude-sonnet-4-5-20250514';
+export type ModelId =
+  | 'claude-3-5-haiku-20241022'
+  | 'claude-sonnet-4-5-20250929';
 
 /**
  * Configuration for LLM client
@@ -204,7 +206,12 @@ export interface UsageEntry {
 export interface ClassificationResult {
   importance: 'critical' | 'high' | 'medium' | 'low' | 'noise';
   categories: string[];
-  recommendedAction: 'update_artefact' | 'create_escalation' | 'send_notification' | 'hold_for_review' | 'ignore';
+  recommendedAction:
+    | 'update_artefact'
+    | 'create_escalation'
+    | 'send_notification'
+    | 'hold_for_review'
+    | 'ignore';
   requiresComplexReasoning: boolean;
   rationale: string;
 }

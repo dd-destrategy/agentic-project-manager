@@ -22,6 +22,7 @@ export interface AgentStackProps extends cdk.StackProps {
   table: dynamodb.Table;
   secrets: AgenticPMSecrets;
   roles: AgenticPMRoles;
+  deadLetterQueue: sqs.Queue;
 }
 
 export class AgentStack extends cdk.Stack {
@@ -73,17 +74,8 @@ export class AgentStack extends cdk.Stack {
       })
     );
 
-    // Create dead letter queue for Lambda failures
-    this.deadLetterQueue = new sqs.Queue(this, 'LambdaDLQ', {
-      queueName: 'agentic-pm-lambda-dlq',
-      retentionPeriod: cdk.Duration.days(14),
-      encryption: sqs.QueueEncryption.KMS_MANAGED,
-    });
-
-    new cdk.CfnOutput(this, 'DLQUrl', {
-      value: this.deadLetterQueue.queueUrl,
-      exportName: `${this.stackName}-DLQUrl`,
-    });
+    // Use the DLQ from Foundation stack (avoids cyclic dependency with roles)
+    this.deadLetterQueue = props.deadLetterQueue;
 
     // DLQ monitoring: alarm when any messages land in the dead-letter queue.
     // This ensures failed Lambda invocations are noticed promptly.

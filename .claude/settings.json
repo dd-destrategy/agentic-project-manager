@@ -74,7 +74,7 @@
         "hooks": [
           {
             "type": "prompt",
-            "prompt": "Check if there are uncommitted changes in the working tree (staged or unstaged). If there are meaningful uncommitted changes, reply {\"ok\": false, \"reason\": \"There are uncommitted changes — consider committing before ending the session.\"}. If everything is committed or changes are trivial (e.g. only settings.local.json), reply {\"ok\": true}."
+            "prompt": "Check if there are uncommitted changes in the working tree (staged or unstaged). If there are meaningful uncommitted changes, respond with {\"decision\": \"block\", \"reason\": \"There are uncommitted changes — consider committing before ending the session.\"}. If everything is committed or changes are trivial (e.g. only settings.local.json), respond with {\"ok\": true}."
           }
         ]
       }

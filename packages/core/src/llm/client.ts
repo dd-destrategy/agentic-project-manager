@@ -17,17 +17,20 @@ import type {
 } from './types.js';
 
 /** Pricing per million tokens (as of Feb 2026) */
-export const PRICING: Record<ModelId, { input: number; output: number; cacheRead: number; cacheWrite: number }> = {
+export const PRICING: Record<
+  ModelId,
+  { input: number; output: number; cacheRead: number; cacheWrite: number }
+> = {
   'claude-3-5-haiku-20241022': {
-    input: 0.80,
-    output: 4.00,
+    input: 0.8,
+    output: 4.0,
     cacheRead: 0.08,
-    cacheWrite: 1.00,
+    cacheWrite: 1.0,
   },
-  'claude-sonnet-4-5-20250514': {
-    input: 3.00,
-    output: 15.00,
-    cacheRead: 0.30,
+  'claude-sonnet-4-5-20250929': {
+    input: 3.0,
+    output: 15.0,
+    cacheRead: 0.3,
     cacheWrite: 3.75,
   },
 } as const;
@@ -35,7 +38,7 @@ export const PRICING: Record<ModelId, { input: number; output: number; cacheRead
 /** Model aliases for convenience */
 export const MODEL_ALIASES = {
   haiku: 'claude-3-5-haiku-20241022' as const,
-  sonnet: 'claude-sonnet-4-5-20250514' as const,
+  sonnet: 'claude-sonnet-4-5-20250929' as const,
 };
 
 /** Default retry configuration */
@@ -103,7 +106,11 @@ export class ClaudeClient {
   ): Promise<LlmResponse<T>> {
     const startTime = Date.now();
     let lastError: Error | undefined;
-    let totalUsage: TokenUsage = { inputTokens: 0, outputTokens: 0, costUsd: 0 };
+    let totalUsage: TokenUsage = {
+      inputTokens: 0,
+      outputTokens: 0,
+      costUsd: 0,
+    };
 
     for (let attempt = 0; attempt <= this.retryConfig.maxRetries; attempt++) {
       try {
@@ -148,7 +155,9 @@ export class ClaudeClient {
         if (!toolUseBlock) {
           // Model didn't use a tool - this shouldn't happen with tool_choice set
           const textContent = response.content
-            .filter((block): block is Anthropic.TextBlock => block.type === 'text')
+            .filter(
+              (block): block is Anthropic.TextBlock => block.type === 'text'
+            )
             .map((block) => block.text)
             .join('\n');
 
@@ -175,7 +184,10 @@ export class ClaudeClient {
 
         // Check if error is retryable
         const isRetryable = this.isRetryableError(error);
-        const shouldRetry = isRetryable && !options?.skipRetry && attempt < this.retryConfig.maxRetries;
+        const shouldRetry =
+          isRetryable &&
+          !options?.skipRetry &&
+          attempt < this.retryConfig.maxRetries;
 
         if (shouldRetry) {
           const delay = this.getRetryDelay(error, attempt);
@@ -222,7 +234,8 @@ export class ClaudeClient {
   private getRetryDelay(error: unknown, attempt: number): number {
     // Check for Retry-After header in rate limit errors
     if (error instanceof Anthropic.RateLimitError) {
-      const retryAfter = (error as { headers?: { 'retry-after'?: string } }).headers?.['retry-after'];
+      const retryAfter = (error as { headers?: { 'retry-after'?: string } })
+        .headers?.['retry-after'];
       if (retryAfter) {
         const retryAfterMs = parseInt(retryAfter, 10) * 1000;
         if (!isNaN(retryAfterMs) && retryAfterMs > 0) {
@@ -287,7 +300,9 @@ export class ClaudeClient {
         error: `Claude API error: ${error.message} (status: ${error.status})`,
         usage,
         durationMs,
-        retryable: this.retryConfig.retryableStatusCodes.includes(error.status ?? 0),
+        retryable: this.retryConfig.retryableStatusCodes.includes(
+          error.status ?? 0
+        ),
         retriesUsed,
       };
     }
@@ -319,8 +334,12 @@ export class ClaudeClient {
     return {
       inputTokens: existing.inputTokens + newUsage.inputTokens,
       outputTokens: existing.outputTokens + newUsage.outputTokens,
-      cacheReadTokens: (existing.cacheReadTokens ?? 0) + (newUsage.cacheReadTokens ?? 0) || undefined,
-      cacheWriteTokens: (existing.cacheWriteTokens ?? 0) + (newUsage.cacheWriteTokens ?? 0) || undefined,
+      cacheReadTokens:
+        (existing.cacheReadTokens ?? 0) + (newUsage.cacheReadTokens ?? 0) ||
+        undefined,
+      cacheWriteTokens:
+        (existing.cacheWriteTokens ?? 0) + (newUsage.cacheWriteTokens ?? 0) ||
+        undefined,
       costUsd: existing.costUsd + newUsage.costUsd,
     };
   }
@@ -351,7 +370,11 @@ export class ClaudeClient {
   ): Promise<LlmResponse<T>> {
     const startTime = Date.now();
     let lastError: Error | undefined;
-    let totalUsage: TokenUsage = { inputTokens: 0, outputTokens: 0, costUsd: 0 };
+    let totalUsage: TokenUsage = {
+      inputTokens: 0,
+      outputTokens: 0,
+      costUsd: 0,
+    };
 
     for (let attempt = 0; attempt <= this.retryConfig.maxRetries; attempt++) {
       try {
@@ -369,17 +392,20 @@ export class ClaudeClient {
 
         // Build user message with cache control
         // The cacheable prefix is marked as ephemeral for caching
-        const userContent: Anthropic.MessageCreateParams['messages'][0]['content'] = [
-          {
-            type: 'text',
-            text: cacheablePrefix,
-            cache_control: { type: 'ephemeral' },
-          } as Anthropic.TextBlockParam & { cache_control: { type: 'ephemeral' } },
-          {
-            type: 'text',
-            text: variableSuffix,
-          },
-        ];
+        const userContent: Anthropic.MessageCreateParams['messages'][0]['content'] =
+          [
+            {
+              type: 'text',
+              text: cacheablePrefix,
+              cache_control: { type: 'ephemeral' },
+            } as Anthropic.TextBlockParam & {
+              cache_control: { type: 'ephemeral' };
+            },
+            {
+              type: 'text',
+              text: variableSuffix,
+            },
+          ];
 
         // Build system prompt with cache control
         const systemContent: Anthropic.MessageCreateParams['system'] = [
@@ -387,7 +413,9 @@ export class ClaudeClient {
             type: 'text',
             text: systemPrompt,
             cache_control: { type: 'ephemeral' },
-          } as Anthropic.TextBlockParam & { cache_control: { type: 'ephemeral' } },
+          } as Anthropic.TextBlockParam & {
+            cache_control: { type: 'ephemeral' };
+          },
         ];
 
         // Make API call with caching enabled
@@ -418,7 +446,9 @@ export class ClaudeClient {
 
         if (!toolUseBlock) {
           const textContent = response.content
-            .filter((block): block is Anthropic.TextBlock => block.type === 'text')
+            .filter(
+              (block): block is Anthropic.TextBlock => block.type === 'text'
+            )
             .map((block) => block.text)
             .join('\n');
 
@@ -444,7 +474,10 @@ export class ClaudeClient {
         lastError = error instanceof Error ? error : new Error(String(error));
 
         const isRetryable = this.isRetryableError(error);
-        const shouldRetry = isRetryable && !options?.skipRetry && attempt < this.retryConfig.maxRetries;
+        const shouldRetry =
+          isRetryable &&
+          !options?.skipRetry &&
+          attempt < this.retryConfig.maxRetries;
 
         if (shouldRetry) {
           const delay = this.getRetryDelay(error, attempt);
@@ -525,10 +558,19 @@ export class ClaudeClient {
   private calculateUsage(usage: Anthropic.Usage): TokenUsage {
     const inputTokens = usage.input_tokens;
     const outputTokens = usage.output_tokens;
-    const cacheReadTokens = (usage as { cache_read_input_tokens?: number }).cache_read_input_tokens ?? 0;
-    const cacheWriteTokens = (usage as { cache_creation_input_tokens?: number }).cache_creation_input_tokens ?? 0;
+    const cacheReadTokens =
+      (usage as { cache_read_input_tokens?: number }).cache_read_input_tokens ??
+      0;
+    const cacheWriteTokens =
+      (usage as { cache_creation_input_tokens?: number })
+        .cache_creation_input_tokens ?? 0;
 
-    const costUsd = this.calculateCost(inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens);
+    const costUsd = this.calculateCost(
+      inputTokens,
+      outputTokens,
+      cacheReadTokens,
+      cacheWriteTokens
+    );
 
     return {
       inputTokens,
@@ -572,7 +614,12 @@ export class ClaudeClient {
   /**
    * Get model pricing info
    */
-  getModelPricing(): { input: number; output: number; cacheRead: number; cacheWrite: number } {
+  getModelPricing(): {
+    input: number;
+    output: number;
+    cacheRead: number;
+    cacheWrite: number;
+  } {
     return PRICING[this.config.model];
   }
 

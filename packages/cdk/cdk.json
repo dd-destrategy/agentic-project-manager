@@ -1,5 +1,5 @@
 {
-  "app": "npx ts-node --esm bin/agentic-pm.ts",
+  "app": "npx tsx bin/agentic-pm.ts",
   "watch": {
     "include": ["**"],
     "exclude": [

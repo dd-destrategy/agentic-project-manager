@@ -181,7 +181,7 @@ describe('PRICING', () => {
   });
 
   it('should have pricing for Sonnet model', () => {
-    const sonnetPricing = PRICING['claude-sonnet-4-5-20250514'];
+    const sonnetPricing = PRICING['claude-sonnet-4-5-20250929'];
     expect(sonnetPricing).toBeDefined();
     expect(sonnetPricing.input).toBeGreaterThan(0);
     expect(sonnetPricing.output).toBeGreaterThan(0);
@@ -189,7 +189,7 @@ describe('PRICING', () => {
 
   it('should have Haiku cheaper than Sonnet', () => {
     const haikuPricing = PRICING['claude-3-5-haiku-20241022'];
-    const sonnetPricing = PRICING['claude-sonnet-4-5-20250514'];
+    const sonnetPricing = PRICING['claude-sonnet-4-5-20250929'];
 
     expect(haikuPricing.input).toBeLessThan(sonnetPricing.input);
     expect(haikuPricing.output).toBeLessThan(sonnetPricing.output);
@@ -206,7 +206,7 @@ describe('MODEL_ALIASES', () => {
   });
 
   it('should have sonnet alias', () => {
-    expect(MODEL_ALIASES.sonnet).toBe('claude-sonnet-4-5-20250514');
+    expect(MODEL_ALIASES.sonnet).toBe('claude-sonnet-4-5-20250929');
   });
 });
 
@@ -457,7 +457,7 @@ describe('Cost calculation', () => {
   it('should calculate cost for Sonnet model', () => {
     const client = new ClaudeClient({
       ...defaultConfig,
-      model: 'claude-sonnet-4-5-20250514',
+      model: 'claude-sonnet-4-5-20250929',
     });
 
     const cost = client.calculateCost(1000000, 500000, 0, 0);
@@ -553,10 +553,10 @@ describe('Model methods', () => {
 
   it('should create new client with different model', () => {
     const haikuClient = new ClaudeClient(defaultConfig);
-    const sonnetClient = haikuClient.withModel('claude-sonnet-4-5-20250514');
+    const sonnetClient = haikuClient.withModel('claude-sonnet-4-5-20250929');
 
     expect(haikuClient.getModel()).toBe('claude-3-5-haiku-20241022');
-    expect(sonnetClient.getModel()).toBe('claude-sonnet-4-5-20250514');
+    expect(sonnetClient.getModel()).toBe('claude-sonnet-4-5-20250929');
   });
 });
 
@@ -590,7 +590,7 @@ describe('Factory functions', () => {
       const client = createSonnetClient('test-key');
 
       expect(client).toBeInstanceOf(ClaudeClient);
-      expect(client.getModel()).toBe('claude-sonnet-4-5-20250514');
+      expect(client.getModel()).toBe('claude-sonnet-4-5-20250929');
     });
 
     it('should configure for complex reasoning', () => {
@@ -805,10 +805,10 @@ describe('Integration scenarios', () => {
 
   it('should handle model switching for complex reasoning', async () => {
     const haikuClient = createHaikuClient('test-key');
-    const sonnetClient = haikuClient.withModel('claude-sonnet-4-5-20250514');
+    const sonnetClient = haikuClient.withModel('claude-sonnet-4-5-20250929');
 
     expect(haikuClient.getModel()).toBe('claude-3-5-haiku-20241022');
-    expect(sonnetClient.getModel()).toBe('claude-sonnet-4-5-20250514');
+    expect(sonnetClient.getModel()).toBe('claude-sonnet-4-5-20250929');
 
     // Sonnet is more expensive
     const haikuPricing = haikuClient.getModelPricing();

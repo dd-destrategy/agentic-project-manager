@@ -1,6 +1,7 @@
 import * as cdk from 'aws-cdk-lib';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
+import * as sqs from 'aws-cdk-lib/aws-sqs';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import { Template, Match } from 'aws-cdk-lib/assertions';
 import { describe, it, expect, beforeAll } from 'vitest';
@@ -106,11 +107,19 @@ describe('AgentStack', () => {
       fs.writeFileSync(path.join(lambdasDistPath, '.gitkeep'), '');
     }
 
+    // Create mock DLQ (in Foundation stack in real setup)
+    const deadLetterQueue = new sqs.Queue(mockStack, 'MockDLQ', {
+      queueName: 'agentic-pm-lambda-dlq',
+      retentionPeriod: cdk.Duration.days(14),
+      encryption: sqs.QueueEncryption.KMS_MANAGED,
+    });
+
     const stack = new AgentStack(app, 'TestStack', {
       config,
       table,
       secrets,
       roles,
+      deadLetterQueue,
     });
     template = Template.fromStack(stack);
   });
@@ -370,25 +379,15 @@ describe('AgentStack', () => {
   });
 
   describe('SQS Dead Letter Queue', () => {
-    it('creates dead letter queue', () => {
-      template.resourceCountIs('AWS::SQS::Queue', 1);
+    it('does not create its own DLQ (uses Foundation stack DLQ)', () => {
+      template.resourceCountIs('AWS::SQS::Queue', 0);
     });
 
-    it('DLQ has correct name', () => {
-      template.hasResourceProperties('AWS::SQS::Queue', {
-        QueueName: 'agentic-pm-lambda-dlq',
-      });
-    });
-
-    it('DLQ has 14 day retention period', () => {
-      template.hasResourceProperties('AWS::SQS::Queue', {
-        MessageRetentionPeriod: 1209600, // 14 days in seconds
-      });
-    });
-
-    it('DLQ uses KMS managed encryption', () => {
-      template.hasResourceProperties('AWS::SQS::Queue', {
-        KmsMasterKeyId: 'alias/aws/sqs',
+    it('all Lambdas are configured with dead letter queue', () => {
+      const functions = template.findResources('AWS::Lambda::Function');
+      Object.values(functions).forEach((fn: any) => {
+        expect(fn.Properties.DeadLetterConfig).toBeDefined();
+        expect(fn.Properties.DeadLetterConfig.TargetArn).toBeDefined();
       });
     });
   });
@@ -551,14 +550,6 @@ describe('AgentStack', () => {
   });
 
   describe('CloudFormation Outputs', () => {
-    it('exports DLQ URL', () => {
-      template.hasOutput('DLQUrl', {
-        Export: {
-          Name: 'TestStack-DLQUrl',
-        },
-      });
-    });
-
     it('exports DLQ alarm topic ARN', () => {
       template.hasOutput('DLQAlarmTopicArn', {
         Export: {

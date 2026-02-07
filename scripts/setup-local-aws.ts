@@ -101,7 +101,10 @@ async function waitForLocalStack(maxAttempts = 30, intervalMs = 2000) {
         >;
         const services = body.services ?? {};
         const allAvailable = Object.values(services).every(
-          (status) => status === 'available' || status === 'running'
+          (status) =>
+            status === 'available' ||
+            status === 'running' ||
+            status === 'disabled'
         );
         if (allAvailable) {
           ok('LocalStack is healthy');

@@ -270,7 +270,7 @@ export async function POST(
 
     // Call Claude with tools — model responds with text AND calls extract_items
     const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-5-20250514',
+      model: 'claude-sonnet-4-5-20250929',
       max_tokens: 4096,
       temperature: 0.3,
       system: SYSTEM_PROMPT,
@@ -282,7 +282,7 @@ export async function POST(
     // C01: Record usage with BudgetTracker
     const inputTokens = response.usage.input_tokens;
     const outputTokens = response.usage.output_tokens;
-    const pricing = PRICING['claude-sonnet-4-5-20250514'];
+    const pricing = PRICING['claude-sonnet-4-5-20250929'];
     const costUsd =
       (inputTokens / 1_000_000) * pricing.input +
       (outputTokens / 1_000_000) * pricing.output;
@@ -290,7 +290,7 @@ export async function POST(
     await budgetTracker.recordUsage(
       { inputTokens, outputTokens, costUsd },
       'ingestion_message',
-      'claude-sonnet-4-5-20250514'
+      'claude-sonnet-4-5-20250929'
     );
 
     // Parse response: text blocks for conversation, tool_use blocks for extraction

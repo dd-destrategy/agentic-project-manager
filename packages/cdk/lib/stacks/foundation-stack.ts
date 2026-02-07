@@ -2,6 +2,7 @@ import * as cdk from 'aws-cdk-lib';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
+import * as sqs from 'aws-cdk-lib/aws-sqs';
 import { Construct } from 'constructs';
 
 import type { EnvironmentConfig } from '../config/environments.js';
@@ -27,6 +28,7 @@ export class FoundationStack extends cdk.Stack {
   public readonly table: dynamodb.Table;
   public readonly secrets: AgenticPMSecrets;
   public readonly roles: AgenticPMRoles;
+  public readonly deadLetterQueue: sqs.Queue;
 
   constructor(scope: Construct, id: string, props: FoundationStackProps) {
     super(scope, id, props);
@@ -38,6 +40,19 @@ export class FoundationStack extends cdk.Stack {
 
     // Create DynamoDB table
     this.table = this.createTable(props.config);
+
+    // Create dead letter queue for Lambda failures (must be in Foundation
+    // to avoid cyclic dependency with Agent stack roles)
+    this.deadLetterQueue = new sqs.Queue(this, 'LambdaDLQ', {
+      queueName: 'agentic-pm-lambda-dlq',
+      retentionPeriod: cdk.Duration.days(14),
+      encryption: sqs.QueueEncryption.KMS_MANAGED,
+    });
+
+    new cdk.CfnOutput(this, 'DLQUrl', {
+      value: this.deadLetterQueue.queueUrl,
+      exportName: `${this.stackName}-DLQUrl`,
+    });
 
     // Create secrets
     this.secrets = this.createSecrets();

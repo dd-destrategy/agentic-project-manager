@@ -296,6 +296,30 @@ describe('FoundationStack', () => {
     });
   });
 
+  describe('SQS Dead Letter Queue', () => {
+    it('creates dead letter queue', () => {
+      devTemplate.resourceCountIs('AWS::SQS::Queue', 1);
+    });
+
+    it('DLQ has correct name', () => {
+      devTemplate.hasResourceProperties('AWS::SQS::Queue', {
+        QueueName: 'agentic-pm-lambda-dlq',
+      });
+    });
+
+    it('DLQ has 14 day retention period', () => {
+      devTemplate.hasResourceProperties('AWS::SQS::Queue', {
+        MessageRetentionPeriod: 1209600, // 14 days in seconds
+      });
+    });
+
+    it('DLQ uses KMS managed encryption', () => {
+      devTemplate.hasResourceProperties('AWS::SQS::Queue', {
+        KmsMasterKeyId: 'alias/aws/sqs',
+      });
+    });
+  });
+
   describe('CloudFormation Outputs', () => {
     it('exports table name', () => {
       devTemplate.hasOutput('TableName', {
@@ -309,6 +333,14 @@ describe('FoundationStack', () => {
       devTemplate.hasOutput('TableArn', {
         Export: {
           Name: 'DevStack-TableArn',
+        },
+      });
+    });
+
+    it('exports DLQ URL', () => {
+      devTemplate.hasOutput('DLQUrl', {
+        Export: {
+          Name: 'DevStack-DLQUrl',
         },
       });
     });
