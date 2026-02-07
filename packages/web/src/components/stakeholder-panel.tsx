@@ -1,13 +1,7 @@
 'use client';
 
+import { Users, AlertTriangle, ArrowUpDown, Clock, Hash } from 'lucide-react';
 import { useState } from 'react';
-import {
-  Users,
-  AlertTriangle,
-  ArrowUpDown,
-  Clock,
-  Hash,
-} from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -56,9 +50,7 @@ export function StakeholderPanel({
     if (sortMode === 'interactions') {
       return b.interactionCount - a.interactionCount;
     }
-    return (
-      new Date(b.lastSeenAt).getTime() - new Date(a.lastSeenAt).getTime()
-    );
+    return new Date(b.lastSeenAt).getTime() - new Date(a.lastSeenAt).getTime();
   });
 
   const toggleSort = () => {
@@ -189,9 +181,7 @@ function StakeholderRow({
               {lastSeenText}
             </span>
             {stakeholder.sources.length > 0 && (
-              <span>
-                via {stakeholder.sources.join(', ')}
-              </span>
+              <span>via {stakeholder.sources.join(', ')}</span>
             )}
           </div>
         </div>

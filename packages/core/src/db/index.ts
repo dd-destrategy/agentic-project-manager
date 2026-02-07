@@ -45,4 +45,10 @@ export {
   type Stakeholder,
   type StakeholderActivity,
 } from './repositories/stakeholder.js';
+export {
+  ArtefactSnapshotRepository,
+  type ArtefactSnapshot,
+  type SnapshotMetrics,
+  type TrendDataPoint,
+} from './repositories/artefact-snapshot.js';
 export type { QueryOptions, QueryResult } from './types.js';

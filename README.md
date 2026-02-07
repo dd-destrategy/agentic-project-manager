@@ -6,7 +6,9 @@
 [![AWS CDK](https://img.shields.io/badge/AWS_CDK-2.120-orange)](https://aws.amazon.com/cdk/)
 [![Next.js](https://img.shields.io/badge/Next.js-14.1-black)](https://nextjs.org/)
 
-A fully autonomous personal project management assistant that monitors Jira and Outlook, maintains PM artefacts (RAID log, delivery state, backlog summary, decision log), and handles routine PM work with minimal human intervention.
+A fully autonomous personal project management assistant that monitors Jira and
+Outlook, maintains PM artefacts (RAID log, delivery state, backlog summary,
+decision log), and handles routine PM work with minimal human intervention.
 
 ---
 
@@ -45,7 +47,10 @@ A fully autonomous personal project management assistant that monitors Jira and 
 
 ## Overview
 
-The Agentic PM Workbench is a **personal tool** (single user, no multi-tenancy) designed to automate routine project management tasks. It operates autonomously within defined boundaries, escalating decisions when needed and building trust through transparent action logging.
+The Agentic PM Workbench is a **personal tool** (single user, no multi-tenancy)
+designed to automate routine project management tasks. It operates autonomously
+within defined boundaries, escalating decisions when needed and building trust
+through transparent action logging.
 
 ### What it does
 
@@ -65,13 +70,15 @@ The Agentic PM Workbench is a **personal tool** (single user, no multi-tenancy) 
 
 ## Key Value Proposition
 
-**Cross-platform synthesis.** The agent creates structured PM artefacts that do not exist in any single tool:
+**Cross-platform synthesis.** The agent creates structured PM artefacts that do
+not exist in any single tool:
 
 - RAID logs built from Jira signals and email threads
 - Delivery states assembled from sprint data and stakeholder communications
 - Decision logs capturing context from multiple sources
 
-No single-vendor AI feature (Jira Rovo, Asana AI Teammates) provides this cross-tool view.
+No single-vendor AI feature (Jira Rovo, Asana AI Teammates) provides this
+cross-tool view.
 
 ---
 
@@ -360,31 +367,52 @@ graph TD
 
 ## Features
 
-### Implemented
+### Core Features
 
-| Feature | Description |
-|---------|-------------|
-| **Agent Heartbeat** | 15-minute cycle logging with health checks |
-| **Jira Integration** | Signal detection via Jira Cloud REST API v3 |
-| **Signal Normalisation** | Convert raw API responses to structured signals |
-| **Two-Stage Triage** | Sanitise (security) + Classify (routing) with Haiku |
-| **Complex Reasoning** | Multi-source analysis with Sonnet for difficult signals |
-| **PM Artefacts** | Delivery state, RAID log, backlog summary, decision log |
-| **Hold Queue** | Draft-then-send with 30-minute approval window |
-| **Escalation Workflow** | Present decisions with context and recommendations |
-| **Budget Controls** | Multi-tier degradation ladder with hard ceilings |
-| **Activity Feed** | Real-time event stream in dashboard |
-| **Mission Control** | Dashboard with project health and agent status |
+| Feature                  | Description                                             |
+| ------------------------ | ------------------------------------------------------- |
+| **Agent Heartbeat**      | 15-minute cycle logging with health checks              |
+| **Jira Integration**     | Signal detection via Jira Cloud REST API v3             |
+| **Signal Normalisation** | Convert raw API responses to structured signals         |
+| **Two-Stage Triage**     | Sanitise (security) + Classify (routing) with Haiku     |
+| **Complex Reasoning**    | Multi-source analysis with Sonnet for difficult signals |
+| **PM Artefacts**         | Delivery state, RAID log, backlog summary, decision log |
+| **Hold Queue**           | Draft-then-send with 30-minute approval window          |
+| **Escalation Workflow**  | Present decisions with context and recommendations      |
+| **Budget Controls**      | Multi-tier degradation ladder with hard ceilings        |
+| **Activity Feed**        | Real-time event stream in dashboard                     |
+| **Mission Control**      | Dashboard with project health and agent status          |
+| **Ingestion Interface**  | Paste and discuss content with AI to extract PM items   |
+
+### Evaluated Features (15 high-value additions)
+
+All features were identified by a multi-agent evaluation panel (5 specialist
+agents) and fully implemented:
+
+| Feature                         | Description                                             |
+| ------------------------------- | ------------------------------------------------------- |
+| **Status Report Generator**     | One-click stakeholder-ready reports from artefact data  |
+| **Longitudinal Project Memory** | Artefact snapshots with trend visualisation             |
+| **Idempotent Execution**        | Claim-before-execute pattern prevents duplicate actions |
+| **Dead Man's Switch**           | CloudWatch alarm fires when agent stops heartbeating    |
+| **Meeting Notes Pipeline**      | Structured ingestion of standup/sprint review notes     |
+| **Natural Language Query**      | Ask questions about your projects in plain English      |
+| **"Since You Left" Catch-Up**   | Summary of changes since your last visit                |
+| **Decision Outcome Tracking**   | Record outcomes and lessons learned for decisions       |
+| **Stakeholder Intelligence**    | Deterministic actor extraction and engagement tracking  |
+| **Pre-Meeting Briefing**        | Auto-generated briefings from current artefact data     |
+| **Artefact Export**             | Copy/download artefacts as Markdown or JSON             |
+| **Command Palette (Cmd+K)**     | Quick navigation and actions via keyboard shortcut      |
+| **Atomic Budget Counters**      | DynamoDB atomic increments prevent race conditions      |
+| **Stale Item Watchdog**         | Detects unreviewed RAID items, lingering blockers       |
+| **Artefact Coherence Auditor**  | Cross-artefact consistency checking                     |
 
 ### Planned
 
-| Feature | Phase |
-|---------|-------|
-| Outlook Integration (Graph API) | Phase 3 |
-| Confidence Scoring | Phase 3 |
-| Autonomy Graduation Ceremony | Phase 3 |
-| Anti-complacency Spot Checks | Phase 3 |
-| Asana Integration | Deferred |
+| Feature                         | Phase                       |
+| ------------------------------- | --------------------------- |
+| Outlook Integration (Graph API) | Deferred (Azure AD barrier) |
+| Asana Integration               | Deferred                    |
 
 ---
 
@@ -392,53 +420,53 @@ graph TD
 
 ### Core Technologies
 
-| Component | Technology | Version |
-|-----------|-----------|---------|
-| **Language** | TypeScript (strict mode) | 5.3+ |
-| **Runtime** | Node.js | 20+ |
-| **Package Manager** | pnpm | 9.0+ |
-| **Monorepo** | Turborepo | 2.3+ |
+| Component           | Technology               | Version |
+| ------------------- | ------------------------ | ------- |
+| **Language**        | TypeScript (strict mode) | 5.3+    |
+| **Runtime**         | Node.js                  | 20+     |
+| **Package Manager** | pnpm                     | 9.0+    |
+| **Monorepo**        | Turborepo                | 2.3+    |
 
 ### Frontend
 
-| Component | Technology | Version |
-|-----------|-----------|---------|
-| **Framework** | Next.js (App Router) | 14.1 |
-| **Hosting** | AWS Amplify | - |
-| **UI Components** | shadcn/ui + Radix UI | - |
-| **Styling** | Tailwind CSS | 3.4 |
-| **State** | TanStack Query | 5.17 |
-| **Auth** | NextAuth.js | 4.24 |
+| Component         | Technology           | Version |
+| ----------------- | -------------------- | ------- |
+| **Framework**     | Next.js (App Router) | 14.1    |
+| **Hosting**       | AWS Amplify          | -       |
+| **UI Components** | shadcn/ui + Radix UI | -       |
+| **Styling**       | Tailwind CSS         | 3.4     |
+| **State**         | TanStack Query       | 5.17    |
+| **Auth**          | NextAuth.js          | 4.24    |
 
 ### Backend (Serverless)
 
-| Component | Technology | Version |
-|-----------|-----------|---------|
-| **Orchestration** | AWS Step Functions | - |
-| **Compute** | AWS Lambda | Node.js 20 |
-| **Database** | DynamoDB (on-demand) | - |
-| **Scheduling** | EventBridge Scheduler | - |
-| **Secrets** | AWS Secrets Manager | - |
-| **Email** | Amazon SES | - |
-| **Monitoring** | CloudWatch | - |
-| **IaC** | AWS CDK | 2.120 |
+| Component         | Technology            | Version    |
+| ----------------- | --------------------- | ---------- |
+| **Orchestration** | AWS Step Functions    | -          |
+| **Compute**       | AWS Lambda            | Node.js 20 |
+| **Database**      | DynamoDB (on-demand)  | -          |
+| **Scheduling**    | EventBridge Scheduler | -          |
+| **Secrets**       | AWS Secrets Manager   | -          |
+| **Email**         | Amazon SES            | -          |
+| **Monitoring**    | CloudWatch            | -          |
+| **IaC**           | AWS CDK               | 2.120      |
 
 ### AI/LLM
 
-| Component | Technology | Purpose |
-|-----------|-----------|---------|
-| **Triage** | Claude Haiku 4.5 | Signal sanitisation, classification (~70%) |
-| **Reasoning** | Claude Sonnet 4.5 | Complex multi-source analysis (~30%) |
-| **Integration** | Anthropic SDK | 0.32+ |
-| **Output** | Tool-use (function calling) | Structured JSON generation |
+| Component       | Technology                  | Purpose                                    |
+| --------------- | --------------------------- | ------------------------------------------ |
+| **Triage**      | Claude Haiku 4.5            | Signal sanitisation, classification (~70%) |
+| **Reasoning**   | Claude Sonnet 4.5           | Complex multi-source analysis (~30%)       |
+| **Integration** | Anthropic SDK               | 0.32+                                      |
+| **Output**      | Tool-use (function calling) | Structured JSON generation                 |
 
 ### Integrations
 
-| Service | API | Purpose |
-|---------|-----|---------|
-| **Jira Cloud** | REST API v3 | Sprint data, ticket changes |
-| **Outlook** | Microsoft Graph API | Email signals (Phase 3) |
-| **SES** | AWS SDK | Agent-to-user notifications |
+| Service        | API                 | Purpose                     |
+| -------------- | ------------------- | --------------------------- |
+| **Jira Cloud** | REST API v3         | Sprint data, ticket changes |
+| **Outlook**    | Microsoft Graph API | Email signals (Phase 3)     |
+| **SES**        | AWS SDK             | Agent-to-user notifications |
 
 ---
 
@@ -487,12 +515,12 @@ pnpm typecheck
 
 #### Local Services
 
-| Service | URL | Purpose |
-|---------|-----|---------|
-| DynamoDB Local | http://localhost:8000 | Database |
-| DynamoDB Admin | http://localhost:8001 | Database UI |
-| LocalStack | http://localhost:4566 | SES, Secrets Manager |
-| MailHog | http://localhost:8025 | Email testing UI |
+| Service        | URL                   | Purpose              |
+| -------------- | --------------------- | -------------------- |
+| DynamoDB Local | http://localhost:8000 | Database             |
+| DynamoDB Admin | http://localhost:8001 | Database UI          |
+| LocalStack     | http://localhost:4566 | SES, Secrets Manager |
+| MailHog        | http://localhost:8025 | Email testing UI     |
 
 ---
 
@@ -503,11 +531,12 @@ agentic-pm/
 ├── packages/
 │   ├── core/                    # @agentic-pm/core - Shared business logic
 │   │   ├── src/
-│   │   │   ├── signals/         # Signal normalisation
+│   │   │   ├── signals/         # Signal normalisation, stakeholder extraction, stale watchdog
 │   │   │   ├── triage/          # Sanitise + classify
 │   │   │   ├── reasoning/       # Sonnet reasoning
 │   │   │   ├── execution/       # Action execution, boundaries, confidence
 │   │   │   ├── artefacts/       # Artefact schemas and updater
+│   │   │   ├── reports/         # Status reports, coherence auditor
 │   │   │   ├── llm/             # Claude API client, tools, budget
 │   │   │   ├── db/              # DynamoDB client and repositories
 │   │   │   └── integrations/    # Jira, Outlook, SES clients
@@ -530,11 +559,14 @@ agentic-pm/
 │   ├── web/                     # @agentic-pm/web - Next.js frontend
 │   │   ├── src/
 │   │   │   ├── app/
-│   │   │   │   ├── (dashboard)/ # Mission Control, Activity, Projects
-│   │   │   │   ├── api/         # API routes for user actions
+│   │   │   │   ├── (dashboard)/ # Dashboard, Projects, Activity, Escalations,
+│   │   │   │   │                # Reports, Ingest, Extracted, Catch-up, Ask
+│   │   │   │   ├── api/         # API routes (reports, briefings, decisions,
+│   │   │   │   │                # snapshots, catchup, stakeholders, query)
 │   │   │   │   └── auth/        # NextAuth routes
-│   │   │   ├── components/      # UI components
-│   │   │   └── lib/             # Hooks, utilities
+│   │   │   ├── components/      # UI components (command palette, briefing panel,
+│   │   │   │                    # decision tracker, trend chart, export, etc.)
+│   │   │   └── lib/             # Hooks, utilities, export helpers
 │   │   └── package.json
 │   │
 │   └── cdk/                     # @agentic-pm/cdk - Infrastructure
@@ -562,35 +594,35 @@ agentic-pm/
 
 #### Frontend (`packages/web`)
 
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `NEXTAUTH_URL` | Base URL for NextAuth | Yes |
-| `NEXTAUTH_SECRET` | Secret for session encryption | Yes |
-| `AWS_REGION` | AWS region | Yes |
-| `DYNAMODB_TABLE_NAME` | DynamoDB table name | Yes |
+| Variable              | Description                   | Required |
+| --------------------- | ----------------------------- | -------- |
+| `NEXTAUTH_URL`        | Base URL for NextAuth         | Yes      |
+| `NEXTAUTH_SECRET`     | Secret for session encryption | Yes      |
+| `AWS_REGION`          | AWS region                    | Yes      |
+| `DYNAMODB_TABLE_NAME` | DynamoDB table name           | Yes      |
 
 #### Lambda Functions
 
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `DYNAMODB_TABLE_NAME` | DynamoDB table name | Yes |
-| `SECRETS_PREFIX` | Secrets Manager path prefix | Yes |
-| `LOG_LEVEL` | Logging level (debug/info/warn/error) | No |
+| Variable              | Description                           | Required |
+| --------------------- | ------------------------------------- | -------- |
+| `DYNAMODB_TABLE_NAME` | DynamoDB table name                   | Yes      |
+| `SECRETS_PREFIX`      | Secrets Manager path prefix           | Yes      |
+| `LOG_LEVEL`           | Logging level (debug/info/warn/error) | No       |
 
 ### AWS Secrets Manager
 
 All sensitive credentials are stored in AWS Secrets Manager:
 
-| Secret Path | Description |
-|-------------|-------------|
-| `/agentic-pm/llm/api-key` | Claude API key |
-| `/agentic-pm/jira/api-token` | Jira API token |
-| `/agentic-pm/jira/base-url` | Jira instance URL |
-| `/agentic-pm/jira/email` | Jira account email |
-| `/agentic-pm/graph/client-id` | Azure AD client ID |
-| `/agentic-pm/graph/client-secret` | Azure AD client secret |
-| `/agentic-pm/graph/tenant-id` | Azure AD tenant ID |
-| `/agentic-pm/auth/nextauth-secret` | NextAuth session secret |
+| Secret Path                         | Description                     |
+| ----------------------------------- | ------------------------------- |
+| `/agentic-pm/llm/api-key`           | Claude API key                  |
+| `/agentic-pm/jira/api-token`        | Jira API token                  |
+| `/agentic-pm/jira/base-url`         | Jira instance URL               |
+| `/agentic-pm/jira/email`            | Jira account email              |
+| `/agentic-pm/graph/client-id`       | Azure AD client ID              |
+| `/agentic-pm/graph/client-secret`   | Azure AD client secret          |
+| `/agentic-pm/graph/tenant-id`       | Azure AD tenant ID              |
+| `/agentic-pm/auth/nextauth-secret`  | NextAuth session secret         |
 | `/agentic-pm/auth/user-credentials` | User login credentials (bcrypt) |
 
 ---
@@ -621,12 +653,12 @@ pnpm cdk diff
 
 ### CDK Stacks
 
-| Stack | Resources |
-|-------|-----------|
-| `AgenticPmDatabaseStack` | DynamoDB table, GSI, TTL configuration |
-| `AgenticPmComputeStack` | Lambda functions, Step Functions, EventBridge |
-| `AgenticPmFrontendStack` | Amplify app, custom domain (optional) |
-| `AgenticPmMonitoringStack` | CloudWatch alarms, dashboards, log groups |
+| Stack                      | Resources                                     |
+| -------------------------- | --------------------------------------------- |
+| `AgenticPmDatabaseStack`   | DynamoDB table, GSI, TTL configuration        |
+| `AgenticPmComputeStack`    | Lambda functions, Step Functions, EventBridge |
+| `AgenticPmFrontendStack`   | Amplify app, custom domain (optional)         |
+| `AgenticPmMonitoringStack` | CloudWatch alarms, dashboards, log groups     |
 
 ### CI/CD Pipeline
 
@@ -683,12 +715,12 @@ pnpm format:check
 
 ### Testing Pyramid
 
-| Layer | Tool | Coverage Target |
-|-------|------|-----------------|
-| Unit | Vitest | 80% of core logic |
-| Integration | Vitest + DynamoDB Local | All DB operations |
-| E2E | Playwright | Critical user flows |
-| LLM Quality | Golden scenarios | 10+ scenarios, >= 90% accuracy |
+| Layer       | Tool                    | Coverage Target                |
+| ----------- | ----------------------- | ------------------------------ |
+| Unit        | Vitest                  | 80% of core logic              |
+| Integration | Vitest + DynamoDB Local | All DB operations              |
+| E2E         | Playwright              | Critical user flows            |
+| LLM Quality | Golden scenarios        | 10+ scenarios, >= 90% accuracy |
 
 ### Contributing
 
@@ -702,26 +734,29 @@ pnpm format:check
 
 ## Documentation
 
-| Document | Purpose |
-|----------|---------|
-| [`SPEC.md`](SPEC.md) | **Source of truth** - Implementation-ready specification |
-| [`DEVELOPMENT.md`](DEVELOPMENT.md) | Engineering guide with sprint breakdown |
-| [`CLAUDE.md`](CLAUDE.md) | Project instructions for Claude Code |
-| [`solution-design/`](solution-design/) | Technical design documents (9 files) |
+| Document                                                   | Purpose                                                  |
+| ---------------------------------------------------------- | -------------------------------------------------------- |
+| [`SPEC.md`](SPEC.md)                                       | **Source of truth** - Implementation-ready specification |
+| [`DEVELOPMENT.md`](DEVELOPMENT.md)                         | Engineering guide with sprint breakdown                  |
+| [`CLAUDE.md`](CLAUDE.md)                                   | Project instructions for Claude Code                     |
+| [`docs/FEATURE-EVALUATION.md`](docs/FEATURE-EVALUATION.md) | Multi-agent feature evaluation (15 features)             |
+| [`docs/BACKLOG.md`](docs/BACKLOG.md)                       | Feature backlog organised into 5 epics                   |
+| [`docs/specs/`](docs/specs/)                               | Detailed feature specifications with AC                  |
+| [`solution-design/`](solution-design/)                     | Technical design documents (9 files)                     |
 
 ### Solution Design Documents
 
-| Document | Content |
-|----------|---------|
-| `00-gap-analysis.md` | 47 gaps identified, 4 critical blockers |
-| `01-technical-architecture.md` | Diagrams, ASL, Lambda specs |
-| `02-api-schemas.md` | TypeScript types, Zod schemas |
-| `03-dev-backlog.md` | Epics, user stories, sprints |
-| `04-competitor-analysis.md` | Market gap analysis |
-| `05-scalability-analysis.md` | Growth scenarios |
-| `06-prompt-library.md` | System prompts, tool schemas |
-| `07-testing-strategy.md` | Test pyramid, golden scenarios |
-| `08-infrastructure-code.md` | CDK, CI/CD, docker-compose |
+| Document                       | Content                                 |
+| ------------------------------ | --------------------------------------- |
+| `00-gap-analysis.md`           | 47 gaps identified, 4 critical blockers |
+| `01-technical-architecture.md` | Diagrams, ASL, Lambda specs             |
+| `02-api-schemas.md`            | TypeScript types, Zod schemas           |
+| `03-dev-backlog.md`            | Epics, user stories, sprints            |
+| `04-competitor-analysis.md`    | Market gap analysis                     |
+| `05-scalability-analysis.md`   | Growth scenarios                        |
+| `06-prompt-library.md`         | System prompts, tool schemas            |
+| `07-testing-strategy.md`       | Test pyramid, golden scenarios          |
+| `08-infrastructure-code.md`    | CDK, CI/CD, docker-compose              |
 
 ---
 
@@ -729,32 +764,33 @@ pnpm format:check
 
 ### Monthly Budget: $15 (ceiling)
 
-| Service | Monthly Cost | Notes |
-|---------|--------------|-------|
-| AWS Amplify Hosting | ~$0.50 | Build minutes + hosting |
-| AWS Lambda | ~$0.00 | Free tier (1M requests) |
-| AWS Step Functions | ~$1.00 | ~2,900 executions/month |
-| DynamoDB (on-demand) | ~$0.25 | Minimal storage and I/O |
-| Secrets Manager | ~$2.00 | 4 secrets + API calls |
-| Amazon SES | ~$0.00 | Free tier (62,000 emails) |
-| CloudWatch | ~$1-2.00 | Logs, metrics, alarms |
-| **AWS Subtotal** | **~$5-8** | |
-| Claude API (Haiku/Sonnet) | ~$5-7.00 | With prompt caching |
-| **Total** | **~$11-13** | Well under $15 ceiling |
+| Service                   | Monthly Cost | Notes                     |
+| ------------------------- | ------------ | ------------------------- |
+| AWS Amplify Hosting       | ~$0.50       | Build minutes + hosting   |
+| AWS Lambda                | ~$0.00       | Free tier (1M requests)   |
+| AWS Step Functions        | ~$1.00       | ~2,900 executions/month   |
+| DynamoDB (on-demand)      | ~$0.25       | Minimal storage and I/O   |
+| Secrets Manager           | ~$2.00       | 4 secrets + API calls     |
+| Amazon SES                | ~$0.00       | Free tier (62,000 emails) |
+| CloudWatch                | ~$1-2.00     | Logs, metrics, alarms     |
+| **AWS Subtotal**          | **~$5-8**    |                           |
+| Claude API (Haiku/Sonnet) | ~$5-7.00     | With prompt caching       |
+| **Total**                 | **~$11-13**  | Well under $15 ceiling    |
 
 ### Critical Cost Traps to Avoid
 
-| Trap | Monthly Cost | Prevention |
-|------|--------------|------------|
-| NAT Gateway | ~$33 | Lambda runs OUTSIDE VPC |
-| Aurora Serverless | ~$44+ | Use DynamoDB instead |
-| RDS | ~$15+ | Use DynamoDB instead |
+| Trap              | Monthly Cost | Prevention              |
+| ----------------- | ------------ | ----------------------- |
+| NAT Gateway       | ~$33         | Lambda runs OUTSIDE VPC |
+| Aurora Serverless | ~$44+        | Use DynamoDB instead    |
+| RDS               | ~$15+        | Use DynamoDB instead    |
 
 ---
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
+for details.
 
 ---
 

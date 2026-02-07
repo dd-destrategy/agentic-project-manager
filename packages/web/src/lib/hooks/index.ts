@@ -80,4 +80,12 @@ export {
   useStakeholders,
   type Stakeholder as StakeholderData,
 } from './use-stakeholders';
-export { useBriefing, type Briefing } from './use-briefings';
+export {
+  useBriefing,
+  useGenerateBriefing,
+  type Briefing,
+  type BriefingSection,
+} from './use-briefings';
+export { useArtefactTrend } from './use-snapshots';
+export { useCatchup } from './use-catchup';
+export { useDecisions, useUpdateDecisionOutcome } from './use-decisions';

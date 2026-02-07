@@ -23,6 +23,7 @@ function createMockDbClient() {
   return {
     get: vi.fn().mockResolvedValue(null),
     put: vi.fn().mockResolvedValue(undefined),
+    update: vi.fn().mockResolvedValue(undefined),
     query: vi.fn().mockResolvedValue([]),
     delete: vi.fn().mockResolvedValue(undefined),
   };
@@ -46,7 +47,7 @@ function createTokenUsage(costUsd: number): TokenUsage {
 
 describe('DEGRADATION_THRESHOLDS', () => {
   it('should have correct tier 1 threshold at 70%', () => {
-    expect(DEGRADATION_THRESHOLDS.tier1Percent).toBe(0.70);
+    expect(DEGRADATION_THRESHOLDS.tier1Percent).toBe(0.7);
   });
 
   it('should have correct tier 2 threshold at 85%', () => {
@@ -58,13 +59,19 @@ describe('DEGRADATION_THRESHOLDS', () => {
   });
 
   it('should have correct hard ceiling at 100%', () => {
-    expect(DEGRADATION_THRESHOLDS.hardCeilingPercent).toBe(1.00);
+    expect(DEGRADATION_THRESHOLDS.hardCeilingPercent).toBe(1.0);
   });
 
   it('should have thresholds in ascending order', () => {
-    expect(DEGRADATION_THRESHOLDS.tier1Percent).toBeLessThan(DEGRADATION_THRESHOLDS.tier2Percent);
-    expect(DEGRADATION_THRESHOLDS.tier2Percent).toBeLessThan(DEGRADATION_THRESHOLDS.tier3Percent);
-    expect(DEGRADATION_THRESHOLDS.tier3Percent).toBeLessThanOrEqual(DEGRADATION_THRESHOLDS.hardCeilingPercent);
+    expect(DEGRADATION_THRESHOLDS.tier1Percent).toBeLessThan(
+      DEGRADATION_THRESHOLDS.tier2Percent
+    );
+    expect(DEGRADATION_THRESHOLDS.tier2Percent).toBeLessThan(
+      DEGRADATION_THRESHOLDS.tier3Percent
+    );
+    expect(DEGRADATION_THRESHOLDS.tier3Percent).toBeLessThanOrEqual(
+      DEGRADATION_THRESHOLDS.hardCeilingPercent
+    );
   });
 });
 
@@ -243,7 +250,11 @@ describe('BudgetTracker', () => {
   describe('recordUsage', () => {
     it('should update daily spend', async () => {
       const usage = createTokenUsage(0.05);
-      await tracker.recordUsage(usage, 'test_operation', 'claude-3-5-haiku-20241022');
+      await tracker.recordUsage(
+        usage,
+        'test_operation',
+        'claude-3-5-haiku-20241022'
+      );
 
       const state = tracker.getState();
       expect(state.dailySpendUsd).toBe(0.05);
@@ -251,23 +262,43 @@ describe('BudgetTracker', () => {
 
     it('should update monthly spend', async () => {
       const usage = createTokenUsage(0.05);
-      await tracker.recordUsage(usage, 'test_operation', 'claude-3-5-haiku-20241022');
+      await tracker.recordUsage(
+        usage,
+        'test_operation',
+        'claude-3-5-haiku-20241022'
+      );
 
       const state = tracker.getState();
       expect(state.monthlySpendUsd).toBe(0.05);
     });
 
     it('should accumulate multiple usages', async () => {
-      await tracker.recordUsage(createTokenUsage(0.03), 'op1', 'claude-3-5-haiku-20241022');
-      await tracker.recordUsage(createTokenUsage(0.04), 'op2', 'claude-3-5-haiku-20241022');
-      await tracker.recordUsage(createTokenUsage(0.05), 'op3', 'claude-sonnet-4-5-20250514');
+      await tracker.recordUsage(
+        createTokenUsage(0.03),
+        'op1',
+        'claude-3-5-haiku-20241022'
+      );
+      await tracker.recordUsage(
+        createTokenUsage(0.04),
+        'op2',
+        'claude-3-5-haiku-20241022'
+      );
+      await tracker.recordUsage(
+        createTokenUsage(0.05),
+        'op3',
+        'claude-sonnet-4-5-20250514'
+      );
 
       const state = tracker.getState();
       expect(state.dailySpendUsd).toBeCloseTo(0.12, 5);
     });
 
     it('should track usage history', async () => {
-      await tracker.recordUsage(createTokenUsage(0.05), 'test_op', 'claude-3-5-haiku-20241022');
+      await tracker.recordUsage(
+        createTokenUsage(0.05),
+        'test_op',
+        'claude-3-5-haiku-20241022'
+      );
 
       const history = tracker.getUsageHistory();
       expect(history).toHaveLength(1);
@@ -276,10 +307,14 @@ describe('BudgetTracker', () => {
     });
 
     it('should return updated state', async () => {
-      const usage = createTokenUsage(0.10);
-      const state = await tracker.recordUsage(usage, 'test', 'claude-3-5-haiku-20241022');
+      const usage = createTokenUsage(0.1);
+      const state = await tracker.recordUsage(
+        usage,
+        'test',
+        'claude-3-5-haiku-20241022'
+      );
 
-      expect(state.dailySpendUsd).toBe(0.10);
+      expect(state.dailySpendUsd).toBe(0.1);
     });
   });
 
@@ -290,42 +325,70 @@ describe('BudgetTracker', () => {
 
     it('should return tier 0 below 70%', async () => {
       // 69% of $0.23 = ~$0.1587
-      await tracker.recordUsage(createTokenUsage(0.158), 'test', 'claude-3-5-haiku-20241022');
+      await tracker.recordUsage(
+        createTokenUsage(0.158),
+        'test',
+        'claude-3-5-haiku-20241022'
+      );
       expect(tracker.calculateDegradationTier()).toBe(0);
     });
 
     it('should return tier 1 at 70%', async () => {
       // 70% of $0.23 = $0.161
-      await tracker.recordUsage(createTokenUsage(0.162), 'test', 'claude-3-5-haiku-20241022');
+      await tracker.recordUsage(
+        createTokenUsage(0.162),
+        'test',
+        'claude-3-5-haiku-20241022'
+      );
       expect(tracker.calculateDegradationTier()).toBe(1);
     });
 
     it('should return tier 1 between 70-85%', async () => {
       // 80% of $0.23 = $0.184
-      await tracker.recordUsage(createTokenUsage(0.184), 'test', 'claude-3-5-haiku-20241022');
+      await tracker.recordUsage(
+        createTokenUsage(0.184),
+        'test',
+        'claude-3-5-haiku-20241022'
+      );
       expect(tracker.calculateDegradationTier()).toBe(1);
     });
 
     it('should return tier 2 at 85%', async () => {
       // 85% of $0.23 = $0.1955
-      await tracker.recordUsage(createTokenUsage(0.196), 'test', 'claude-3-5-haiku-20241022');
+      await tracker.recordUsage(
+        createTokenUsage(0.196),
+        'test',
+        'claude-3-5-haiku-20241022'
+      );
       expect(tracker.calculateDegradationTier()).toBe(2);
     });
 
     it('should return tier 2 between 85-95%', async () => {
       // 90% of $0.23 = $0.207
-      await tracker.recordUsage(createTokenUsage(0.207), 'test', 'claude-3-5-haiku-20241022');
+      await tracker.recordUsage(
+        createTokenUsage(0.207),
+        'test',
+        'claude-3-5-haiku-20241022'
+      );
       expect(tracker.calculateDegradationTier()).toBe(2);
     });
 
     it('should return tier 3 at 95%', async () => {
       // 95% of $0.23 = $0.2185
-      await tracker.recordUsage(createTokenUsage(0.219), 'test', 'claude-3-5-haiku-20241022');
+      await tracker.recordUsage(
+        createTokenUsage(0.219),
+        'test',
+        'claude-3-5-haiku-20241022'
+      );
       expect(tracker.calculateDegradationTier()).toBe(3);
     });
 
     it('should return tier 3 at 100%', async () => {
-      await tracker.recordUsage(createTokenUsage(DAILY_LLM_BUDGET_USD), 'test', 'claude-3-5-haiku-20241022');
+      await tracker.recordUsage(
+        createTokenUsage(DAILY_LLM_BUDGET_USD),
+        'test',
+        'claude-3-5-haiku-20241022'
+      );
       expect(tracker.calculateDegradationTier()).toBe(3);
     });
   });
@@ -336,34 +399,58 @@ describe('BudgetTracker', () => {
     });
 
     it('should return true at tier 1', async () => {
-      await tracker.recordUsage(createTokenUsage(0.162), 'test', 'claude-3-5-haiku-20241022');
+      await tracker.recordUsage(
+        createTokenUsage(0.162),
+        'test',
+        'claude-3-5-haiku-20241022'
+      );
       expect(tracker.canMakeCall()).toBe(true);
     });
 
     it('should return true at tier 2', async () => {
-      await tracker.recordUsage(createTokenUsage(0.196), 'test', 'claude-3-5-haiku-20241022');
+      await tracker.recordUsage(
+        createTokenUsage(0.196),
+        'test',
+        'claude-3-5-haiku-20241022'
+      );
       expect(tracker.canMakeCall()).toBe(true);
     });
 
     it('should return false at tier 3', async () => {
-      await tracker.recordUsage(createTokenUsage(0.22), 'test', 'claude-3-5-haiku-20241022');
+      await tracker.recordUsage(
+        createTokenUsage(0.22),
+        'test',
+        'claude-3-5-haiku-20241022'
+      );
       expect(tracker.canMakeCall()).toBe(false);
     });
   });
 
   describe('isAtHardCeiling', () => {
     it('should return false below ceiling', async () => {
-      await tracker.recordUsage(createTokenUsage(0.20), 'test', 'claude-3-5-haiku-20241022');
+      await tracker.recordUsage(
+        createTokenUsage(0.2),
+        'test',
+        'claude-3-5-haiku-20241022'
+      );
       expect(tracker.isAtHardCeiling()).toBe(false);
     });
 
     it('should return true at ceiling', async () => {
-      await tracker.recordUsage(createTokenUsage(DAILY_LLM_BUDGET_USD), 'test', 'claude-3-5-haiku-20241022');
+      await tracker.recordUsage(
+        createTokenUsage(DAILY_LLM_BUDGET_USD),
+        'test',
+        'claude-3-5-haiku-20241022'
+      );
       expect(tracker.isAtHardCeiling()).toBe(true);
     });
 
     it('should return true above ceiling', async () => {
-      await tracker.recordUsage(createTokenUsage(0.25), 'test', 'claude-3-5-haiku-20241022');
+      await tracker.recordUsage(
+        createTokenUsage(0.25),
+        'test',
+        'claude-3-5-haiku-20241022'
+      );
       expect(tracker.isAtHardCeiling()).toBe(true);
     });
   });
@@ -374,17 +461,29 @@ describe('BudgetTracker', () => {
     });
 
     it('should return false at tier 1', async () => {
-      await tracker.recordUsage(createTokenUsage(0.162), 'test', 'claude-3-5-haiku-20241022');
+      await tracker.recordUsage(
+        createTokenUsage(0.162),
+        'test',
+        'claude-3-5-haiku-20241022'
+      );
       expect(tracker.isHaikuOnly()).toBe(false);
     });
 
     it('should return true at tier 2', async () => {
-      await tracker.recordUsage(createTokenUsage(0.196), 'test', 'claude-3-5-haiku-20241022');
+      await tracker.recordUsage(
+        createTokenUsage(0.196),
+        'test',
+        'claude-3-5-haiku-20241022'
+      );
       expect(tracker.isHaikuOnly()).toBe(true);
     });
 
     it('should return true at tier 3', async () => {
-      await tracker.recordUsage(createTokenUsage(0.22), 'test', 'claude-3-5-haiku-20241022');
+      await tracker.recordUsage(
+        createTokenUsage(0.22),
+        'test',
+        'claude-3-5-haiku-20241022'
+      );
       expect(tracker.isHaikuOnly()).toBe(true);
     });
   });
@@ -395,17 +494,29 @@ describe('BudgetTracker', () => {
     });
 
     it('should return true at tier 1', async () => {
-      await tracker.recordUsage(createTokenUsage(0.162), 'test', 'claude-3-5-haiku-20241022');
+      await tracker.recordUsage(
+        createTokenUsage(0.162),
+        'test',
+        'claude-3-5-haiku-20241022'
+      );
       expect(tracker.shouldSkipLowPriority()).toBe(true);
     });
 
     it('should return true at tier 2', async () => {
-      await tracker.recordUsage(createTokenUsage(0.196), 'test', 'claude-3-5-haiku-20241022');
+      await tracker.recordUsage(
+        createTokenUsage(0.196),
+        'test',
+        'claude-3-5-haiku-20241022'
+      );
       expect(tracker.shouldSkipLowPriority()).toBe(true);
     });
 
     it('should return true at tier 3', async () => {
-      await tracker.recordUsage(createTokenUsage(0.22), 'test', 'claude-3-5-haiku-20241022');
+      await tracker.recordUsage(
+        createTokenUsage(0.22),
+        'test',
+        'claude-3-5-haiku-20241022'
+      );
       expect(tracker.shouldSkipLowPriority()).toBe(true);
     });
   });
@@ -416,17 +527,29 @@ describe('BudgetTracker', () => {
     });
 
     it('should return false at tier 1', async () => {
-      await tracker.recordUsage(createTokenUsage(0.162), 'test', 'claude-3-5-haiku-20241022');
+      await tracker.recordUsage(
+        createTokenUsage(0.162),
+        'test',
+        'claude-3-5-haiku-20241022'
+      );
       expect(tracker.shouldBatchSignals()).toBe(false);
     });
 
     it('should return true at tier 2', async () => {
-      await tracker.recordUsage(createTokenUsage(0.196), 'test', 'claude-3-5-haiku-20241022');
+      await tracker.recordUsage(
+        createTokenUsage(0.196),
+        'test',
+        'claude-3-5-haiku-20241022'
+      );
       expect(tracker.shouldBatchSignals()).toBe(true);
     });
 
     it('should return true at tier 3', async () => {
-      await tracker.recordUsage(createTokenUsage(0.22), 'test', 'claude-3-5-haiku-20241022');
+      await tracker.recordUsage(
+        createTokenUsage(0.22),
+        'test',
+        'claude-3-5-haiku-20241022'
+      );
       expect(tracker.shouldBatchSignals()).toBe(true);
     });
   });
@@ -437,17 +560,29 @@ describe('BudgetTracker', () => {
     });
 
     it('should return 15 at tier 1', async () => {
-      await tracker.recordUsage(createTokenUsage(0.162), 'test', 'claude-3-5-haiku-20241022');
+      await tracker.recordUsage(
+        createTokenUsage(0.162),
+        'test',
+        'claude-3-5-haiku-20241022'
+      );
       expect(tracker.getPollingIntervalMinutes()).toBe(15);
     });
 
     it('should return 30 at tier 2', async () => {
-      await tracker.recordUsage(createTokenUsage(0.196), 'test', 'claude-3-5-haiku-20241022');
+      await tracker.recordUsage(
+        createTokenUsage(0.196),
+        'test',
+        'claude-3-5-haiku-20241022'
+      );
       expect(tracker.getPollingIntervalMinutes()).toBe(30);
     });
 
     it('should return 60 at tier 3', async () => {
-      await tracker.recordUsage(createTokenUsage(0.22), 'test', 'claude-3-5-haiku-20241022');
+      await tracker.recordUsage(
+        createTokenUsage(0.22),
+        'test',
+        'claude-3-5-haiku-20241022'
+      );
       expect(tracker.getPollingIntervalMinutes()).toBe(60);
     });
   });
@@ -460,21 +595,33 @@ describe('BudgetTracker', () => {
     });
 
     it('should return 85/15 at tier 1', async () => {
-      await tracker.recordUsage(createTokenUsage(0.162), 'test', 'claude-3-5-haiku-20241022');
+      await tracker.recordUsage(
+        createTokenUsage(0.162),
+        'test',
+        'claude-3-5-haiku-20241022'
+      );
       const mix = tracker.getLlmMix();
       expect(mix.haikuPercent).toBe(85);
       expect(mix.sonnetPercent).toBe(15);
     });
 
     it('should return 100/0 at tier 2', async () => {
-      await tracker.recordUsage(createTokenUsage(0.196), 'test', 'claude-3-5-haiku-20241022');
+      await tracker.recordUsage(
+        createTokenUsage(0.196),
+        'test',
+        'claude-3-5-haiku-20241022'
+      );
       const mix = tracker.getLlmMix();
       expect(mix.haikuPercent).toBe(100);
       expect(mix.sonnetPercent).toBe(0);
     });
 
     it('should return 0/0 at tier 3', async () => {
-      await tracker.recordUsage(createTokenUsage(0.22), 'test', 'claude-3-5-haiku-20241022');
+      await tracker.recordUsage(
+        createTokenUsage(0.22),
+        'test',
+        'claude-3-5-haiku-20241022'
+      );
       const mix = tracker.getLlmMix();
       expect(mix.haikuPercent).toBe(0);
       expect(mix.sonnetPercent).toBe(0);
@@ -487,19 +634,31 @@ describe('BudgetTracker', () => {
     });
 
     it('should return false for cost exactly meeting remaining budget', async () => {
-      await tracker.recordUsage(createTokenUsage(0.13), 'test', 'claude-3-5-haiku-20241022');
+      await tracker.recordUsage(
+        createTokenUsage(0.13),
+        'test',
+        'claude-3-5-haiku-20241022'
+      );
       // Remaining: $0.23 - $0.13 = $0.10
-      expect(tracker.wouldExceedBudget(0.10)).toBe(false);
+      expect(tracker.wouldExceedBudget(0.1)).toBe(false);
     });
 
     it('should return true for cost exceeding remaining budget', async () => {
-      await tracker.recordUsage(createTokenUsage(0.20), 'test', 'claude-3-5-haiku-20241022');
+      await tracker.recordUsage(
+        createTokenUsage(0.2),
+        'test',
+        'claude-3-5-haiku-20241022'
+      );
       // Remaining: $0.23 - $0.20 = $0.03
       expect(tracker.wouldExceedBudget(0.05)).toBe(true);
     });
 
     it('should return true when already at budget', async () => {
-      await tracker.recordUsage(createTokenUsage(DAILY_LLM_BUDGET_USD), 'test', 'claude-3-5-haiku-20241022');
+      await tracker.recordUsage(
+        createTokenUsage(DAILY_LLM_BUDGET_USD),
+        'test',
+        'claude-3-5-haiku-20241022'
+      );
       expect(tracker.wouldExceedBudget(0.01)).toBe(true);
     });
   });
@@ -510,12 +669,23 @@ describe('BudgetTracker', () => {
     });
 
     it('should return reduced budget after spending', async () => {
-      await tracker.recordUsage(createTokenUsage(0.10), 'test', 'claude-3-5-haiku-20241022');
-      expect(tracker.getRemainingDailyBudget()).toBeCloseTo(DAILY_LLM_BUDGET_USD - 0.10, 5);
+      await tracker.recordUsage(
+        createTokenUsage(0.1),
+        'test',
+        'claude-3-5-haiku-20241022'
+      );
+      expect(tracker.getRemainingDailyBudget()).toBeCloseTo(
+        DAILY_LLM_BUDGET_USD - 0.1,
+        5
+      );
     });
 
     it('should return 0 when budget exceeded', async () => {
-      await tracker.recordUsage(createTokenUsage(0.30), 'test', 'claude-3-5-haiku-20241022');
+      await tracker.recordUsage(
+        createTokenUsage(0.3),
+        'test',
+        'claude-3-5-haiku-20241022'
+      );
       expect(tracker.getRemainingDailyBudget()).toBe(0);
     });
   });
@@ -526,8 +696,15 @@ describe('BudgetTracker', () => {
     });
 
     it('should return reduced budget after spending', async () => {
-      await tracker.recordUsage(createTokenUsage(0.50), 'test', 'claude-3-5-haiku-20241022');
-      expect(tracker.getRemainingMonthlyBudget()).toBeCloseTo(MONTHLY_LLM_BUDGET_USD - 0.50, 5);
+      await tracker.recordUsage(
+        createTokenUsage(0.5),
+        'test',
+        'claude-3-5-haiku-20241022'
+      );
+      expect(tracker.getRemainingMonthlyBudget()).toBeCloseTo(
+        MONTHLY_LLM_BUDGET_USD - 0.5,
+        5
+      );
     });
   });
 
@@ -538,12 +715,20 @@ describe('BudgetTracker', () => {
 
     it('should return correct percentage', async () => {
       // Spend half the daily budget
-      await tracker.recordUsage(createTokenUsage(DAILY_LLM_BUDGET_USD / 2), 'test', 'claude-3-5-haiku-20241022');
+      await tracker.recordUsage(
+        createTokenUsage(DAILY_LLM_BUDGET_USD / 2),
+        'test',
+        'claude-3-5-haiku-20241022'
+      );
       expect(tracker.getDailySpendPercent()).toBeCloseTo(50, 1);
     });
 
     it('should return 100+ when over budget', async () => {
-      await tracker.recordUsage(createTokenUsage(0.30), 'test', 'claude-3-5-haiku-20241022');
+      await tracker.recordUsage(
+        createTokenUsage(0.3),
+        'test',
+        'claude-3-5-haiku-20241022'
+      );
       expect(tracker.getDailySpendPercent()).toBeGreaterThan(100);
     });
   });
@@ -555,7 +740,11 @@ describe('BudgetTracker', () => {
 
     it('should return correct percentage', async () => {
       // Spend 10% of monthly budget ($0.80)
-      await tracker.recordUsage(createTokenUsage(0.80), 'test', 'claude-3-5-haiku-20241022');
+      await tracker.recordUsage(
+        createTokenUsage(0.8),
+        'test',
+        'claude-3-5-haiku-20241022'
+      );
       expect(tracker.getMonthlySpendPercent()).toBeCloseTo(10, 1);
     });
   });
@@ -566,7 +755,11 @@ describe('BudgetTracker', () => {
     });
 
     it('should return copy of history', async () => {
-      await tracker.recordUsage(createTokenUsage(0.05), 'test', 'claude-3-5-haiku-20241022');
+      await tracker.recordUsage(
+        createTokenUsage(0.05),
+        'test',
+        'claude-3-5-haiku-20241022'
+      );
       const history1 = tracker.getUsageHistory();
       const history2 = tracker.getUsageHistory();
 
@@ -575,9 +768,21 @@ describe('BudgetTracker', () => {
     });
 
     it('should include all recorded usages', async () => {
-      await tracker.recordUsage(createTokenUsage(0.01), 'op1', 'claude-3-5-haiku-20241022');
-      await tracker.recordUsage(createTokenUsage(0.02), 'op2', 'claude-sonnet-4-5-20250514');
-      await tracker.recordUsage(createTokenUsage(0.03), 'op3', 'claude-3-5-haiku-20241022');
+      await tracker.recordUsage(
+        createTokenUsage(0.01),
+        'op1',
+        'claude-3-5-haiku-20241022'
+      );
+      await tracker.recordUsage(
+        createTokenUsage(0.02),
+        'op2',
+        'claude-sonnet-4-5-20250514'
+      );
+      await tracker.recordUsage(
+        createTokenUsage(0.03),
+        'op3',
+        'claude-3-5-haiku-20241022'
+      );
 
       const history = tracker.getUsageHistory();
       expect(history).toHaveLength(3);
@@ -610,70 +815,90 @@ describe('BudgetTracker with DynamoDB', () => {
 
       // Should not throw when recording usage
       expect(async () => {
-        await trackerWithoutDb.recordUsage(createTokenUsage(0.05), 'test', 'claude-3-5-haiku-20241022');
+        await trackerWithoutDb.recordUsage(
+          createTokenUsage(0.05),
+          'test',
+          'claude-3-5-haiku-20241022'
+        );
       }).not.toThrow();
     });
   });
 
   describe('saveToDb', () => {
-    it('should save daily record to DynamoDB', async () => {
-      await tracker.recordUsage(createTokenUsage(0.05), 'test', 'claude-3-5-haiku-20241022');
+    it('should save daily record to DynamoDB via atomic update', async () => {
+      await tracker.recordUsage(
+        createTokenUsage(0.05),
+        'test',
+        'claude-3-5-haiku-20241022'
+      );
 
-      expect(mockDb.put).toHaveBeenCalled();
+      expect(mockDb.update).toHaveBeenCalled();
     });
 
-    it('should save monthly record to DynamoDB', async () => {
-      await tracker.recordUsage(createTokenUsage(0.05), 'test', 'claude-3-5-haiku-20241022');
+    it('should save both daily and monthly records to DynamoDB', async () => {
+      await tracker.recordUsage(
+        createTokenUsage(0.05),
+        'test',
+        'claude-3-5-haiku-20241022'
+      );
 
-      // Should be called twice (daily and monthly records)
-      expect(mockDb.put).toHaveBeenCalledTimes(2);
+      // Should be called twice (daily and monthly atomic increments)
+      expect(mockDb.update).toHaveBeenCalledTimes(2);
     });
 
-    it('should include correct daily spend in record', async () => {
-      await tracker.recordUsage(createTokenUsage(0.05), 'test', 'claude-3-5-haiku-20241022');
+    it('should use ADD expression for atomic daily spend increment', async () => {
+      await tracker.recordUsage(
+        createTokenUsage(0.05),
+        'test',
+        'claude-3-5-haiku-20241022'
+      );
 
-      const putCall = mockDb.put.mock.calls[0][0];
-      expect(putCall.dailySpendUsd).toBe(0.05);
+      const updateCall = mockDb.update.mock.calls[0];
+      // First arg is PK, second is SK, third is update expression
+      expect(updateCall[2]).toContain('ADD dailySpendUsd');
     });
 
-    it('should limit usage history to 100 entries', async () => {
-      // Record 105 usages
-      for (let i = 0; i < 105; i++) {
-        await tracker.recordUsage(createTokenUsage(0.001), `op${i}`, 'claude-3-5-haiku-20241022');
+    it('should track in-memory usage history correctly', async () => {
+      for (let i = 0; i < 5; i++) {
+        await tracker.recordUsage(
+          createTokenUsage(0.001),
+          `op${i}`,
+          'claude-3-5-haiku-20241022'
+        );
       }
 
-      const lastPutCall = mockDb.put.mock.calls[mockDb.put.mock.calls.length - 2][0];
-      expect(lastPutCall.usageHistory.length).toBeLessThanOrEqual(100);
+      const history = tracker.getUsageHistory();
+      expect(history).toHaveLength(5);
     });
   });
 
   describe('loadFromDb', () => {
     it('should load existing daily spend from DynamoDB', async () => {
       mockDb.get.mockResolvedValueOnce({
-        dailySpendUsd: 0.10,
+        dailySpendUsd: 0.1,
         usageHistory: [],
       });
 
       await tracker.loadFromDb();
       const state = tracker.getState();
 
-      expect(state.dailySpendUsd).toBe(0.10);
+      expect(state.dailySpendUsd).toBe(0.1);
     });
 
     it('should load existing monthly spend from DynamoDB', async () => {
       mockDb.get
         .mockResolvedValueOnce({
-          dailySpendUsd: 0.10,
+          dailySpendUsd: 0.1,
           usageHistory: [],
         })
         .mockResolvedValueOnce({
-          monthlySpendUsd: 2.50,
+          monthlySpendUsd: 2.5,
         });
 
       await tracker.loadFromDb();
       const state = tracker.getState();
 
-      expect(state.monthlySpendUsd).toBe(2.50);
+      expect(state.monthlySpendUsd).toBe(2.5);
     });
 
     it('should default to 0 if no record exists', async () => {
@@ -702,13 +927,13 @@ describe('BudgetTracker with DynamoDB', () => {
           usageHistory: [],
         })
         .mockResolvedValueOnce({
-          monthlySpendUsd: 3.00,
+          monthlySpendUsd: 3.0,
         });
 
       const state = await tracker.sync();
 
       expect(state.dailySpendUsd).toBe(0.15);
-      expect(state.monthlySpendUsd).toBe(3.00);
+      expect(state.monthlySpendUsd).toBe(3.0);
     });
   });
 });
@@ -724,18 +949,30 @@ describe('BudgetTracker static utilities', () => {
     });
 
     it('should return correct threshold for tier 1', () => {
-      const expected = DEGRADATION_THRESHOLDS.tier1Percent * DAILY_LLM_BUDGET_USD;
-      expect(BudgetTracker.getDailyThresholdForTier(1)).toBeCloseTo(expected, 5);
+      const expected =
+        DEGRADATION_THRESHOLDS.tier1Percent * DAILY_LLM_BUDGET_USD;
+      expect(BudgetTracker.getDailyThresholdForTier(1)).toBeCloseTo(
+        expected,
+        5
+      );
     });
 
     it('should return correct threshold for tier 2', () => {
-      const expected = DEGRADATION_THRESHOLDS.tier2Percent * DAILY_LLM_BUDGET_USD;
-      expect(BudgetTracker.getDailyThresholdForTier(2)).toBeCloseTo(expected, 5);
+      const expected =
+        DEGRADATION_THRESHOLDS.tier2Percent * DAILY_LLM_BUDGET_USD;
+      expect(BudgetTracker.getDailyThresholdForTier(2)).toBeCloseTo(
+        expected,
+        5
+      );
     });
 
     it('should return correct threshold for tier 3', () => {
-      const expected = DEGRADATION_THRESHOLDS.tier3Percent * DAILY_LLM_BUDGET_USD;
-      expect(BudgetTracker.getDailyThresholdForTier(3)).toBeCloseTo(expected, 5);
+      const expected =
+        DEGRADATION_THRESHOLDS.tier3Percent * DAILY_LLM_BUDGET_USD;
+      expect(BudgetTracker.getDailyThresholdForTier(3)).toBeCloseTo(
+        expected,
+        5
+      );
     });
   });
 
@@ -767,10 +1004,10 @@ describe('BudgetTracker static utilities', () => {
   describe('formatBudgetState', () => {
     it('should format budget state correctly', () => {
       const state = {
-        dailySpendUsd: 0.10,
+        dailySpendUsd: 0.1,
         dailyLimitUsd: 0.23,
-        monthlySpendUsd: 2.50,
-        monthlyLimitUsd: 8.00,
+        monthlySpendUsd: 2.5,
+        monthlyLimitUsd: 8.0,
         degradationTier: 0 as DegradationTier,
         currentDate: '2024-01-15',
         monthStartDate: '2024-01-01',
@@ -786,14 +1023,19 @@ describe('BudgetTracker static utilities', () => {
 
     it('should show correct tier name', () => {
       const tiers: DegradationTier[] = [0, 1, 2, 3];
-      const tierNames = ['Normal', 'Budget Pressure', 'High Pressure', 'Monitoring Only'];
+      const tierNames = [
+        'Normal',
+        'Budget Pressure',
+        'High Pressure',
+        'Monitoring Only',
+      ];
 
       tiers.forEach((tier, index) => {
         const state = {
           dailySpendUsd: 0,
           dailyLimitUsd: 0.23,
           monthlySpendUsd: 0,
-          monthlyLimitUsd: 8.00,
+          monthlyLimitUsd: 8.0,
           degradationTier: tier,
           currentDate: '2024-01-15',
           monthStartDate: '2024-01-01',
@@ -835,24 +1077,38 @@ describe('Edge cases', () => {
   });
 
   it('should handle very small costs', async () => {
-    await tracker.recordUsage(createTokenUsage(0.0001), 'test', 'claude-3-5-haiku-20241022');
+    await tracker.recordUsage(
+      createTokenUsage(0.0001),
+      'test',
+      'claude-3-5-haiku-20241022'
+    );
     expect(tracker.getState().dailySpendUsd).toBeCloseTo(0.0001, 6);
   });
 
   it('should handle zero cost usage', async () => {
-    await tracker.recordUsage(createTokenUsage(0), 'test', 'claude-3-5-haiku-20241022');
+    await tracker.recordUsage(
+      createTokenUsage(0),
+      'test',
+      'claude-3-5-haiku-20241022'
+    );
     expect(tracker.getState().dailySpendUsd).toBe(0);
   });
 
   it('should handle rapid successive calls', async () => {
     const promises = [];
     for (let i = 0; i < 10; i++) {
-      promises.push(tracker.recordUsage(createTokenUsage(0.01), `op${i}`, 'claude-3-5-haiku-20241022'));
+      promises.push(
+        tracker.recordUsage(
+          createTokenUsage(0.01),
+          `op${i}`,
+          'claude-3-5-haiku-20241022'
+        )
+      );
     }
 
     await Promise.all(promises);
 
-    expect(tracker.getState().dailySpendUsd).toBeCloseTo(0.10, 5);
+    expect(tracker.getState().dailySpendUsd).toBeCloseTo(0.1, 5);
   });
 
   it('should transition through all tiers correctly', async () => {
@@ -860,21 +1116,41 @@ describe('Edge cases', () => {
     expect(tracker.calculateDegradationTier()).toBe(0);
 
     // Move to tier 1 (70%)
-    await tracker.recordUsage(createTokenUsage(0.162), 'test1', 'claude-3-5-haiku-20241022');
+    await tracker.recordUsage(
+      createTokenUsage(0.162),
+      'test1',
+      'claude-3-5-haiku-20241022'
+    );
     expect(tracker.calculateDegradationTier()).toBe(1);
 
     // Move to tier 2 (85%)
-    await tracker.recordUsage(createTokenUsage(0.035), 'test2', 'claude-3-5-haiku-20241022');
+    await tracker.recordUsage(
+      createTokenUsage(0.035),
+      'test2',
+      'claude-3-5-haiku-20241022'
+    );
     expect(tracker.calculateDegradationTier()).toBe(2);
 
     // Move to tier 3 (95%)
-    await tracker.recordUsage(createTokenUsage(0.023), 'test3', 'claude-3-5-haiku-20241022');
+    await tracker.recordUsage(
+      createTokenUsage(0.023),
+      'test3',
+      'claude-3-5-haiku-20241022'
+    );
     expect(tracker.calculateDegradationTier()).toBe(3);
   });
 
   it('should track both models correctly', async () => {
-    await tracker.recordUsage(createTokenUsage(0.05), 'haiku_op', 'claude-3-5-haiku-20241022');
-    await tracker.recordUsage(createTokenUsage(0.08), 'sonnet_op', 'claude-sonnet-4-5-20250514');
+    await tracker.recordUsage(
+      createTokenUsage(0.05),
+      'haiku_op',
+      'claude-3-5-haiku-20241022'
+    );
+    await tracker.recordUsage(
+      createTokenUsage(0.08),
+      'sonnet_op',
+      'claude-sonnet-4-5-20250514'
+    );
 
     const history = tracker.getUsageHistory();
     expect(history[0].model).toBe('claude-3-5-haiku-20241022');
@@ -897,21 +1173,33 @@ describe('Degradation ladder integration', () => {
     expect(tracker.isHaikuOnly()).toBe(false);
 
     // Move to tier 1
-    await tracker.recordUsage(createTokenUsage(0.17), 'test', 'claude-3-5-haiku-20241022');
+    await tracker.recordUsage(
+      createTokenUsage(0.17),
+      'test',
+      'claude-3-5-haiku-20241022'
+    );
     expect(tracker.canMakeCall()).toBe(true);
     expect(tracker.shouldSkipLowPriority()).toBe(true);
     expect(tracker.shouldBatchSignals()).toBe(false);
     expect(tracker.isHaikuOnly()).toBe(false);
 
     // Move to tier 2
-    await tracker.recordUsage(createTokenUsage(0.03), 'test', 'claude-3-5-haiku-20241022');
+    await tracker.recordUsage(
+      createTokenUsage(0.03),
+      'test',
+      'claude-3-5-haiku-20241022'
+    );
     expect(tracker.canMakeCall()).toBe(true);
     expect(tracker.shouldSkipLowPriority()).toBe(true);
     expect(tracker.shouldBatchSignals()).toBe(true);
     expect(tracker.isHaikuOnly()).toBe(true);
 
     // Move to tier 3
-    await tracker.recordUsage(createTokenUsage(0.025), 'test', 'claude-3-5-haiku-20241022');
+    await tracker.recordUsage(
+      createTokenUsage(0.025),
+      'test',
+      'claude-3-5-haiku-20241022'
+    );
     expect(tracker.canMakeCall()).toBe(false);
     expect(tracker.shouldSkipLowPriority()).toBe(true);
     expect(tracker.shouldBatchSignals()).toBe(true);

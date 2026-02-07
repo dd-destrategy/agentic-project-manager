@@ -10,11 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-  artefactToMarkdown,
-  copyToClipboard,
-  allArtefactsToMarkdown,
-} from '@/lib/export';
+import { copyToClipboard, allArtefactsToMarkdown } from '@/lib/export';
 import { useToast } from '@/lib/hooks/use-toast';
 import type { ArtefactType } from '@/types';
 
@@ -23,7 +19,10 @@ interface ArtefactExportProps {
   projectName?: string;
 }
 
-export function ArtefactExport({ artefacts, projectName }: ArtefactExportProps) {
+export function ArtefactExport({
+  artefacts,
+  projectName,
+}: ArtefactExportProps) {
   const { toast } = useToast();
 
   const handleCopyMarkdown = async () => {
@@ -31,7 +30,9 @@ export function ArtefactExport({ artefacts, projectName }: ArtefactExportProps) 
     const success = await copyToClipboard(markdown);
     toast({
       title: success ? 'Copied to clipboard' : 'Copy failed',
-      description: success ? 'All artefacts copied as markdown' : 'Please try again',
+      description: success
+        ? 'All artefacts copied as markdown'
+        : 'Please try again',
       variant: success ? 'default' : 'destructive',
     });
   };
@@ -40,7 +41,8 @@ export function ArtefactExport({ artefacts, projectName }: ArtefactExportProps) 
     const json = JSON.stringify(
       artefacts.reduce(
         (acc, a) => {
-          acc[a.type] = typeof a.content === 'string' ? JSON.parse(a.content) : a.content;
+          acc[a.type] =
+            typeof a.content === 'string' ? JSON.parse(a.content) : a.content;
           return acc;
         },
         {} as Record<string, unknown>
@@ -51,7 +53,9 @@ export function ArtefactExport({ artefacts, projectName }: ArtefactExportProps) 
     const success = await copyToClipboard(json);
     toast({
       title: success ? 'Copied to clipboard' : 'Copy failed',
-      description: success ? 'All artefacts copied as JSON' : 'Please try again',
+      description: success
+        ? 'All artefacts copied as JSON'
+        : 'Please try again',
       variant: success ? 'default' : 'destructive',
     });
   };
@@ -65,14 +69,18 @@ export function ArtefactExport({ artefacts, projectName }: ArtefactExportProps) 
     a.download = `${projectName || 'artefacts'}-${new Date().toISOString().split('T')[0]}.md`;
     a.click();
     URL.revokeObjectURL(url);
-    toast({ title: 'Downloaded', description: 'Artefacts downloaded as markdown' });
+    toast({
+      title: 'Downloaded',
+      description: 'Artefacts downloaded as markdown',
+    });
   };
 
   const handleDownloadJson = () => {
     const json = JSON.stringify(
       artefacts.reduce(
         (acc, a) => {
-          acc[a.type] = typeof a.content === 'string' ? JSON.parse(a.content) : a.content;
+          acc[a.type] =
+            typeof a.content === 'string' ? JSON.parse(a.content) : a.content;
           return acc;
         },
         {} as Record<string, unknown>

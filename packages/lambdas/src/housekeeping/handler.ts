@@ -16,7 +16,9 @@ import {
   CONFIG_KEYS,
 } from '@agentic-pm/core/db';
 import { SESClient } from '@agentic-pm/core/integrations';
-import type { Project, Event } from '@agentic-pm/core/types';
+import { auditCoherence } from '@agentic-pm/core/reports';
+import { detectStaleItems } from '@agentic-pm/core/signals';
+import type { Project, Event, ArtefactType } from '@agentic-pm/core/types';
 import type { Context } from 'aws-lambda';
 
 import { logger, getEnv } from '../shared/context.js';
@@ -253,11 +255,100 @@ export async function handler(
         }
       }
     } catch (error) {
-      logger.error('Failed to check for stuck executing actions', error as Error);
+      logger.error(
+        'Failed to check for stuck executing actions',
+        error as Error
+      );
       // Don't fail the entire housekeeping run
     }
 
-    // 12. Mark housekeeping as completed so it doesn't run again today
+    // 12. Run stale item watchdog
+    try {
+      for (const project of projects) {
+        const artefacts = await artefactRepo.getAllForProject(project.id);
+        const artefactData = artefacts.map((a) => ({
+          type: a.type as ArtefactType,
+          content:
+            typeof a.content === 'string' ? JSON.parse(a.content) : a.content,
+        }));
+        const warnings = detectStaleItems(artefactData);
+        for (const warning of warnings) {
+          if (
+            warning.severity === 'critical' ||
+            warning.severity === 'warning'
+          ) {
+            await eventRepo.create({
+              projectId: project.id,
+              eventType: 'budget_warning',
+              severity: warning.severity === 'critical' ? 'warning' : 'info',
+              summary: warning.reason,
+              detail: {
+                context: {
+                  watchdogType: 'stale_item',
+                  artefactType: warning.artefactType,
+                  itemId: warning.itemId,
+                  daysSinceReview: warning.daysSinceReview,
+                },
+              },
+            });
+          }
+        }
+        if (warnings.length > 0) {
+          logger.info('Stale items detected', {
+            projectId: project.id,
+            count: warnings.length,
+          });
+        }
+      }
+    } catch (error) {
+      logger.error('Stale item watchdog failed', error as Error);
+    }
+
+    // 13. Run coherence audit
+    try {
+      for (const project of projects) {
+        const artefacts = await artefactRepo.getAllForProject(project.id);
+        const artefactSet: Record<string, unknown> = {};
+        for (const a of artefacts) {
+          const content =
+            typeof a.content === 'string' ? JSON.parse(a.content) : a.content;
+          if (a.type === 'delivery_state') artefactSet.deliveryState = content;
+          else if (a.type === 'raid_log') artefactSet.raidLog = content;
+          else if (a.type === 'backlog_summary')
+            artefactSet.backlogSummary = content;
+          else if (a.type === 'decision_log') artefactSet.decisionLog = content;
+        }
+        const issues = auditCoherence(
+          artefactSet as Parameters<typeof auditCoherence>[0]
+        );
+        const severeIssues = issues.filter(
+          (i) => i.severity === 'warning' || i.severity === 'error'
+        );
+        if (severeIssues.length > 0) {
+          await eventRepo.create({
+            projectId: project.id,
+            eventType: 'artefact_updated',
+            severity: 'info',
+            summary: `Coherence audit found ${severeIssues.length} issue${severeIssues.length !== 1 ? 's' : ''} across artefacts`,
+            detail: {
+              context: {
+                auditType: 'coherence',
+                issueCount: severeIssues.length,
+                issues: severeIssues.slice(0, 5).map((i) => ({
+                  severity: i.severity,
+                  artefact: i.artefactType,
+                  message: i.message,
+                })),
+              },
+            },
+          });
+        }
+      }
+    } catch (error) {
+      logger.error('Coherence audit failed', error as Error);
+    }
+
+    // 14. Mark housekeeping as completed so it doesn't run again today
     await configRepo.updateLastHousekeeping();
 
     const output: HousekeepingOutput = {

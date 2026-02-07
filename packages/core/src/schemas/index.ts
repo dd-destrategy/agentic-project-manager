@@ -416,6 +416,19 @@ export const DecisionSchema = z.object({
   date: IsoDateTimeSchema,
   status: z.enum(['active', 'superseded', 'reversed']),
   relatedRaidItems: z.array(z.string()).optional(),
+  outcome: z.string().max(1000).optional(),
+  outcomeDate: IsoDateTimeSchema.optional(),
+  outcomeStatus: z
+    .enum([
+      'pending',
+      'successful',
+      'partially_successful',
+      'unsuccessful',
+      'too_early',
+    ])
+    .optional(),
+  reviewDate: IsoDateTimeSchema.optional(),
+  lessonsLearned: z.string().max(1000).optional(),
 });
 
 export const DecisionLogContentSchema = z.object({

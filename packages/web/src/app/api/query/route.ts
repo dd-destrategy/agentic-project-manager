@@ -1,13 +1,14 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options';
-import { unauthorised, badRequest, internalError } from '@/lib/api-error';
-import { getDbClient } from '@/lib/db';
 import {
   ArtefactRepository,
   EventRepository,
   ProjectRepository,
 } from '@agentic-pm/core/db/repositories';
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+
+import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options';
+import { unauthorised, badRequest, internalError } from '@/lib/api-error';
+import { getDbClient } from '@/lib/db';
 
 export async function POST(request: NextRequest) {
   try {

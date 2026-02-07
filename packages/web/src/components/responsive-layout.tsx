@@ -4,6 +4,7 @@ import { ClipboardPaste, Menu } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 
+import { CommandPalette } from '@/components/command-palette';
 import { Header } from '@/components/header';
 import { IngestDrawer } from '@/components/ingest-drawer';
 import { Sidebar } from '@/components/sidebar';
@@ -64,6 +65,9 @@ export function ResponsiveLayout({ children }: ResponsiveLayoutProps) {
 
       {/* Ingest drawer */}
       <IngestDrawer open={drawerOpen} onOpenChange={setDrawerOpen} />
+
+      {/* Command palette (Cmd+K) */}
+      <CommandPalette />
     </div>
   );
 }

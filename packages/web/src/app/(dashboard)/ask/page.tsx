@@ -1,7 +1,10 @@
 'use client';
 
-import { useState } from 'react';
 import { Loader2, Send, MessageSquare, HelpCircle } from 'lucide-react';
+import { useState } from 'react';
+
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
@@ -9,11 +12,9 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { useProjectQuery } from '@/lib/hooks/use-query-project';
 import { useProjects } from '@/lib/hooks';
+import { useProjectQuery } from '@/lib/hooks/use-query-project';
 
 interface ConversationEntry {
   id: string;
@@ -179,7 +180,9 @@ export default function AskPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <pre className="whitespace-pre-wrap text-sm">{entry.answer}</pre>
+                <pre className="whitespace-pre-wrap text-sm">
+                  {entry.answer}
+                </pre>
               </CardContent>
             </Card>
           ))}

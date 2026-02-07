@@ -231,23 +231,20 @@ describe('Heartbeat Metrics', () => {
 });
 
 describe('MetricsEmitter metric name support', () => {
-  it('should accept AgentHeartbeatEmitted as a valid metric name', async () => {
-    const { MetricsEmitter } = await import('../../shared/metrics.js');
-
-    // The MetricsEmitter class is mocked, but this verifies the type
-    // accepts new metric names by using the mock
+  it('should accept AgentHeartbeatEmitted as a valid metric name', () => {
+    // Verify the mock metrics object accepts the new metric names
     expect(() => {
       mockMetrics.increment('AgentHeartbeatEmitted');
     }).not.toThrow();
   });
 
-  it('should accept SchemaValidationSuccess as a valid metric name', async () => {
+  it('should accept SchemaValidationSuccess as a valid metric name', () => {
     expect(() => {
       mockMetrics.increment('SchemaValidationSuccess');
     }).not.toThrow();
   });
 
-  it('should accept SchemaValidationFailure as a valid metric name', async () => {
+  it('should accept SchemaValidationFailure as a valid metric name', () => {
     expect(() => {
       mockMetrics.increment('SchemaValidationFailure');
     }).not.toThrow();

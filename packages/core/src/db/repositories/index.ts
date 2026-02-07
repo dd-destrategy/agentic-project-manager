@@ -20,3 +20,9 @@ export {
   type Stakeholder,
   type StakeholderActivity,
 } from './stakeholder.js';
+export {
+  ArtefactSnapshotRepository,
+  type ArtefactSnapshot,
+  type SnapshotMetrics,
+  type TrendDataPoint,
+} from './artefact-snapshot.js';

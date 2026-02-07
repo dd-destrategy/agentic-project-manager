@@ -189,8 +189,8 @@ describe('MonitoringStack', () => {
       devTemplate.resourceCountIs('AWS::CloudWatch::Alarm', 0);
     });
 
-    it('creates exactly 2 alarms in prod environment', () => {
-      prodTemplate.resourceCountIs('AWS::CloudWatch::Alarm', 2);
+    it('creates exactly 3 alarms in prod environment', () => {
+      prodTemplate.resourceCountIs('AWS::CloudWatch::Alarm', 3);
     });
 
     it('creates state machine failure alarm', () => {
@@ -254,10 +254,16 @@ describe('MonitoringStack', () => {
       expect(valueStr).toContain('ProdTable');
     });
 
-    it('alarms treat missing data as not breaching', () => {
+    it('alarms treat missing data appropriately', () => {
       const alarms = prodTemplate.findResources('AWS::CloudWatch::Alarm');
       Object.values(alarms).forEach((alarm: any) => {
-        expect(alarm.Properties.TreatMissingData).toBe('notBreaching');
+        // The heartbeat staleness alarm uses 'breaching' (missing data = agent stopped)
+        // All other alarms use 'notBreaching'
+        if (alarm.Properties.AlarmName === 'agentic-pm-heartbeat-staleness') {
+          expect(alarm.Properties.TreatMissingData).toBe('breaching');
+        } else {
+          expect(alarm.Properties.TreatMissingData).toBe('notBreaching');
+        }
       });
     });
 
@@ -347,7 +353,7 @@ describe('MonitoringStack', () => {
 
     it('respects enableAlarms flag in prod', () => {
       expect(prodConfig.enableAlarms).toBe(true);
-      prodTemplate.resourceCountIs('AWS::CloudWatch::Alarm', 2);
+      prodTemplate.resourceCountIs('AWS::CloudWatch::Alarm', 3);
       prodTemplate.resourceCountIs('AWS::SNS::Topic', 1);
     });
 

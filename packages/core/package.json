@@ -118,6 +118,10 @@
     "./db/repositories": {
       "types": "./dist/db/repositories/index.d.ts",
       "import": "./dist/db/repositories/index.js"
+    },
+    "./reports": {
+      "types": "./dist/reports/index.d.ts",
+      "import": "./dist/reports/index.js"
     }
   },
   "scripts": {

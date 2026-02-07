@@ -442,7 +442,13 @@ export interface HeldActionResponse {
 // Meeting Types
 // ============================================================================
 
-export type MeetingType = 'standup' | 'sprint_review' | 'retrospective' | 'steering_committee' | 'one_to_one' | 'other';
+export type MeetingType =
+  | 'standup'
+  | 'sprint_review'
+  | 'retrospective'
+  | 'steering_committee'
+  | 'one_to_one'
+  | 'other';
 
 export interface MeetingMetadata {
   meetingType: MeetingType;
@@ -610,6 +616,61 @@ export interface ExtractedItemCounts {
   dismissed: number;
 }
 
+// ============================================================================
+// Decision Outcome Tracking Types
+// ============================================================================
+
+export type DecisionOutcomeStatus =
+  | 'pending'
+  | 'successful'
+  | 'partially_successful'
+  | 'unsuccessful'
+  | 'too_early';
+
+export interface DecisionWithOutcome {
+  id: string;
+  title: string;
+  context: string;
+  decision: string;
+  rationale: string;
+  madeBy: 'user' | 'agent';
+  date: string;
+  status: 'active' | 'superseded' | 'reversed';
+  optionsConsidered?: Array<{
+    option: string;
+    pros: string[];
+    cons: string[];
+  }>;
+  relatedRaidItems?: string[];
+  outcome?: string;
+  outcomeDate?: string;
+  outcomeStatus?: DecisionOutcomeStatus;
+  reviewDate?: string;
+  lessonsLearned?: string;
+}
+
+export interface DecisionsResponse {
+  decisions: DecisionWithOutcome[];
+  projectId: string;
+}
+
+export const outcomeStatusConfig: Record<
+  DecisionOutcomeStatus,
+  { label: string; className: string }
+> = {
+  pending: { label: 'Pending', className: 'text-slate-600 bg-slate-50' },
+  successful: { label: 'Successful', className: 'text-green-600 bg-green-50' },
+  partially_successful: {
+    label: 'Partially Successful',
+    className: 'text-amber-600 bg-amber-50',
+  },
+  unsuccessful: { label: 'Unsuccessful', className: 'text-red-600 bg-red-50' },
+  too_early: {
+    label: 'Too Early to Tell',
+    className: 'text-blue-600 bg-blue-50',
+  },
+};
+
 /** Labels for extracted item types */
 export const extractedItemTypeLabels: Record<ExtractedItemType, string> = {
   risk: 'Risk',
@@ -628,3 +689,63 @@ export const targetArtefactLabels: Record<TargetArtefact, string> = {
   backlog_summary: 'Backlog Summary',
   decision_log: 'Decision Log',
 };
+
+// ============================================================================
+// Artefact Snapshot Types (Longitudinal Project Memory)
+// ============================================================================
+
+export interface SnapshotMetrics {
+  // Delivery state
+  overallStatus?: 'green' | 'amber' | 'red';
+  blockerCount?: number;
+  milestoneCount?: number;
+  completedPoints?: number;
+  totalPoints?: number;
+  // RAID log
+  openRisks?: number;
+  openIssues?: number;
+  totalItems?: number;
+  // Backlog
+  totalBacklogItems?: number;
+  blockedItems?: number;
+  // Decision log
+  totalDecisions?: number;
+  activeDecisions?: number;
+}
+
+export interface TrendDataPoint {
+  timestamp: string;
+  metrics: SnapshotMetrics;
+}
+
+export interface SnapshotTrendResponse {
+  projectId: string;
+  artefactType: ArtefactType;
+  dataPoints: TrendDataPoint[];
+  count: number;
+}
+
+// ============================================================================
+// Catch-up Synthesiser Types ("Since You Left")
+// ============================================================================
+
+export interface CatchupSummary {
+  since: string;
+  escalationsCreated: number;
+  escalationsDecided: number;
+  artefactsUpdated: number;
+  actionsTaken: number;
+  actionsHeld: number;
+  signalsDetected: number;
+  recentEvents: CatchupEvent[];
+  highlights: string[];
+}
+
+export interface CatchupEvent {
+  id: string;
+  eventType: string;
+  severity: string;
+  summary: string;
+  projectId?: string;
+  createdAt: string;
+}

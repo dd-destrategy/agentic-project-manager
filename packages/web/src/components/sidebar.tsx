@@ -9,6 +9,7 @@ import {
   ClipboardPaste,
   FileText,
   ListChecks,
+  Sunrise,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -17,6 +18,7 @@ import { cn } from '@/lib/utils';
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { name: 'Catch-up', href: '/catchup', icon: Sunrise },
   { name: 'Ingest', href: '/ingest', icon: ClipboardPaste },
   { name: 'Extracted', href: '/extracted', icon: ListChecks },
   { name: 'Reports', href: '/reports', icon: FileText },

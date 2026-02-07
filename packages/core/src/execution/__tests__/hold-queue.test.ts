@@ -33,6 +33,8 @@ vi.mock('../../db/repositories/held-action.js', () => ({
     this.cancel = vi.fn();
     this.getByProject = vi.fn();
     this.getPending = vi.fn();
+    this.claimForExecution = vi.fn().mockResolvedValue(true);
+    this.getStuckExecuting = vi.fn().mockResolvedValue([]);
   }),
 }));
 

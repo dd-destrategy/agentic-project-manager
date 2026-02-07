@@ -1,10 +1,10 @@
+import { StakeholderRepository } from '@agentic-pm/core/db/repositories';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options';
 import { unauthorised, internalError } from '@/lib/api-error';
 import { getDbClient } from '@/lib/db';
-import { StakeholderRepository } from '@agentic-pm/core/db/repositories';
 
 /**
  * GET /api/stakeholders/[projectId]

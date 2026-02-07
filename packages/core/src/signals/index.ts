@@ -14,3 +14,5 @@ export {
   extractActorsFromOutlookSignal,
   type ExtractedActor,
 } from './stakeholder-extractor.js';
+
+export { detectStaleItems, type StaleItemWarning } from './stale-watchdog.js';
