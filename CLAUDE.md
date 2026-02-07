@@ -16,16 +16,17 @@ intervention.
 
 ## Project Status
 
-**Phase 1 complete. Phase 2/3 in progress.**
+**Phase 1-2 complete. Phase 3 near-complete.**
 
-| Phase                  | Status            | Notes                                         |
-| ---------------------- | ----------------- | --------------------------------------------- |
-| Phase 0 (Pre-code)     | Complete          | Spikes validated                              |
-| Phase 1 (Foundation)   | **Complete**      | All 11 tasks done                             |
-| Phase 2 (Core Product) | **Complete**      | All core features implemented                 |
-| Phase 3 (Enhancements) | **~90% complete** | Outlook deferred, 15 evaluated features done  |
-| Ingestion Interface    | **Complete**      | Added Feb 2026, not in original spec          |
-| Feature Evaluation     | **Complete**      | 15 features evaluated, specified, implemented |
+| Phase                  | Status            | Notes                                           |
+| ---------------------- | ----------------- | ----------------------------------------------- |
+| Phase 0 (Pre-code)     | Complete          | Spikes validated                                |
+| Phase 1 (Foundation)   | **Complete**      | All 11 tasks done                               |
+| Phase 2 (Core Product) | **Complete**      | All 13 tasks done (C10, C12, C13 completed)     |
+| Phase 3 (Enhancements) | **~95% complete** | Outlook deferred; E10 pen test pending          |
+| Ingestion Interface    | **Complete**      | All 7 tasks done including artefact wiring      |
+| Feature Evaluation     | **Complete**      | 15 features evaluated, specified, implemented   |
+| Test Coverage          | **Complete**      | 1,695 tests across 98 files, 4 Playwright specs |
 
 ## Architecture Decisions (Locked)
 
@@ -77,12 +78,15 @@ intervention.
 
 ## Key Files
 
-| File                   | Status                         | Purpose                                  |
-| ---------------------- | ------------------------------ | ---------------------------------------- |
-| `SPEC.md`              | **Active — source of truth**   | Implementation-ready specification       |
-| `DEVELOPMENT.md`       | **Active — engineering guide** | Sprint breakdown, tasks, standards       |
-| `CLAUDE.md`            | Active                         | Project instructions (this file)         |
-| `docs/README.md`       | Active                         | Documentation index                      |
-| `docs/design/`         | Reference                      | Solution design package (9 documents)    |
-| `docs/archive/`        | Archive                        | Historical analysis and review documents |
-| `docs/swarm-review.md` | Active                         | 11-team codebase review findings         |
+| File                         | Status                         | Purpose                                  |
+| ---------------------------- | ------------------------------ | ---------------------------------------- |
+| `SPEC.md`                    | **Active — source of truth**   | Implementation-ready specification       |
+| `DEVELOPMENT.md`             | **Active — engineering guide** | Sprint breakdown, tasks, standards       |
+| `CLAUDE.md`                  | Active                         | Project instructions (this file)         |
+| `CHANGELOG.md`               | Active                         | Release and change history               |
+| `docs/BACKLOG.md`            | Active                         | Feature backlog and prioritisation       |
+| `docs/FEATURE-EVALUATION.md` | Active                         | 15-feature evaluation results            |
+| `docs/specs/`                | Active                         | Feature specifications (batches 1-5)     |
+| `docs/reviews/`              | Active                         | Codebase review findings (11 reviews)    |
+| `docs/design/`               | Reference                      | Solution design package (9 documents)    |
+| `docs/archive/`              | Archive                        | Historical analysis and review documents |

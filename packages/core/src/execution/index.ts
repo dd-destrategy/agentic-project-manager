@@ -51,6 +51,7 @@ export type {
   ExecutionResult,
   ExecutionInput,
   ExecutionConfig,
+  ActionExecutor,
 } from './types.js';
 
 export type {

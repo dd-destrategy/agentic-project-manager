@@ -1,7 +1,7 @@
 # Development Guide
 
 > **Branch:** `feature/phase-1-foundation`
-> **Status:** Phase 1 complete, Phase 2/3 in progress
+> **Status:** Phase 1 complete, Phase 2/3 substantially complete
 > **Date:** February 2026
 
 This guide synthesizes 561KB of solution design documentation into actionable development phases. It is the primary reference for engineering work.
@@ -35,20 +35,17 @@ pnpm cdk deploy --context env=dev
 - Monorepo with pnpm workspaces + Turborepo (packages: core, web, lambdas, cdk)
 - `@agentic-pm/core`: 10 DynamoDB repositories, LLM client, Jira client, SES client, artefact system, execution engine
 - `packages/lambdas`: 11 Lambda handlers (heartbeat, change-detection, normalise, triage-sanitise, triage-classify, reasoning, execute, artefact-update, housekeeping, hold-queue + executors)
-- `packages/web`: Next.js 15 App Router with 7 dashboard pages, 16+ API routes, 50+ components, 14 custom hooks
+- `packages/web`: Next.js 15 App Router with 7 dashboard pages, 27+ API routes, 50+ components, 22 custom hooks
 - `packages/cdk`: 3 CDK stacks (foundation, agent, monitoring)
-- Full test suite: 1,334 tests passing across all packages
+- Full test suite: 1,695 tests passing across all packages
 - Local development: docker-compose with LocalStack, seed scripts, handler invocation scripts
 - CI/CD: GitHub Actions workflows for build, test, deploy
 
 ### Remaining
-- Wire Jira client to change-detection Lambda (polling pipeline end-to-end)
-- Complete integration health monitoring (wrong endpoint, missing API calls)
-- Implement daily digest email sending in housekeeping Lambda
-- Validate graduation criteria end-to-end
-- Wire extracted items from ingestion to project artefacts
-- Outlook integration (blocked on Azure AD admin consent)
-- Production deployment to AWS
+- Production deployment to AWS (CDK deploy, Secrets Manager population, SES domain verification, Amplify deployment)
+- Outlook integration activation (code complete, blocked on Azure AD admin consent)
+- End-to-end pipeline validation against live Jira instance
+- Graduation criteria validation in production
 
 ---
 

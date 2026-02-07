@@ -1315,10 +1315,10 @@ Single user. NextAuth.js with Credentials provider. Username and bcrypt-hashed p
 | C7 | Implement dry-run mode | **Done** |
 | C8 | Build Mission Control dashboard with project cards | **Done** |
 | C9 | Build escalation workflow (create, present, decide) | **Done** |
-| C10 | Build basic health monitoring | **Partial** (CloudWatch alarms done, integration health stubs) |
+| C10 | Build basic health monitoring | **Done** (CloudWatch alarms, integration health checks for Jira + SES in heartbeat handler) |
 | C11 | Configure DynamoDB TTL | **Done** |
-| C12 | Build daily digest email via SES | **Partial** (housekeeping Lambda stub, SES client done) |
-| C13 | Graduate to Level 2 | **Partial** (graduation tracking done, end-to-end not validated) |
+| C12 | Build daily digest email via SES | **Done** (790-line housekeeping handler with HTML + plain text digest, activity stats, budget status, stale watchdog, coherence audit) |
+| C13 | Graduate to Level 2 | **Done** (graduation state repository, evidence dashboard, confirm API, E2E test; production validation pending deployment) |
 
 ### Phase 3: Enhancements (Level 2 → Level 3)
 
@@ -1331,7 +1331,7 @@ Single user. NextAuth.js with Credentials provider. Username and bcrypt-hashed p
 | E5 | Build reasoning transparency | **Done** |
 | E6 | Implement anti-complacency spot checks | **Done** |
 | E7 | Build autonomy graduation ceremony | **Done** |
-| E8 | Implement Level 3 tactical actions | **Partial** (email + Jira done, wiring to pipeline pending) |
+| E8 | Implement Level 3 tactical actions | **Done** (Execute Lambda with confidence scoring, escalation creation, hold queue integration; email + Jira executors) |
 | E9 | Build Sonnet reasoning Lambda | **Done** |
 | E10 | Validate prompt injection defence | **Partial** (IAM isolation done, pen test pending) |
 | E11 | Build project detail view | **Done** |
@@ -1349,7 +1349,7 @@ A conversational AI interface for manual content ingestion, not originally in th
 | I4 | Build chat UI with image paste and drag-drop | **Done** |
 | I5 | Integrate Claude Sonnet 4.5 with vision for content analysis | **Done** |
 | I6 | Build extracted items staging panel with review workflow | **Done** |
-| I7 | Wire extracted items to project artefacts | Pending |
+| I7 | Wire extracted items to project artefacts | **Done** (apply-extracted-item.ts handles RAID log, decision log, delivery state; API routes for single and batch apply) |
 
 ### Deferred (not in MVP)
 

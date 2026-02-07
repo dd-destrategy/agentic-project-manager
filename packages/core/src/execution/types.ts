@@ -2,7 +2,11 @@
  * Execution module types
  */
 
-import type { ActionType, AutonomyLevel, ConfidenceScore } from '../types/index.js';
+import type {
+  ActionType,
+  AutonomyLevel,
+  ConfidenceScore,
+} from '../types/index.js';
 
 /**
  * Result of executing an action
@@ -46,4 +50,16 @@ export interface ExecutionConfig {
   dryRun: boolean;
   /** Hold queue duration in minutes (default: 30) */
   holdQueueMinutes?: number;
+  /** Optional action executor for the auto-execute path */
+  executor?: ActionExecutor;
+}
+
+/**
+ * Callback interface for executing actions.
+ * The Lambda handler injects a real executor; unit tests can mock it.
+ */
+export interface ActionExecutor {
+  execute(
+    input: ExecutionInput
+  ): Promise<{ success: boolean; detail?: Record<string, unknown> }>;
 }

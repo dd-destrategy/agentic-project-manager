@@ -5,10 +5,18 @@
  * Implements dry-run mode and autonomy level enforcement.
  */
 
-import type { ActionType, AutonomyLevel, DryRunResult } from '../types/index.js';
+import type {
+  ActionType,
+  AutonomyLevel,
+  DryRunResult,
+} from '../types/index.js';
 
 import { validateAction, isProhibitedAction } from './boundaries.js';
-import type { ExecutionInput, ExecutionResult, ExecutionConfig } from './types.js';
+import type {
+  ExecutionInput,
+  ExecutionResult,
+  ExecutionConfig,
+} from './types.js';
 
 /**
  * Execute an action based on decision boundaries, autonomy level, and dry-run mode
@@ -57,7 +65,9 @@ export async function executeAction(
       success: false,
       actionType,
       held: false,
-      error: validation.reason ?? `Action not allowed at autonomy level "${autonomyLevel}"`,
+      error:
+        validation.reason ??
+        `Action not allowed at autonomy level "${autonomyLevel}"`,
     };
   }
 
@@ -69,7 +79,9 @@ export async function executeAction(
   // If action requires hold queue, queue it
   if (validation.requiresHoldQueue) {
     const holdMinutes = config?.holdQueueMinutes ?? 30;
-    const heldUntil = new Date(Date.now() + holdMinutes * 60 * 1000).toISOString();
+    const heldUntil = new Date(
+      Date.now() + holdMinutes * 60 * 1000
+    ).toISOString();
 
     return {
       success: true,
@@ -81,7 +93,17 @@ export async function executeAction(
   }
 
   // Action can be auto-executed
-  // TODO: Implement actual execution logic for each action type
+  if (config?.executor) {
+    const execResult = await config.executor.execute(input);
+    return {
+      success: execResult.success,
+      actionType,
+      held: false,
+      details: { projectId, ...details, ...execResult.detail },
+    };
+  }
+
+  // No executor provided — return success (boundary validation only)
   return {
     success: true,
     actionType,
@@ -123,7 +145,11 @@ export function canExecuteImmediately(
   autonomyLevel: AutonomyLevel
 ): boolean {
   const validation = validateAction(actionType, autonomyLevel);
-  return validation.allowed && !validation.requiresHoldQueue && !validation.requiresApproval;
+  return (
+    validation.allowed &&
+    !validation.requiresHoldQueue &&
+    !validation.requiresApproval
+  );
 }
 
 /**
@@ -185,5 +211,7 @@ export async function previewActions(
   });
 
   // Filter to only DryRunResults (should be all of them in dry-run mode)
-  return results.filter((r): r is DryRunResult => 'reason' in r && r.reason === 'dry_run');
+  return results.filter(
+    (r): r is DryRunResult => 'reason' in r && r.reason === 'dry_run'
+  );
 }
