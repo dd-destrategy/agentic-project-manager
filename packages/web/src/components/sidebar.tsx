@@ -10,6 +10,7 @@ import {
   FileText,
   ListChecks,
   Sunrise,
+  Plug,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -24,6 +25,7 @@ const navigation = [
   { name: 'Reports', href: '/reports', icon: FileText },
   { name: 'Projects', href: '/projects', icon: FolderKanban },
   { name: 'Activity', href: '/activity', icon: Activity },
+  { name: 'Connectors', href: '/connectors', icon: Plug },
   { name: 'Escalations', href: '/escalations', icon: AlertCircle },
   { name: 'Settings', href: '/settings', icon: Settings },
 ];
