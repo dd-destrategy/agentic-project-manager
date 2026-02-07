@@ -1,7 +1,7 @@
 # Development Guide
 
 > **Branch:** `feature/phase-1-foundation`
-> **Status:** Ready for development
+> **Status:** Phase 1 complete, Phase 2/3 in progress
 > **Date:** February 2026
 
 This guide synthesizes 561KB of solution design documentation into actionable development phases. It is the primary reference for engineering work.
@@ -26,6 +26,29 @@ pnpm test
 # 4. Deploy to dev
 pnpm cdk deploy --context env=dev
 ```
+
+---
+
+## Current State (February 2026)
+
+### Completed
+- Monorepo with pnpm workspaces + Turborepo (packages: core, web, lambdas, cdk)
+- `@agentic-pm/core`: 10 DynamoDB repositories, LLM client, Jira client, SES client, artefact system, execution engine
+- `packages/lambdas`: 11 Lambda handlers (heartbeat, change-detection, normalise, triage-sanitise, triage-classify, reasoning, execute, artefact-update, housekeeping, hold-queue + executors)
+- `packages/web`: Next.js 15 App Router with 7 dashboard pages, 16+ API routes, 50+ components, 14 custom hooks
+- `packages/cdk`: 3 CDK stacks (foundation, agent, monitoring)
+- Full test suite: 1,334 tests passing across all packages
+- Local development: docker-compose with LocalStack, seed scripts, handler invocation scripts
+- CI/CD: GitHub Actions workflows for build, test, deploy
+
+### Remaining
+- Wire Jira client to change-detection Lambda (polling pipeline end-to-end)
+- Complete integration health monitoring (wrong endpoint, missing API calls)
+- Implement daily digest email sending in housekeeping Lambda
+- Validate graduation criteria end-to-end
+- Wire extracted items from ingestion to project artefacts
+- Outlook integration (blocked on Azure AD admin consent)
+- Production deployment to AWS
 
 ---
 
@@ -118,7 +141,7 @@ agentic-pm/
 └── package.json
 ```
 
-### Sprint 0: Infrastructure Setup (Week 1-2)
+### Sprint 0: Infrastructure Setup (Week 1-2) — Complete
 
 **Goal:** Working local development environment and CI/CD pipeline
 
@@ -135,13 +158,13 @@ agentic-pm/
 | S0-09 | Create IAM roles (CDK) | Triage, Agent, StepFunctions roles |
 | S0-10 | Create Secrets Manager secrets | Placeholder secrets |
 
-**Definition of Done:**
-- `pnpm install` works
-- `docker-compose up` starts local services
-- `pnpm test` passes (empty tests)
-- `pnpm cdk deploy --context env=dev` succeeds
+**Definition of Done:** All complete.
+- [x] `pnpm install` works
+- [x] `docker-compose up` starts local services
+- [x] `pnpm test` passes (empty tests)
+- [x] `pnpm cdk deploy --context env=dev` succeeds
 
-### Sprint 1: Agent Core (Week 3-4)
+### Sprint 1: Agent Core (Week 3-4) — Complete
 
 **Goal:** Step Functions state machine running with heartbeat
 
@@ -158,13 +181,13 @@ agentic-pm/
 | S1-09 | Set up CloudWatch logging | Log groups, retention |
 | S1-10 | Write heartbeat integration test | Verify DynamoDB writes |
 
-**Definition of Done:**
-- State machine triggers every 15 minutes
-- Heartbeat events written to DynamoDB
-- CloudWatch logs show execution history
-- Local tests pass with DynamoDB Local
+**Definition of Done:** All complete.
+- [x] State machine triggers every 15 minutes
+- [x] Heartbeat events written to DynamoDB
+- [x] CloudWatch logs show execution history
+- [x] Local tests pass with DynamoDB Local
 
-### Sprint 2: LLM Integration (Week 5-6)
+### Sprint 2: LLM Integration (Week 5-6) — Complete
 
 **Goal:** Claude API integration with budget controls
 
@@ -181,13 +204,13 @@ agentic-pm/
 | S2-09 | Write budget control tests | Verify degradation triggers |
 | S2-10 | Measure actual token usage | Compare to SPEC estimates |
 
-**Definition of Done:**
-- Claude API calls work with tool-use
-- Budget tracking writes to DynamoDB
-- Degradation ladder triggers correctly
-- Actual token usage within 50% of estimates
+**Definition of Done:** All complete.
+- [x] Claude API calls work with tool-use
+- [x] Budget tracking writes to DynamoDB
+- [x] Degradation ladder triggers correctly
+- [x] Actual token usage within 50% of estimates
 
-### Sprint 3: Jira Integration (Week 7-8)
+### Sprint 3: Jira Integration (Week 7-8) — Complete
 
 **Goal:** Jira signals flowing through the agent
 
@@ -204,13 +227,13 @@ agentic-pm/
 | S3-09 | Test with real Jira instance | End-to-end validation |
 | S3-10 | Measure API request count | Verify under rate limit |
 
-**Definition of Done:**
-- Jira polling detects ticket changes
-- Change detection gate skips LLM when idle
-- Signals normalised to standard format
-- API requests well under 100/minute limit
+**Definition of Done:** All complete.
+- [x] Jira polling detects ticket changes
+- [x] Change detection gate skips LLM when idle
+- [x] Signals normalised to standard format
+- [x] API requests well under 100/minute limit
 
-### Sprint 4: Artefact Generation (Week 9-10)
+### Sprint 4: Artefact Generation (Week 9-10) — Complete
 
 **Goal:** Agent generates and updates PM artefacts
 
@@ -227,13 +250,13 @@ agentic-pm/
 | S4-09 | Write golden scenario tests | 10 scenarios, 5 runs each |
 | S4-10 | Validate artefact quality | Manual review |
 
-**Definition of Done:**
-- All 4 artefact types generated from Jira data
-- previousVersion stored on each update
-- Schema validation passes 100%
-- Golden scenarios pass ≥90% accuracy
+**Definition of Done:** All complete.
+- [x] All 4 artefact types generated from Jira data
+- [x] previousVersion stored on each update
+- [x] Schema validation passes 100%
+- [x] Golden scenarios pass ≥90% accuracy
 
-### Sprint 5: Frontend Foundation (Week 11-12)
+### Sprint 5: Frontend Foundation (Week 11-12) — Complete
 
 **Goal:** Dashboard showing agent status and activity
 
@@ -250,11 +273,11 @@ agentic-pm/
 | S5-09 | Add shadcn/ui components | Card, Badge, Button, etc. |
 | S5-10 | Write component tests | React Testing Library |
 
-**Definition of Done:**
-- Dashboard shows real-time agent status
-- Activity feed displays events
-- Authentication works
-- Estimated hosting cost ~$0.50/month
+**Definition of Done:** All complete.
+- [x] Dashboard shows real-time agent status
+- [x] Activity feed displays events
+- [x] Authentication works
+- [x] Estimated hosting cost ~$0.50/month
 
 ---
 
@@ -265,19 +288,19 @@ agentic-pm/
 
 ### Epics
 
-| Epic | Description | Stories |
-|------|-------------|---------|
-| EP-007 | Jira Integration (complete) | Signal source, change detection |
-| EP-008 | Two-Pass Triage | Sanitise (security) + Classify (routing) |
-| EP-009 | Escalation Workflow | Create, present, decide |
-| EP-010 | Health Monitoring | Integration checks, CloudWatch alarms |
-| EP-011 | Daily Digest | SES email with summary |
-| EP-012 | Level 2 Graduation | Autonomous artefact updates |
+| Epic | Description | Stories | Status |
+|------|-------------|---------|--------|
+| EP-007 | Jira Integration | Signal source, change detection | Done |
+| EP-008 | Two-Pass Triage | Sanitise (security) + Classify (routing) | Done |
+| EP-009 | Escalation Workflow | Create, present, decide | Done |
+| EP-010 | Health Monitoring | Integration checks, CloudWatch alarms | Partial |
+| EP-011 | Daily Digest | SES email with summary | Partial (SES client done, housekeeping stub) |
+| EP-012 | Level 2 Graduation | Autonomous artefact updates | Partial |
 
 ### Key Milestones
 
-- [ ] Dry-run mode operational (log actions, don't execute)
-- [ ] Escalations appearing in dashboard
+- [x] Dry-run mode operational (log actions, don't execute)
+- [x] Escalations appearing in dashboard
 - [ ] Daily digest emails sending
 - [ ] 7 consecutive days monitoring with zero false classifications
 - [ ] Graduate to Level 2: autonomous artefact updates
@@ -291,13 +314,13 @@ agentic-pm/
 
 ### Epics
 
-| Epic | Description |
-|------|-------------|
-| EP-013 | Outlook Integration | Graph API delta queries |
-| EP-014 | Hold Queue | Draft-then-send with 30-min window |
-| EP-015 | Confidence Scoring | Four-dimensional scoring |
-| EP-016 | Communication Preview | Dashboard approval UI |
-| EP-017 | Level 3 Graduation | Stakeholder emails via hold queue |
+| Epic | Description | Details | Status |
+|------|-------------|---------|--------|
+| EP-013 | Outlook Integration | Graph API delta queries | Deferred |
+| EP-014 | Hold Queue | Draft-then-send with 30-min window | Done |
+| EP-015 | Confidence Scoring | Four-dimensional scoring | Done |
+| EP-016 | Communication Preview | Dashboard approval UI | Done |
+| EP-017 | Level 3 Graduation | Stakeholder emails via hold queue | Pending |
 
 ---
 

@@ -16,15 +16,15 @@ intervention.
 
 ## Project Status
 
-**Solution design complete.** Ready for Phase 1 development.
+**Phase 1 complete. Phase 2/3 in progress.**
 
-| Document         | Purpose                                    |
-| ---------------- | ------------------------------------------ |
-| `SPEC.md`        | Source of truth for implementation         |
-| `DEVELOPMENT.md` | Engineering guide with sprint breakdown    |
-| `docs/design/`   | 9 documents (561KB) with technical details |
-
-**Next steps:** Complete Phase 0 validation (spikes S1-S5), then Sprint 0 setup.
+| Phase                  | Status            | Notes                                         |
+| ---------------------- | ----------------- | --------------------------------------------- |
+| Phase 0 (Pre-code)     | Complete          | Spikes validated                              |
+| Phase 1 (Foundation)   | **Complete**      | All 11 tasks done                             |
+| Phase 2 (Core Product) | **~85% complete** | Integration health and daily digest remaining |
+| Phase 3 (Enhancements) | **~75% complete** | Outlook deferred, most features done          |
+| Ingestion Interface    | **Complete**      | Added Feb 2026, not in original spec          |
 
 ## Architecture Decisions (Locked)
 
@@ -63,6 +63,9 @@ intervention.
   JSON.parse
 - AWS CDK for infrastructure-as-code
 - Zod for runtime schema validation
+- TanStack Query for frontend data fetching with 30-second polling
+- shadcn/ui component library (no runtime cost)
+- Vitest for unit tests, Playwright for E2E tests
 
 ### Git
 
@@ -73,11 +76,12 @@ intervention.
 
 ## Key Files
 
-| File             | Status                         | Purpose                                  |
-| ---------------- | ------------------------------ | ---------------------------------------- |
-| `SPEC.md`        | **Active — source of truth**   | Implementation-ready specification       |
-| `DEVELOPMENT.md` | **Active — engineering guide** | Sprint breakdown, tasks, standards       |
-| `CLAUDE.md`      | Active                         | Project instructions (this file)         |
-| `docs/README.md` | Active                         | Documentation index                      |
-| `docs/design/`   | Reference                      | Solution design package (9 documents)    |
-| `docs/archive/`  | Archive                        | Historical analysis and review documents |
+| File                   | Status                         | Purpose                                  |
+| ---------------------- | ------------------------------ | ---------------------------------------- |
+| `SPEC.md`              | **Active — source of truth**   | Implementation-ready specification       |
+| `DEVELOPMENT.md`       | **Active — engineering guide** | Sprint breakdown, tasks, standards       |
+| `CLAUDE.md`            | Active                         | Project instructions (this file)         |
+| `docs/README.md`       | Active                         | Documentation index                      |
+| `docs/design/`         | Reference                      | Solution design package (9 documents)    |
+| `docs/archive/`        | Archive                        | Historical analysis and review documents |
+| `docs/swarm-review.md` | Active                         | 11-team codebase review findings         |

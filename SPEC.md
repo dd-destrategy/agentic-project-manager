@@ -261,6 +261,9 @@ Single-table design with on-demand capacity. Table name: `AgenticPM`.
 │ INTEGRATION#<name>        │ CONFIG                     │ Integration Config │
 │ AGENT                     │ CONFIG#<key>               │ Agent Config       │
 │ GLOBAL                    │ EVENT#<timestamp>#<ulid>   │ Global Event       │
+│ GRADUATION                │ <actionType>               │ Graduation State   │
+│ INGEST#<uuid>             │ METADATA                   │ Ingestion Session  │
+│ INGEST#<session_uuid>     │ EXTRACT#<uuid>             │ Extracted Item     │
 └───────────────────────────┴────────────────────────────┴────────────────────┘
 ```
 
@@ -414,6 +417,88 @@ Default entries:
   CONFIG#working_hours               → {"start": "08:00", "end": "18:00", "timezone": "Australia/Sydney"}
 ```
 
+**Held Action**
+
+```
+PK: PROJECT#<uuid>
+SK: ACTION#<timestamp>#<ulid>
+
+Attributes:
+  id             String (ULID)           Required
+  projectId      String (UUID)           Required
+  actionType     String                  Required, one of: email_sent | email_held | jira_status_change | jira_status_change_held
+  description    String                  Required
+  proposedAction Map                     Required, the action to execute if approved
+  status         String                  Required, one of: pending | approved | cancelled | executed | expired
+  rationale      String                  Optional, agent's reasoning
+  holdDurationMinutes Number             Required, default: 30
+  heldUntil      String (ISO 8601)       Required
+  approvedBy     String                  Optional
+  approvedAt     String (ISO 8601)       Optional
+  cancelledBy    String                  Optional
+  cancelledAt    String (ISO 8601)       Optional
+  executedAt     String (ISO 8601)       Optional
+  createdAt      String (ISO 8601)       Required
+  GSI1PK         String                  ACTIONS#<status>
+  GSI1SK         String                  <held_until>#<id>
+```
+
+**Graduation State**
+
+```
+PK: GRADUATION
+SK: <actionType>
+
+Attributes:
+  actionType     String                  Required
+  consecutiveApprovals Number            Required, default: 0
+  currentHoldMinutes   Number            Required
+  graduationTier Number                  Required, one of: 0 | 1 | 2 | 3
+  lastApprovedAt String (ISO 8601)       Optional
+  lastResetAt    String (ISO 8601)       Optional
+  createdAt      String (ISO 8601)       Required
+  updatedAt      String (ISO 8601)       Required
+```
+
+**Ingestion Session**
+
+```
+PK: INGEST#<uuid>
+SK: METADATA
+
+Attributes:
+  id             String (UUID)           Required
+  title          String                  Optional
+  status         String                  Required, one of: active | archived
+  messages       List                    Required, array of message objects (role, content, attachments)
+  createdAt      String (ISO 8601)       Required
+  updatedAt      String (ISO 8601)       Required
+  GSI1PK         String                  INGEST#<status>
+  GSI1SK         String                  <updated_at>#<id>
+```
+
+**Extracted Item**
+
+```
+PK: INGEST#<session_uuid>
+SK: EXTRACT#<uuid>
+
+Attributes:
+  id             String (UUID)           Required
+  sessionId      String (UUID)           Required
+  type           String                  Required, e.g. risk | action_item | decision | stakeholder_update | blocker | dependency
+  title          String                  Required
+  description    String                  Required
+  priority       String                  Optional, one of: critical | high | medium | low
+  status         String                  Required, one of: pending_review | approved | applied | dismissed
+  source         Map                     Optional, reference to source message
+  metadata       Map                     Optional
+  createdAt      String (ISO 8601)       Required
+  updatedAt      String (ISO 8601)       Required
+  GSI1PK         String                  EXTRACT#<status>
+  GSI1SK         String                  <updated_at>#<id>
+```
+
 #### Global Secondary Index (GSI1)
 
 ```
@@ -427,6 +512,14 @@ Default entries:
 │ ESCALATION#pending            │ <timestamp>#<uuid>              │
 │ ESCALATION#decided            │ <timestamp>#<uuid>              │
 │ EVENT#2026-02-04              │ <timestamp>#<ulid>              │
+│ ACTIONS#pending               │ <held_until>#<ulid>             │  (Held actions by status)
+│ ACTIONS#approved              │ <held_until>#<ulid>             │
+│ INGEST#active                 │ <updated_at>#<uuid>             │  (Ingestion sessions)
+│ INGEST#archived               │ <updated_at>#<uuid>             │
+│ EXTRACT#pending_review        │ <updated_at>#<uuid>             │  (Extracted items by status)
+│ EXTRACT#approved              │ <updated_at>#<uuid>             │
+│ EXTRACT#applied               │ <updated_at>#<uuid>             │
+│ EXTRACT#dismissed             │ <updated_at>#<uuid>             │
 └───────────────────────────────┴─────────────────────────────────┘
 
 Projection: ALL (all attributes projected for full entity retrieval)
@@ -439,6 +532,9 @@ Projection: ALL (all attributes projected for full entity retrieval)
 | Get pending escalations (global) | GSI1PK = `ESCALATION#pending` |
 | Get active projects | GSI1PK = `STATUS#active` |
 | Get events by date (global) | GSI1PK = `EVENT#<date>` |
+| Get held actions by status | GSI1PK = `ACTIONS#<status>` |
+| Get active ingestion sessions | GSI1PK = `INGEST#active` |
+| Get extracted items by status | GSI1PK = `EXTRACT#<status>` |
 
 #### TTL configuration
 
@@ -1059,10 +1155,14 @@ Failed health checks log a warning event. Three consecutive failures log an erro
 | View | Purpose | Data source |
 |------|---------|-------------|
 | **Mission Control** | Dashboard: project health, agent status, pending escalations, 24h stats | events, projects, escalations, agent_actions |
-| **Activity Feed** | Scrolling feed of agent events, filterable by project and type | events table |
-| **Decision Interface** | Full-screen escalation detail with options and decision buttons | escalations table |
-| **Project Detail** | Artefacts (delivery state, RAID, backlog, decisions) for one project | artefacts table |
-| **Settings** | Integration config, autonomy level, polling interval, budget status | agent_config, integration_configs |
+| **Activity Feed** | Dashboard component showing agent events with severity icons and 30s polling | events table |
+| **Decision Interface** | Full-screen escalation detail with options, decision buttons, and agent rationale | escalations table |
+| **Project Detail** | Artefacts (delivery state, RAID, backlog, decisions) with diff view and graduation evidence | artefacts table |
+| **Pending Actions** | Held action queue: approve/cancel actions, view proposed communications | held_actions table |
+| **Settings** | Integration config, autonomy level, polling interval, budget status, working hours | agent_config, integration_configs |
+| **Ingestion** | Conversational AI interface: paste screenshots/content, extract PM artefact data via Claude vision | ingestion_sessions, extracted_items |
+
+**Ingestion Interface:** A conversational AI view (`/ingest`) that allows pasting screenshots, drag-and-drop images, and free-text input. Claude Sonnet 4.5 with vision support analyses the content and extracts structured PM data (risks, action items, decisions, blockers, dependencies). Extracted items appear in a staging panel for review before being applied to project artefacts. Sessions are persisted with full message history (base64 images stripped from storage).
 
 ### 8.2 Frontend architecture
 
@@ -1072,6 +1172,7 @@ Failed health checks log a warning event. Three consecutive failures log an erro
 - **Client-rendered views:** Settings (interactive forms), modals/dialogs
 - **API routes:** User decisions on escalations, autonomy changes, config updates, hold queue approvals
 - **shadcn/ui** components: Card, Badge, Button, Separator, Tabs, Dialog
+- **Custom hooks (14):** use-agent-status, use-budget, use-artefacts, use-escalations, use-events, use-held-actions, use-projects, use-project, use-activity-stats, use-graduation, use-extracted-items, use-ingestion, use-toast
 - **Accessibility:** Semantic HTML, ARIA live regions for activity feed, keyboard navigation, WCAG contrast ratios (note: amber #f59e0b fails AA at 2.1:1 contrast — use #d97706 instead)
 
 ### 8.3 Key UI patterns
@@ -1083,6 +1184,12 @@ Failed health checks log a warning event. Three consecutive failures log an erro
 **Heartbeat distinction:** The feed distinguishes between "checked, nothing new" (grey, collapsed) and "checked, found changes" (coloured, expanded). This eliminates the ambiguity between "agent is working but idle" and "agent is dead."
 
 **Autonomy dial:** A labelled slider (Observe / Maintain / Act) replacing a dropdown with numeric levels. The agent acknowledges changes: "Understood. I'll hold all actions for your review."
+
+**Toast notifications:** Feedback system for user actions (success, error, warning, info) using shadcn/ui toast with glass-themed variants.
+
+**Graduation evidence dashboard:** Shows spot-check accuracy, consecutive approval counts, and hold time graduation tiers. Used in Project Detail view to inform autonomy level promotion decisions.
+
+**Artefact renderers:** Structured rendering components for each artefact type — delivery state (status summary, sprint progress, blockers, milestones), RAID log (categorised items with severity), backlog summary (sprint stats, highlights, refinement candidates), and decision log (decisions with options considered).
 
 ---
 
@@ -1181,54 +1288,68 @@ Single user. NextAuth.js with Credentials provider. Username and bcrypt-hashed p
 
 ### Phase 1: Foundation
 
-| # | Task |
-|---|------|
-| F1 | Set up AWS CDK project, configure IAM roles and permission boundaries |
-| F2 | Create DynamoDB table with GSI1, configure TTL |
-| F3 | Deploy Next.js app to AWS Amplify Hosting with NextAuth |
-| F4 | Build Step Functions state machine for agent workflow, configure EventBridge 15-minute schedule |
-| F5 | Create Lambda functions: heartbeat, change-detection, signal-normalise |
-| F6 | Build LLM abstraction layer: Haiku/Sonnet routing, tool-use, cost tracking |
-| F7 | Implement budget controls and degradation ladder |
-| F8 | Build events writes and activity feed (frontend reads from DynamoDB) |
-| F9 | Set up SES integration for agent-to-user notifications, verify domain |
-| F10 | Build agent status indicator in dashboard header |
-| F11 | CI/CD: Amplify auto-deploy for frontend, GitHub Actions for Lambda deployment via CDK |
+| # | Task | Status |
+|---|------|--------|
+| F1 | Set up AWS CDK project, configure IAM roles and permission boundaries | **Done** |
+| F2 | Create DynamoDB table with GSI1, configure TTL | **Done** |
+| F3 | Deploy Next.js app to AWS Amplify Hosting with NextAuth | **Done** (local dev) |
+| F4 | Build Step Functions state machine for agent workflow, configure EventBridge 15-minute schedule | **Done** |
+| F5 | Create Lambda functions: heartbeat, change-detection, signal-normalise | **Done** |
+| F6 | Build LLM abstraction layer: Haiku/Sonnet routing, tool-use, cost tracking | **Done** |
+| F7 | Implement budget controls and degradation ladder | **Done** |
+| F8 | Build events writes and activity feed (frontend reads from DynamoDB) | **Done** |
+| F9 | Set up SES integration for agent-to-user notifications, verify domain | **Done** (code complete, production SES pending) |
+| F10 | Build agent status indicator in dashboard header | **Done** |
+| F11 | CI/CD: Amplify auto-deploy for frontend, GitHub Actions for Lambda deployment via CDK | **Done** |
 
 ### Phase 2: Core Product (Level 1 → Level 2)
 
-| # | Task |
-|---|------|
-| C1 | Build Jira signal source (SignalSource interface implementation) |
-| C2 | Build signal normalisation pipeline |
-| C3 | Build two-pass triage Lambdas (sanitise + classify) with isolated IAM roles |
-| C4 | Build context assembly module (testable, cache-friendly) |
-| C5 | Implement artefact bootstrap: generate initial delivery state, RAID log, backlog summary, decision log from Jira data |
-| C6 | Build change detection gate (zero-LLM-cost delta check) |
-| C7 | Implement dry-run mode (log actions but don't execute) |
-| C8 | Build Mission Control dashboard with project cards |
-| C9 | Build escalation workflow (create, present, decide) |
-| C10 | Build basic health monitoring (integration health checks, CloudWatch alarms for missed heartbeat) |
-| C11 | Configure DynamoDB TTL for data retention (Events: 30 days, AgentActions: 90 days) |
-| C12 | Build daily digest email via SES |
-| C13 | Graduate to Level 2: autonomous artefact updates |
+| # | Task | Status |
+|---|------|--------|
+| C1 | Build Jira signal source (SignalSource interface implementation) | **Done** |
+| C2 | Build signal normalisation pipeline | **Done** |
+| C3 | Build two-pass triage Lambdas (sanitise + classify) with isolated IAM roles | **Done** |
+| C4 | Build context assembly module (testable, cache-friendly) | **Done** |
+| C5 | Implement artefact bootstrap from Jira data | **Done** |
+| C6 | Build change detection gate (zero-LLM-cost delta check) | **Done** |
+| C7 | Implement dry-run mode | **Done** |
+| C8 | Build Mission Control dashboard with project cards | **Done** |
+| C9 | Build escalation workflow (create, present, decide) | **Done** |
+| C10 | Build basic health monitoring | **Partial** (CloudWatch alarms done, integration health stubs) |
+| C11 | Configure DynamoDB TTL | **Done** |
+| C12 | Build daily digest email via SES | **Partial** (housekeeping Lambda stub, SES client done) |
+| C13 | Graduate to Level 2 | **Partial** (graduation tracking done, end-to-end not validated) |
 
 ### Phase 3: Enhancements (Level 2 → Level 3)
 
-| # | Task |
-|---|------|
-| E1 | Build Outlook signal source (Graph API delta queries) |
-| E2 | Implement draft-then-send with hold queue (separate 1-minute EventBridge schedule) |
-| E3 | Build communication preview in dashboard |
-| E4 | Implement structured confidence scoring |
-| E5 | Build reasoning transparency (show why agent took each action) |
-| E6 | Implement anti-complacency spot checks (fortnightly random review) |
-| E7 | Build autonomy graduation ceremony (evidence dashboard + confirmation) |
-| E8 | Implement Level 3 tactical actions (stakeholder email, Jira updates via hold queue) |
-| E9 | Build Sonnet reasoning Lambda for complex multi-source signals |
-| E10 | Validate prompt injection defence (Triage Lambda IAM isolation) |
-| E11 | Build project detail view (artefact viewer with diff against previousVersion) |
-| E12 | Build settings view (integration config, autonomy dial, budget status) |
+| # | Task | Status |
+|---|------|--------|
+| E1 | Build Outlook signal source | **Deferred** (Azure AD admin consent pending) |
+| E2 | Implement draft-then-send with hold queue | **Done** |
+| E3 | Build communication preview in dashboard | **Done** |
+| E4 | Implement structured confidence scoring | **Done** |
+| E5 | Build reasoning transparency | **Done** |
+| E6 | Implement anti-complacency spot checks | **Done** |
+| E7 | Build autonomy graduation ceremony | **Done** |
+| E8 | Implement Level 3 tactical actions | **Partial** (email + Jira done, wiring to pipeline pending) |
+| E9 | Build Sonnet reasoning Lambda | **Done** |
+| E10 | Validate prompt injection defence | **Partial** (IAM isolation done, pen test pending) |
+| E11 | Build project detail view | **Done** |
+| E12 | Build settings view | **Done** |
+
+### Ingestion Interface (Added February 2026)
+
+A conversational AI interface for manual content ingestion, not originally in the MVP scope. This extends the agent's data sources beyond automated Jira/Outlook polling.
+
+| # | Task | Status |
+|---|------|--------|
+| I1 | Build ingestion session DynamoDB entity and repository | **Done** |
+| I2 | Build extracted item entity and repository | **Done** |
+| I3 | Build ingestion API routes (sessions, messages, items) | **Done** |
+| I4 | Build chat UI with image paste and drag-drop | **Done** |
+| I5 | Integrate Claude Sonnet 4.5 with vision for content analysis | **Done** |
+| I6 | Build extracted items staging panel with review workflow | **Done** |
+| I7 | Wire extracted items to project artefacts | Pending |
 
 ### Deferred (not in MVP)
 
