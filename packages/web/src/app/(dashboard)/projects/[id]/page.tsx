@@ -165,7 +165,11 @@ export default function ProjectDetailPage({
     isLoading: projectLoading,
     error: projectError,
   } = useProject(id);
-  const { data: artefactsData, isLoading: artefactsLoading } = useArtefacts(id);
+  const {
+    data: artefactsData,
+    isLoading: artefactsLoading,
+    error: artefactsError,
+  } = useArtefacts(id);
   const { evidence: graduationEvidence, isLoading: graduationLoading } =
     useGraduationEvidenceDashboard();
   const promoteMutation = usePromoteAutonomyLevel();
@@ -358,7 +362,20 @@ export default function ProjectDetailPage({
 
           return (
             <TabsContent key={type} value={type} className="mt-4">
-              {artefactsLoading ? (
+              {artefactsError ? (
+                <Card>
+                  <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+                    <AlertCircle className="mb-4 h-12 w-12 text-destructive" />
+                    <h3 className="text-lg font-medium">
+                      Failed to load artefacts
+                    </h3>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {artefactsError.message ||
+                        'Please try refreshing the page'}
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : artefactsLoading ? (
                 <Card>
                   <CardContent className="flex items-center justify-center py-12">
                     <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />

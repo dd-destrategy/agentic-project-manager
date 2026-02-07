@@ -12,11 +12,26 @@ import { usePendingEscalationCount } from '@/lib/hooks';
  * Uses TanStack Query with 30-second polling to fetch real escalation data.
  */
 export function EscalationBanner() {
-  const { count: pendingCount, isLoading } = usePendingEscalationCount();
+  const { count: pendingCount, isLoading, error } = usePendingEscalationCount();
 
   // Don't show banner while loading or if no escalations
   if (isLoading || pendingCount === 0) {
     return null;
+  }
+
+  // Show subtle error if escalation data failed to load
+  if (error) {
+    return (
+      <div
+        className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+        role="alert"
+      >
+        <div className="flex items-center gap-2">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span>Unable to check for pending escalations</span>
+        </div>
+      </div>
+    );
   }
 
   return (

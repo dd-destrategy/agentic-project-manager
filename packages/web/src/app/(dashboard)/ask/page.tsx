@@ -1,6 +1,12 @@
 'use client';
 
-import { Loader2, Send, MessageSquare, HelpCircle } from 'lucide-react';
+import {
+  AlertCircle,
+  Loader2,
+  Send,
+  MessageSquare,
+  HelpCircle,
+} from 'lucide-react';
 import { useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
@@ -124,6 +130,17 @@ export default function AskPage() {
               </Button>
             </div>
           </form>
+
+          {/* Mutation error feedback */}
+          {queryMutation.isError && (
+            <div className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <span>
+                {queryMutation.error?.message ||
+                  'Failed to get an answer. Please try again.'}
+              </span>
+            </div>
+          )}
         </CardContent>
       </Card>
 

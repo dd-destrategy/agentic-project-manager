@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { getServerSession } from 'next-auth';
 
+import { ErrorBoundary } from '@/components/error-boundary';
 import { ResponsiveLayout } from '@/components/responsive-layout';
 
 import { authOptions } from '../api/auth/[...nextauth]/auth-options';
@@ -16,5 +17,9 @@ export default async function DashboardLayout({
     redirect('/auth/signin');
   }
 
-  return <ResponsiveLayout>{children}</ResponsiveLayout>;
+  return (
+    <ResponsiveLayout>
+      <ErrorBoundary>{children}</ErrorBoundary>
+    </ResponsiveLayout>
+  );
 }
