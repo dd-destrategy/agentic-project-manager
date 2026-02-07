@@ -27,7 +27,10 @@ export type MetricName =
   | 'AgentCycleCount'
   | 'LLMCostDaily'
   | 'EscalationCount'
-  | 'TriggerCount';
+  | 'TriggerCount'
+  | 'AgentHeartbeatEmitted'
+  | 'SchemaValidationSuccess'
+  | 'SchemaValidationFailure';
 
 /** Mapping of metric names to their CloudWatch units */
 const METRIC_UNITS: Record<MetricName, StandardUnit> = {
@@ -35,6 +38,9 @@ const METRIC_UNITS: Record<MetricName, StandardUnit> = {
   LLMCostDaily: StandardUnit.None, // USD amount, no standard unit
   EscalationCount: StandardUnit.Count,
   TriggerCount: StandardUnit.Count,
+  AgentHeartbeatEmitted: StandardUnit.Count,
+  SchemaValidationSuccess: StandardUnit.Count,
+  SchemaValidationFailure: StandardUnit.Count,
 };
 
 /**

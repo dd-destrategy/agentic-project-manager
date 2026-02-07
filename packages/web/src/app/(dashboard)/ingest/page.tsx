@@ -14,6 +14,7 @@ import { ulid } from 'ulid';
 
 import { ChatInput } from '@/components/ingest/chat-input';
 import { ExtractedItemsPanel } from '@/components/ingest/extracted-items-panel';
+import { MeetingMode } from '@/components/ingest/meeting-mode';
 import { MessageBubble } from '@/components/ingest/message-bubble';
 import { Button } from '@/components/ui/button';
 import {
@@ -23,6 +24,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import {
   useIngestionSessions,
@@ -32,7 +34,12 @@ import {
   useArchiveIngestionSession,
   toast,
 } from '@/lib/hooks';
-import type { IngestionAttachment, IngestionMessage } from '@/types';
+import type {
+  IngestionAttachment,
+  IngestionMessage,
+  MeetingMetadata,
+} from '@/types';
+import { meetingTypeLabels } from '@/types';
 
 // ============================================================================
 // Session List Sidebar
@@ -336,32 +343,56 @@ function ChatView({ sessionId }: { sessionId: string }) {
 // Empty State
 // ============================================================================
 
-function EmptyState({ onNewSession }: { onNewSession: () => void }) {
+function EmptyState({
+  onNewSession,
+  onMeetingSubmit,
+  isMeetingLoading,
+}: {
+  onNewSession: () => void;
+  onMeetingSubmit: (metadata: MeetingMetadata, transcript: string) => void;
+  isMeetingLoading?: boolean;
+}) {
   return (
     <div className="flex flex-1 items-center justify-center p-4">
-      <Card variant="glass" className="max-w-md">
-        <CardHeader className="text-center">
-          <ClipboardPaste
-            className="mx-auto mb-2 h-12 w-12 text-muted-foreground/50"
-            aria-hidden="true"
-          />
-          <CardTitle>Ingestion Interface</CardTitle>
-          <CardDescription>
-            Paste screenshots, chat logs, emails, or any project-related
-            content. The AI will help you extract action items, risks,
-            decisions, and status updates.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="text-center">
-          <Button
-            onClick={onNewSession}
-            aria-label="Start a new ingestion session"
-          >
-            <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
-            Start New Session
-          </Button>
-        </CardContent>
-      </Card>
+      <div className="w-full max-w-2xl">
+        <Tabs defaultValue="chat">
+          <TabsList className="mb-4">
+            <TabsTrigger value="chat">Chat</TabsTrigger>
+            <TabsTrigger value="meeting">Meeting</TabsTrigger>
+          </TabsList>
+          <TabsContent value="chat">
+            <Card variant="glass" className="mx-auto max-w-md">
+              <CardHeader className="text-center">
+                <ClipboardPaste
+                  className="mx-auto mb-2 h-12 w-12 text-muted-foreground/50"
+                  aria-hidden="true"
+                />
+                <CardTitle>Ingestion Interface</CardTitle>
+                <CardDescription>
+                  Paste screenshots, chat logs, emails, or any project-related
+                  content. The AI will help you extract action items, risks,
+                  decisions, and status updates.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="text-center">
+                <Button
+                  onClick={onNewSession}
+                  aria-label="Start a new ingestion session"
+                >
+                  <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
+                  Start New Session
+                </Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          <TabsContent value="meeting">
+            <MeetingMode
+              onSubmit={onMeetingSubmit}
+              isLoading={isMeetingLoading}
+            />
+          </TabsContent>
+        </Tabs>
+      </div>
     </div>
   );
 }
@@ -461,6 +492,10 @@ export default function IngestPage() {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [showNewSession, setShowNewSession] = useState(false);
   const [showSessionList, setShowSessionList] = useState(true);
+  const [meetingLoading, setMeetingLoading] = useState(false);
+
+  const createSession = useCreateIngestionSession();
+  const sendMessage = useSendIngestionMessage();
 
   const handleNewSession = () => {
     setActiveSessionId(null);
@@ -479,6 +514,69 @@ export default function IngestPage() {
     setActiveSessionId(id);
     // On mobile, hide session list when a session is selected
     setShowSessionList(false);
+  };
+
+  const handleMeetingSubmit = (metadata: MeetingMetadata, transcript: string) => {
+    setMeetingLoading(true);
+    const title = `${meetingTypeLabels[metadata.meetingType]} — ${metadata.date}`;
+
+    createSession.mutate(
+      { title },
+      {
+        onSuccess: (session) => {
+          // Build a meeting-context prefix for the first message
+          const prefix = [
+            `[Meeting Notes: ${meetingTypeLabels[metadata.meetingType]}]`,
+            `Date: ${metadata.date}`,
+            metadata.attendees.length > 0
+              ? `Attendees: ${metadata.attendees.join(', ')}`
+              : null,
+            '---',
+          ]
+            .filter(Boolean)
+            .join('\n');
+
+          const content = `${prefix}\n${transcript}`;
+
+          sendMessage.mutate(
+            { sessionId: session.id, content },
+            {
+              onSuccess: (data) => {
+                setMeetingLoading(false);
+                setActiveSessionId(session.id);
+                setShowSessionList(false);
+                if (data.extractedItems && data.extractedItems.length > 0) {
+                  const count = data.extractedItems.length;
+                  toast.info({
+                    title: `${count} item${count !== 1 ? 's' : ''} extracted from meeting`,
+                    description:
+                      'Check the extracted items panel to review and approve.',
+                  });
+                }
+              },
+              onError: () => {
+                setMeetingLoading(false);
+                // Still navigate to the session even if message fails
+                setActiveSessionId(session.id);
+                setShowSessionList(false);
+                toast.error({
+                  title: 'Meeting notes could not be processed',
+                  description:
+                    'The session was created but the notes could not be analysed. Try resending.',
+                });
+              },
+            }
+          );
+        },
+        onError: () => {
+          setMeetingLoading(false);
+          toast.error({
+            title: 'Failed to create meeting session',
+            description: 'Could not create a new session. Please try again.',
+          });
+        },
+      }
+    );
   };
 
   return (
@@ -525,7 +623,11 @@ export default function IngestPage() {
         ) : activeSessionId ? (
           <ChatView sessionId={activeSessionId} />
         ) : (
-          <EmptyState onNewSession={handleNewSession} />
+          <EmptyState
+            onNewSession={handleNewSession}
+            onMeetingSubmit={handleMeetingSubmit}
+            isMeetingLoading={meetingLoading}
+          />
         )}
       </div>
     </div>

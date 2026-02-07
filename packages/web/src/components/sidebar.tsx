@@ -7,6 +7,7 @@ import {
   Settings,
   Activity,
   ClipboardPaste,
+  FileText,
   ListChecks,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -18,6 +19,7 @@ const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Ingest', href: '/ingest', icon: ClipboardPaste },
   { name: 'Extracted', href: '/extracted', icon: ListChecks },
+  { name: 'Reports', href: '/reports', icon: FileText },
   { name: 'Projects', href: '/projects', icon: FolderKanban },
   { name: 'Activity', href: '/activity', icon: Activity },
   { name: 'Escalations', href: '/escalations', icon: AlertCircle },

@@ -98,6 +98,29 @@ export class MonitoringStack extends cdk.Stack {
         new cloudwatchActions.SnsAction(this.alertTopic)
       );
     }
+
+    // Dead Man's Switch: fires when agent stops running
+    const heartbeatStalenessAlarm = new cloudwatch.Alarm(this, 'HeartbeatStalenessAlarm', {
+      alarmName: 'agentic-pm-heartbeat-staleness',
+      alarmDescription: 'Agent has not emitted a heartbeat in 30 minutes',
+      metric: new cloudwatch.Metric({
+        namespace: 'AgenticPM',
+        metricName: 'AgentHeartbeatEmitted',
+        dimensionsMap: { Environment: props.config.envName },
+        period: cdk.Duration.minutes(15),
+        statistic: 'Sum',
+      }),
+      threshold: 1,
+      evaluationPeriods: 2,
+      comparisonOperator: cloudwatch.ComparisonOperator.LESS_THAN_THRESHOLD,
+      treatMissingData: cloudwatch.TreatMissingData.BREACHING,
+    });
+
+    if (this.alertTopic) {
+      heartbeatStalenessAlarm.addAlarmAction(
+        new cloudwatchActions.SnsAction(this.alertTopic)
+      );
+    }
   }
 
   private createDashboard(props: MonitoringStackProps): void {

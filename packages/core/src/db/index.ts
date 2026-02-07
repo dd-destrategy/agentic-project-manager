@@ -40,4 +40,9 @@ export {
   IntegrationConfigRepository,
   type IntegrationHealthConfig,
 } from './repositories/integration-config.js';
+export {
+  StakeholderRepository,
+  type Stakeholder,
+  type StakeholderActivity,
+} from './repositories/stakeholder.js';
 export type { QueryOptions, QueryResult } from './types.js';

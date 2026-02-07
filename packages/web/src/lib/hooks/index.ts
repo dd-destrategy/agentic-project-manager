@@ -76,3 +76,8 @@ export {
   type IntegrationHealthConfig,
 } from './use-integration-health';
 export { useToast, toast } from './use-toast';
+export {
+  useStakeholders,
+  type Stakeholder as StakeholderData,
+} from './use-stakeholders';
+export { useBriefing, type Briefing } from './use-briefings';

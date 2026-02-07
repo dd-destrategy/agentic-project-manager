@@ -15,3 +15,8 @@ export {
   type IntegrationHealthConfig,
 } from './integration-config.js';
 export { ProjectRepository } from './project.js';
+export {
+  StakeholderRepository,
+  type Stakeholder,
+  type StakeholderActivity,
+} from './stakeholder.js';

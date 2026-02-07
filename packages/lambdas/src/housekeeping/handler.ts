@@ -224,7 +224,40 @@ export async function handler(
       logger.info('No digest email configured, skipping');
     }
 
-    // 11. Mark housekeeping as completed so it doesn't run again today
+    // 11. Detect actions stuck in 'executing' status
+    try {
+      const stuckActions = await heldActionRepo.getStuckExecuting(5);
+      if (stuckActions.length > 0) {
+        logger.warn('Detected stuck executing actions', {
+          count: stuckActions.length,
+          actionIds: stuckActions.map((a) => a.id),
+        });
+
+        for (const stuckAction of stuckActions) {
+          await eventRepo.create({
+            projectId: stuckAction.projectId,
+            eventType: 'escalation_created',
+            severity: 'warning',
+            summary: `Action "${stuckAction.actionType}" stuck in executing state for over 5 minutes`,
+            detail: {
+              relatedIds: {
+                actionId: stuckAction.id,
+              },
+              context: {
+                actionType: stuckAction.actionType,
+                claimedAt: stuckAction.claimedAt,
+                stuckDetectedAt: new Date().toISOString(),
+              },
+            },
+          });
+        }
+      }
+    } catch (error) {
+      logger.error('Failed to check for stuck executing actions', error as Error);
+      // Don't fail the entire housekeeping run
+    }
+
+    // 12. Mark housekeeping as completed so it doesn't run again today
     await configRepo.updateLastHousekeeping();
 
     const output: HousekeepingOutput = {

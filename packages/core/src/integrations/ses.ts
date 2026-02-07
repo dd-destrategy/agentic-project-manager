@@ -41,7 +41,13 @@ export class SESClient {
     subject: string;
     bodyText: string;
     bodyHtml?: string;
+    deduplicationId?: string;
   }): Promise<{ messageId: string }> {
+    const headers: string[] = [];
+    if (params.deduplicationId) {
+      headers.push(`X-Dedup-Id: ${params.deduplicationId}`);
+    }
+
     const input: SendEmailCommandInput = {
       Source: this.fromAddress,
       Destination: {
@@ -65,6 +71,14 @@ export class SESClient {
           }),
         },
       },
+      ...(headers.length > 0 && {
+        Tags: [
+          {
+            Name: 'DeduplicationId',
+            Value: params.deduplicationId!,
+          },
+        ],
+      }),
     };
 
     const result = await this.client.send(new SendEmailCommand(input));

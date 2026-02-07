@@ -24,7 +24,8 @@ export type HeldActionStatus =
   | 'pending'
   | 'approved'
   | 'cancelled'
-  | 'executed';
+  | 'executed'
+  | 'executing';
 
 /**
  * Email stakeholder payload
@@ -70,6 +71,7 @@ export interface HeldAction {
   approvedAt?: string;
   cancelledAt?: string;
   executedAt?: string;
+  claimedAt?: string;
   cancelReason?: string;
   /** User who approved/cancelled (if applicable) */
   decidedBy?: string;
@@ -94,6 +96,7 @@ interface HeldActionItem {
   approvedAt?: string;
   cancelledAt?: string;
   executedAt?: string;
+  claimedAt?: string;
   cancelReason?: string;
   decidedBy?: string;
 }
@@ -451,6 +454,68 @@ export class HeldActionRepository {
   }
 
   /**
+   * Atomically claim an action for execution.
+   *
+   * Uses a conditional update to transition from 'pending' or 'approved'
+   * to 'executing'. Returns false if the action was already claimed by
+   * another invocation (idempotent execution guard).
+   */
+  async claimForExecution(
+    projectId: string,
+    actionId: string
+  ): Promise<boolean> {
+    try {
+      await this.db.update(
+        `${KEY_PREFIX.PROJECT}${projectId}`,
+        `HELD#${actionId}`,
+        'SET #status = :executing, #claimedAt = :now, #gsi1pk = :gsi1pk',
+        {
+          ':executing': 'executing',
+          ':pending': 'pending',
+          ':approved': 'approved',
+          ':now': new Date().toISOString(),
+          ':gsi1pk': 'HELD#EXECUTING',
+        },
+        {
+          '#status': 'status',
+          '#claimedAt': 'claimedAt',
+          '#gsi1pk': 'GSI1PK',
+        },
+        'attribute_exists(PK) AND (#status = :pending OR #status = :approved)'
+      );
+      return true;
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message.includes('ConditionalCheckFailed')
+      ) {
+        return false;
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Get actions stuck in 'executing' status beyond the given threshold.
+   *
+   * Queries GSI1 for HELD#EXECUTING and filters by claimedAt timestamp.
+   */
+  async getStuckExecuting(thresholdMinutes: number = 5): Promise<HeldAction[]> {
+    const result = await this.db.queryGSI1<HeldActionItem>('HELD#EXECUTING', {
+      limit: 100,
+      ascending: true,
+    });
+
+    const cutoff = new Date(
+      Date.now() - thresholdMinutes * 60 * 1000
+    ).toISOString();
+
+    return result.items
+      .filter((item) => item.claimedAt && item.claimedAt < cutoff)
+      .map((item) => this.toHeldAction(item));
+  }
+
+  /**
    * Convert DynamoDB item to HeldAction entity
    */
   private toHeldAction(item: HeldActionItem): HeldAction {
@@ -465,6 +530,7 @@ export class HeldActionRepository {
       approvedAt: item.approvedAt,
       cancelledAt: item.cancelledAt,
       executedAt: item.executedAt,
+      claimedAt: item.claimedAt,
       cancelReason: item.cancelReason,
       decidedBy: item.decidedBy,
     };

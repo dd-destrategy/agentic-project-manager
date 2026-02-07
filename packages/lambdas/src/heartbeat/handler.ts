@@ -19,6 +19,7 @@ import type { Context } from 'aws-lambda';
 import { ulid } from 'ulid';
 
 import { logger, getEnv, getCachedSecret } from '../shared/context.js';
+import { metrics } from '../shared/metrics.js';
 import type {
   AgentCycleInput,
   HeartbeatOutput,
@@ -256,6 +257,10 @@ export async function handler(
         },
       },
     });
+
+    // 7. Emit dead man's switch heartbeat metric
+    metrics.increment('AgentHeartbeatEmitted');
+    await metrics.flush();
 
     logger.info('Heartbeat completed', {
       cycleId,

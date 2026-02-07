@@ -142,6 +142,16 @@ export class HoldQueueService {
     for (const action of readyActions) {
       result.processed++;
 
+      // Atomically claim the action to prevent duplicate execution
+      const claimed = await this.heldActionRepo.claimForExecution(
+        action.projectId,
+        action.id
+      );
+      if (!claimed) {
+        // Another invocation already claimed it — skip
+        continue;
+      }
+
       try {
         // Execute the action
         await this.executeAction(action, executor);

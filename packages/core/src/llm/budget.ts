@@ -115,6 +115,7 @@ export class BudgetTracker {
   private db: DynamoDBClient | null = null;
   private dailySpend: number = 0;
   private monthlySpend: number = 0;
+  private lastRecordedCost: number = 0;
   private currentDate: string;
   private currentMonth: string;
   private usageHistory: UsageEntry[] = [];
@@ -156,6 +157,7 @@ export class BudgetTracker {
     // Update in-memory state
     this.dailySpend += usage.costUsd;
     this.monthlySpend += usage.costUsd;
+    this.lastRecordedCost = usage.costUsd;
     this.usageHistory.push(entry);
 
     // Persist to DynamoDB
@@ -373,7 +375,11 @@ export class BudgetTracker {
   }
 
   /**
-   * Save state to DynamoDB
+   * Save state to DynamoDB using atomic increments.
+   *
+   * Uses ADD expression for spend counters to prevent concurrent
+   * Lambda invocations from overwriting each other's totals.
+   * Only the incremental cost since the last save is added.
    */
   async saveToDb(): Promise<void> {
     if (!this.db) {
@@ -382,34 +388,37 @@ export class BudgetTracker {
 
     try {
       const now = new Date().toISOString();
+      const dailySK = `${KEY_PREFIX.CONFIG}daily_spend_${this.currentDate}`;
+      const monthlySK = `${KEY_PREFIX.CONFIG}monthly_spend_${this.currentMonth}`;
 
-      // Save daily budget record
-      const dailyRecord: BudgetRecord = {
-        PK: KEY_PREFIX.AGENT,
-        SK: `${KEY_PREFIX.CONFIG}daily_spend_${this.currentDate}`,
-        dailySpendUsd: this.dailySpend,
-        monthlySpendUsd: this.monthlySpend,
-        currentDate: this.currentDate,
-        monthStartDate: `${this.currentMonth}-01`,
-        lastUpdated: now,
-        usageHistory: this.usageHistory.slice(-100), // Keep last 100 entries
-      };
+      // Atomic increment for daily spend
+      await this.db.update(
+        KEY_PREFIX.AGENT,
+        dailySK,
+        'ADD dailySpendUsd :cost, monthlySpendUsd :cost SET lastUpdated = :now, currentDate = :date, monthStartDate = :monthStart',
+        {
+          ':cost': this.lastRecordedCost,
+          ':now': now,
+          ':date': this.currentDate,
+          ':monthStart': `${this.currentMonth}-01`,
+        }
+      );
 
-      await this.db.put(dailyRecord as unknown as Record<string, unknown>);
+      // Atomic increment for monthly spend
+      await this.db.update(
+        KEY_PREFIX.AGENT,
+        monthlySK,
+        'ADD monthlySpendUsd :cost SET lastUpdated = :now, currentDate = :date, monthStartDate = :monthStart',
+        {
+          ':cost': this.lastRecordedCost,
+          ':now': now,
+          ':date': this.currentDate,
+          ':monthStart': `${this.currentMonth}-01`,
+        }
+      );
 
-      // Save monthly budget record (separate for aggregation)
-      const monthlyRecord: BudgetRecord = {
-        PK: KEY_PREFIX.AGENT,
-        SK: `${KEY_PREFIX.CONFIG}monthly_spend_${this.currentMonth}`,
-        dailySpendUsd: this.dailySpend,
-        monthlySpendUsd: this.monthlySpend,
-        currentDate: this.currentDate,
-        monthStartDate: `${this.currentMonth}-01`,
-        lastUpdated: now,
-        usageHistory: [], // Don't store full history in monthly record
-      };
-
-      await this.db.put(monthlyRecord as unknown as Record<string, unknown>);
+      // Reset incremental cost after successful save
+      this.lastRecordedCost = 0;
     } catch (error) {
       // Log error but don't throw - budget tracking should not break agent
       console.error('Failed to save budget to DynamoDB:', error);

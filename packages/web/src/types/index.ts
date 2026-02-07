@@ -368,7 +368,8 @@ export type HeldActionStatus =
   | 'pending'
   | 'approved'
   | 'cancelled'
-  | 'executed';
+  | 'executed'
+  | 'executing';
 
 /**
  * Email stakeholder payload
@@ -438,6 +439,28 @@ export interface HeldActionResponse {
 }
 
 // ============================================================================
+// Meeting Types
+// ============================================================================
+
+export type MeetingType = 'standup' | 'sprint_review' | 'retrospective' | 'steering_committee' | 'one_to_one' | 'other';
+
+export interface MeetingMetadata {
+  meetingType: MeetingType;
+  date: string;
+  attendees: string[];
+  duration?: number;
+}
+
+export const meetingTypeLabels: Record<MeetingType, string> = {
+  standup: 'Standup',
+  sprint_review: 'Sprint Review',
+  retrospective: 'Retrospective',
+  steering_committee: 'Steering Committee',
+  one_to_one: '1:1',
+  other: 'Other',
+};
+
+// ============================================================================
 // Ingestion Session Types
 // ============================================================================
 
@@ -481,6 +504,8 @@ export interface IngestionSession {
   messages: IngestionMessage[];
   /** Optional project this session relates to */
   projectId?: string;
+  /** Optional meeting metadata when session was created via meeting mode */
+  meetingMetadata?: MeetingMetadata;
   createdAt: string;
   updatedAt: string;
 }

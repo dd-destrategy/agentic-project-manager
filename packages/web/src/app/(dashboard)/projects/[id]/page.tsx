@@ -13,6 +13,7 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useState, use } from 'react';
 
+import { ArtefactExport } from '@/components/artefact-export';
 import { GraduationEvidenceDashboard } from '@/components/graduation-evidence-dashboard';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -264,27 +265,37 @@ export default function ProjectDetailPage({
             </TabsTrigger>
           </TabsList>
 
-          {/* Diff toggle button - only show for artefact tabs */}
+          {/* Diff toggle and export buttons - only show for artefact tabs */}
           {activeTab !== 'graduation' && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowDiff(!showDiff)}
-              disabled={!hasPreviousVersion}
-              className="self-start sm:self-auto"
-            >
-              {showDiff ? (
-                <>
-                  <FileText className="mr-2 h-4 w-4" />
-                  Show Current
-                </>
-              ) : (
-                <>
-                  <GitCompare className="mr-2 h-4 w-4" />
-                  Show Changes
-                </>
+            <div className="flex items-center gap-2 self-start sm:self-auto">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowDiff(!showDiff)}
+                disabled={!hasPreviousVersion}
+              >
+                {showDiff ? (
+                  <>
+                    <FileText className="mr-2 h-4 w-4" />
+                    Show Current
+                  </>
+                ) : (
+                  <>
+                    <GitCompare className="mr-2 h-4 w-4" />
+                    Show Changes
+                  </>
+                )}
+              </Button>
+              {artefacts && artefacts.length > 0 && (
+                <ArtefactExport
+                  artefacts={artefacts.map((a) => ({
+                    type: a.type,
+                    content: a.content,
+                  }))}
+                  projectName={project.name}
+                />
               )}
-            </Button>
+            </div>
           )}
         </div>
 
