@@ -3,8 +3,10 @@
 import dynamic from 'next/dynamic';
 
 import { AgentStatus } from '@/components/agent-status';
+import { BudgetStatusCompact } from '@/components/budget-status';
 import { EscalationBanner } from '@/components/escalation-banner';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useBudgetStatus } from '@/lib/hooks/use-budget';
 
 // Dynamic imports for heavy components to reduce initial bundle size
 const ActivityFeed = dynamic(
@@ -48,6 +50,19 @@ const IntegrationHealth = dynamic(
 );
 
 /**
+ * LLM budget overview for the dashboard right column
+ */
+function BudgetOverview() {
+  const { data: budget } = useBudgetStatus();
+  if (!budget) return null;
+  return (
+    <div className="rounded-lg border bg-card p-4">
+      <BudgetStatusCompact budget={budget} />
+    </div>
+  );
+}
+
+/**
  * Mission Control Dashboard
  *
  * Primary dashboard showing real-time agent status, project health,
@@ -79,6 +94,7 @@ export default function DashboardPage() {
 
         {/* Right Column - Status & Stats (4 cols) */}
         <div className="col-span-12 lg:col-span-4 space-y-6">
+          <BudgetOverview />
           <IntegrationHealth />
           <EscalationSummary />
           <ActivityStats />

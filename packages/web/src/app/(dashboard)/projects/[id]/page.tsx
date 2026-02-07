@@ -15,6 +15,7 @@ import { useState, use } from 'react';
 
 import { ArtefactExport } from '@/components/artefact-export';
 import { GraduationEvidenceDashboard } from '@/components/graduation-evidence-dashboard';
+import { TrendChart } from '@/components/trend-chart';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -34,6 +35,7 @@ import {
   getHealthVariant,
   formatHealthStatus,
 } from '@/lib/hooks/use-project';
+import { useArtefactTrend } from '@/lib/hooks/use-snapshots';
 import { useToast } from '@/lib/hooks/use-toast';
 import type { ArtefactType } from '@/types';
 
@@ -50,6 +52,30 @@ const ArtefactDiff = dynamic(
   () =>
     import('@/components/artefact-diff').then((mod) => ({
       default: mod.ArtefactDiff,
+    })),
+  { loading: () => <Skeleton className="h-64" /> }
+);
+
+const DecisionTracker = dynamic(
+  () =>
+    import('@/components/decision-tracker').then((mod) => ({
+      default: mod.DecisionTracker,
+    })),
+  { loading: () => <Skeleton className="h-64" /> }
+);
+
+const StakeholderPanel = dynamic(
+  () =>
+    import('@/components/stakeholder-panel').then((mod) => ({
+      default: mod.StakeholderPanel,
+    })),
+  { loading: () => <Skeleton className="h-64" /> }
+);
+
+const BriefingPanel = dynamic(
+  () =>
+    import('@/components/briefing-panel').then((mod) => ({
+      default: mod.BriefingPanel,
     })),
   { loading: () => <Skeleton className="h-64" /> }
 );
@@ -91,6 +117,34 @@ function formatDate(timestamp: string): string {
       year: diffDays > 365 ? 'numeric' : undefined,
     });
   }
+}
+
+/**
+ * Project health trends using artefact snapshots
+ */
+function ProjectTrends({ projectId }: { projectId: string }) {
+  const { data, isLoading } = useArtefactTrend(projectId, 'delivery_state', {
+    limit: 14,
+  });
+
+  const chartData = (data?.dataPoints ?? []).map((dp) => ({
+    timestamp: dp.timestamp,
+    value: dp.metrics.blockerCount ?? 0,
+  }));
+
+  if (isLoading) return <Skeleton className="h-40" />;
+
+  return (
+    <Card>
+      <CardContent className="pt-6">
+        <TrendChart
+          data={chartData}
+          title="Blocker Trend (14 days)"
+          colour="red"
+        />
+      </CardContent>
+    </Card>
+  );
 }
 
 /**
@@ -363,6 +417,14 @@ export default function ProjectDetailPage({
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Project Intelligence */}
+      <div className="grid gap-6 md:grid-cols-2">
+        <DecisionTracker projectId={id} />
+        <StakeholderPanel projectId={id} />
+        <BriefingPanel projectId={id} />
+        <ProjectTrends projectId={id} />
+      </div>
     </div>
   );
 }
