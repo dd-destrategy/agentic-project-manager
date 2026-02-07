@@ -196,6 +196,37 @@ export async function handler(
     //     signals.push(outlookSignals);
     //   }
     // }
+
+    // Poll generic connectors via the Universal Connector Runtime
+    // When ConnectorRegistry is wired to DynamoDB, this will:
+    //   1. List all enabled connector instances for this project
+    //   2. Skip native connectors (jira, outlook) — handled above
+    //   3. For each generic connector:
+    //      a. Load descriptor from registry
+    //      b. Retrieve checkpoint
+    //      c. Call ConnectorRuntime.poll(descriptor, instance, checkpoint)
+    //      d. Update checkpoint
+    //      e. Push signals into batch
+    //
+    // Example (not yet activated — requires DynamoDB wiring):
+    //
+    // const connectorInstances = await connectorRegistry.listInstances(project.id);
+    // for (const instance of connectorInstances) {
+    //   if (!instance.enabled || instance.connectorId === 'jira') continue;
+    //   const descriptor = await connectorRegistry.getDescriptor(instance.connectorId);
+    //   if (!descriptor || descriptor.kind === 'native') continue;
+    //   const checkpoint = await checkpointRepo.get(project.id, instance.connectorId, 'last_sync');
+    //   const result = await connectorRuntime.poll(descriptor, instance, checkpoint?.checkpointValue ?? null);
+    //   if (result.signals.length > 0) {
+    //     await checkpointRepo.setIfNewer(project.id, instance.connectorId, result.newCheckpoint, 'last_sync');
+    //     signals.push({
+    //       projectId: project.id,
+    //       source: instance.connectorId,
+    //       signals: result.signals,
+    //       checkpoint: result.newCheckpoint,
+    //     });
+    //   }
+    // }
   }
 
   const hasChanges = signals.length > 0;

@@ -13,11 +13,25 @@ import { z } from 'zod';
 
 export const ProjectStatusSchema = z.enum(['active', 'paused', 'archived']);
 
-export const IntegrationSourceSchema = z.enum([
+/**
+ * Integration source — accepts known native sources plus any connector ID.
+ * Native sources are validated as exact matches; generic connector IDs
+ * are accepted as lowercase kebab-case strings (e.g. 'github-issues', 'linear').
+ */
+export const NativeIntegrationSourceSchema = z.enum([
   'jira',
   'outlook',
   'asana',
   'ses',
+]);
+
+export const IntegrationSourceSchema = z.union([
+  NativeIntegrationSourceSchema,
+  z
+    .string()
+    .min(1)
+    .max(50)
+    .regex(/^[a-z0-9][a-z0-9-]*[a-z0-9]$/),
 ]);
 
 export const AutonomyLevelSchema = z.enum([

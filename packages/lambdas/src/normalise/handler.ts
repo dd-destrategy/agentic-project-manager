@@ -47,6 +47,32 @@ function normaliseSignal(
     return normaliseJiraSignal(rawSignal, projectId);
   }
 
+  // Generic connector signals arrive pre-normalised from ConnectorRuntime.poll()
+  // via FieldMappingEngine. They already have id, source, timestamp, type,
+  // summary, raw, and metadata populated. If the raw signal has these fields,
+  // pass through as-is rather than losing the mapping.
+  if (
+    typeof raw === 'object' &&
+    raw !== null &&
+    'id' in raw &&
+    'type' in raw &&
+    'summary' in raw
+  ) {
+    const mapped = raw as Record<string, unknown>;
+    return {
+      id: String(mapped.id ?? ulid()),
+      source: String(mapped.source ?? source),
+      timestamp: String(mapped.timestamp ?? timestamp),
+      type: (mapped.type as SignalType) ?? ('unknown' as SignalType),
+      summary: String(mapped.summary ?? 'Signal detected'),
+      raw:
+        (mapped.raw as Record<string, unknown>) ??
+        (raw as Record<string, unknown>),
+      projectId,
+      metadata: mapped.metadata as NormalisedSignal['metadata'],
+    };
+  }
+
   // Generic fallback for sources without a dedicated normaliser
   const id = ulid();
   return {

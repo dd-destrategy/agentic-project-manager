@@ -129,3 +129,18 @@ export {
 
 // Reasoning
 export { requiresComplexReasoning } from './reasoning/reasoning.js';
+
+// Universal Connector Framework
+export {
+  ConnectorRegistry,
+  ConnectorRuntime,
+  FieldMappingEngine,
+  GenericPollingEngine,
+  UniversalAuthProvider,
+  WebhookReceiver,
+  builtinDescriptors,
+  type ConnectorDescriptor,
+  type ConnectorInstance,
+  type ConnectorCategory,
+  type MappedSignal,
+} from './connectors/index.js';
