@@ -33,6 +33,9 @@
     "db:setup": "npx tsx scripts/setup-local-db.ts",
     "db:seed": "npx tsx scripts/seed-local-db.ts",
     "db:reset": "pnpm db:setup && pnpm db:seed",
+    "local:setup": "npx tsx scripts/setup-local-aws.ts",
+    "local:invoke": "npx tsx scripts/invoke-handler.ts",
+    "local:state-machine": "npx tsx scripts/invoke-state-machine.ts",
     "validate-env": "bash scripts/validate-env.sh",
     "prepare": "husky"
   },

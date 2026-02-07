@@ -10,22 +10,97 @@ This guide synthesizes 561KB of solution design documentation into actionable de
 
 ## Quick Start
 
+### Prerequisites
+
+- Node.js >= 20, pnpm >= 9
+- Docker (for LocalStack)
+- An Anthropic API key (for ingestion AI features)
+
+### 1. Install and configure
+
 ```bash
-# 1. Clone and setup
 git clone https://github.com/user/agentic-project-manager.git
 cd agentic-project-manager
-git checkout feature/phase-1-foundation
 pnpm install
 
-# 2. Start local services
+# Create environment file from template
+cp .env.example .env.local
+
+# Edit .env.local — you MUST set these three values:
+#   NEXTAUTH_SECRET   → openssl rand -base64 32
+#   NEXTAUTH_PASSWORD → node -e "console.log(require('bcryptjs').hashSync('your-password', 10))"
+#   ANTHROPIC_API_KEY → from https://console.anthropic.com
+```
+
+### 2. Start local infrastructure
+
+```bash
+# Start LocalStack (DynamoDB, SES, Secrets Manager, Step Functions, EventBridge)
+# plus DynamoDB Admin UI (port 8001) and MailHog (port 8025)
 docker-compose up -d
 
-# 3. Run tests
-pnpm test
+# Create all AWS resources in LocalStack (table, queues, secrets, state machine)
+pnpm local:setup
 
-# 4. Deploy to dev
-pnpm cdk deploy --context env=dev
+# Seed sample data (2 projects, artefacts, escalations, held actions, etc.)
+pnpm db:seed
 ```
+
+### 3. Build and test
+
+```bash
+# Build core library (required before web typecheck)
+pnpm --filter @agentic-pm/core build
+
+# Run all tests (core + lambdas + web + cdk)
+pnpm test
+```
+
+### 4. Run the web app
+
+```bash
+pnpm dev
+# Open http://localhost:3000
+# Login with the password you hashed in NEXTAUTH_PASSWORD
+```
+
+### Local Development Tools
+
+| Tool | URL | Purpose |
+|------|-----|---------|
+| Web app | http://localhost:3000 | Dashboard, ingestion, escalations |
+| DynamoDB Admin | http://localhost:8001 | Browse/edit DynamoDB items |
+| MailHog | http://localhost:8025 | View emails sent via SES |
+
+### Invoke Lambda Handlers Locally
+
+```bash
+# Invoke any handler against LocalStack
+pnpm local:invoke heartbeat
+pnpm local:invoke change-detection
+pnpm local:invoke housekeeping
+
+# Custom event payload
+pnpm local:invoke hold-queue -- --event '{"source":"manual"}'
+
+# Run the full Step Functions state machine
+pnpm local:state-machine
+```
+
+### Useful Scripts
+
+| Script | Description |
+|--------|-------------|
+| `pnpm dev` | Start all packages in dev mode |
+| `pnpm test` | Run all test suites |
+| `pnpm build` | Build all packages |
+| `pnpm typecheck` | TypeScript check all packages |
+| `pnpm lint` | ESLint all packages |
+| `pnpm db:seed` | Re-seed sample data |
+| `pnpm db:reset` | Recreate table + re-seed |
+| `pnpm local:setup` | Create all LocalStack resources |
+| `pnpm local:invoke <handler>` | Invoke a Lambda handler locally |
+| `pnpm validate-env` | Check all required env vars are set |
 
 ---
 
@@ -33,20 +108,19 @@ pnpm cdk deploy --context env=dev
 
 ### Completed
 - Monorepo with pnpm workspaces + Turborepo (packages: core, web, lambdas, cdk)
-- `@agentic-pm/core`: 10 DynamoDB repositories, LLM client, Jira client, SES client, artefact system, execution engine
+- `@agentic-pm/core`: 11 DynamoDB repositories, LLM client, Jira client, SES client, artefact system, execution engine
 - `packages/lambdas`: 11 Lambda handlers (heartbeat, change-detection, normalise, triage-sanitise, triage-classify, reasoning, execute, artefact-update, housekeeping, hold-queue + executors)
 - `packages/web`: Next.js 15 App Router with 7 dashboard pages, 16+ API routes, 50+ components, 14 custom hooks
 - `packages/cdk`: 3 CDK stacks (foundation, agent, monitoring)
-- Full test suite: 1,334 tests passing across all packages
+- Full test suite: 1,390 tests passing across all packages
 - Local development: docker-compose with LocalStack, seed scripts, handler invocation scripts
 - CI/CD: GitHub Actions workflows for build, test, deploy
+- Integration health monitoring: real SES/Jira health checks, dashboard component
+- Daily digest email: complete with real budget, escalation, and artefact data
+- Graduation criteria: approve/cancel routes update graduation state, E2E tests
+- Ingestion → artefacts: apply extracted items to RAID log, decision log, delivery state
 
 ### Remaining
-- Wire Jira client to change-detection Lambda (polling pipeline end-to-end)
-- Complete integration health monitoring (wrong endpoint, missing API calls)
-- Implement daily digest email sending in housekeeping Lambda
-- Validate graduation criteria end-to-end
-- Wire extracted items from ingestion to project artefacts
 - Outlook integration (blocked on Azure AD admin consent)
 - Production deployment to AWS
 

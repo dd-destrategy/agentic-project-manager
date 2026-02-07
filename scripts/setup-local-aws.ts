@@ -255,8 +255,8 @@ async function createSecrets(): Promise<void> {
   );
 
   await createSecret(
-    '/agentic-pm/jira/api-token',
-    'Jira Cloud API token',
+    '/agentic-pm/jira/credentials',
+    'Jira Cloud API credentials',
     JSON.stringify({
       baseUrl: 'https://your-org.atlassian.net',
       email: 'user@example.com',
@@ -668,7 +668,7 @@ ${BOLD}Resources created in LocalStack (${ENDPOINT}):${RESET}
 
   Secrets Manager:
     /agentic-pm/llm/api-key
-    /agentic-pm/jira/api-token
+    /agentic-pm/jira/credentials
     /agentic-pm/graph/credentials
     /agentic-pm/auth/nextauth-secret
 

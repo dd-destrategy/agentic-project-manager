@@ -18,13 +18,13 @@ intervention.
 
 **Phase 1 complete. Phase 2/3 in progress.**
 
-| Phase                  | Status            | Notes                                         |
-| ---------------------- | ----------------- | --------------------------------------------- |
-| Phase 0 (Pre-code)     | Complete          | Spikes validated                              |
-| Phase 1 (Foundation)   | **Complete**      | All 11 tasks done                             |
-| Phase 2 (Core Product) | **~85% complete** | Integration health and daily digest remaining |
-| Phase 3 (Enhancements) | **~75% complete** | Outlook deferred, most features done          |
-| Ingestion Interface    | **Complete**      | Added Feb 2026, not in original spec          |
+| Phase                  | Status            | Notes                                |
+| ---------------------- | ----------------- | ------------------------------------ |
+| Phase 0 (Pre-code)     | Complete          | Spikes validated                     |
+| Phase 1 (Foundation)   | **Complete**      | All 11 tasks done                    |
+| Phase 2 (Core Product) | **Complete**      | All features implemented             |
+| Phase 3 (Enhancements) | **~95% complete** | Outlook deferred (Azure AD consent)  |
+| Ingestion Interface    | **Complete**      | Added Feb 2026, not in original spec |
 
 ## Architecture Decisions (Locked)
 

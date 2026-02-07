@@ -881,6 +881,74 @@ const extractedItems = [
 ];
 
 // ---------------------------------------------------------------------------
+// Graduation State
+// ---------------------------------------------------------------------------
+
+const graduationStates = [
+  {
+    PK: `PROJECT#${PROJECT_1_ID}`,
+    SK: 'GRADUATION#email_stakeholder',
+    actionType: 'email_stakeholder',
+    consecutiveApprovals: 3,
+    currentHoldMinutes: 30,
+    graduationTier: 0,
+    lastApprovedAt: iso(hoursAgo(2)),
+    createdAt: iso(daysAgo(10)),
+    updatedAt: iso(hoursAgo(2)),
+  },
+  {
+    PK: `PROJECT#${PROJECT_1_ID}`,
+    SK: 'GRADUATION#jira_status_change',
+    actionType: 'jira_status_change',
+    consecutiveApprovals: 7,
+    currentHoldMinutes: 15,
+    graduationTier: 1,
+    lastApprovedAt: iso(hoursAgo(6)),
+    createdAt: iso(daysAgo(10)),
+    updatedAt: iso(hoursAgo(6)),
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Integration Health Config
+// ---------------------------------------------------------------------------
+
+const integrationConfigs = [
+  {
+    PK: 'INTEGRATION#jira',
+    SK: 'CONFIG',
+    name: 'jira',
+    healthy: true,
+    lastHealthCheck: iso(hoursAgo(0.25)),
+    consecutiveFailures: 0,
+    latencyMs: 245,
+    details: {
+      accountId: '5f4dcc3b5aa765d61d8327deb882cf99',
+      displayName: 'PM Agent',
+      active: true,
+    },
+    createdAt: iso(daysAgo(14)),
+    updatedAt: iso(hoursAgo(0.25)),
+  },
+  {
+    PK: 'INTEGRATION#ses',
+    SK: 'CONFIG',
+    name: 'ses',
+    healthy: true,
+    lastHealthCheck: iso(hoursAgo(0.25)),
+    consecutiveFailures: 0,
+    latencyMs: 120,
+    details: {
+      max24HourSend: 50000,
+      sentLast24Hours: 3,
+      maxSendRate: 14,
+    },
+    createdAt: iso(daysAgo(14)),
+    updatedAt: iso(hoursAgo(0.25)),
+  },
+];
+
+// ---------------------------------------------------------------------------
 // Write all items
 // ---------------------------------------------------------------------------
 
@@ -908,6 +976,8 @@ async function main() {
     ...heldActions,
     ...events,
     ...agentConfig,
+    ...graduationStates,
+    ...integrationConfigs,
     ingestionSession,
     ...extractedItems,
   ];
@@ -922,6 +992,8 @@ async function main() {
       `  ${heldActions.length} held actions\n` +
       `  ${events.length} events\n` +
       `  ${agentConfig.length} agent config entries\n` +
+      `  ${graduationStates.length} graduation states\n` +
+      `  ${integrationConfigs.length} integration health configs\n` +
       `  1 ingestion session\n` +
       `  ${extractedItems.length} extracted items`
   );
