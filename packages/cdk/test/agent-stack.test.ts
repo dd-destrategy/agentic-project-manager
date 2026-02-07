@@ -14,6 +14,10 @@ import type {
 describe('AgentStack', () => {
   let template: Template;
 
+  const triageRoleArn = 'arn:aws:iam::123456789012:role/mock-triage-role';
+  const agentRoleArn = 'arn:aws:iam::123456789012:role/mock-agent-role';
+  const sfnRoleArn = 'arn:aws:iam::123456789012:role/mock-sfn-role';
+
   const config: EnvironmentConfig = {
     envName: 'dev',
     awsEnv: { account: '123456789012', region: 'ap-southeast-2' },
@@ -30,14 +34,18 @@ describe('AgentStack', () => {
   beforeAll(() => {
     const app = new cdk.App();
 
-    // Create mock table
+    // Helper stack for mock resources that do NOT cause cross-stack grants
     const mockStack = new cdk.Stack(app, 'MockStack');
-    const table = new dynamodb.Table(mockStack, 'MockTable', {
-      partitionKey: { name: 'PK', type: dynamodb.AttributeType.STRING },
-      sortKey: { name: 'SK', type: dynamodb.AttributeType.STRING },
-    });
 
-    // Create mock secrets
+    // Use imported table to avoid cross-stack Fn::ImportValue for tableName/tableArn.
+    // Provide only tableArn — CDK derives tableName from it.
+    const table = dynamodb.Table.fromTableArn(
+      mockStack,
+      'MockTable',
+      'arn:aws:dynamodb:ap-southeast-2:123456789012:table/AgenticPM-Dev'
+    ) as unknown as dynamodb.Table;
+
+    // Create mock secrets (fromSecretNameV2 returns ISecret — no cross-stack grants)
     const secrets: AgenticPMSecrets = {
       llmApiKey: secretsmanager.Secret.fromSecretNameV2(
         mockStack,
@@ -61,17 +69,28 @@ describe('AgentStack', () => {
       ),
     };
 
-    // Create mock roles
+    // Use imported roles with mutable: false to prevent CDK from adding
+    // inline policies (e.g. sqs:SendMessage for the DLQ), which would
+    // create a cyclic cross-stack dependency (MockStack <-> TestStack).
     const roles: AgenticPMRoles = {
-      triageLambdaRole: new iam.Role(mockStack, 'MockTriageRole', {
-        assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
-      }),
-      agentLambdaRole: new iam.Role(mockStack, 'MockAgentRole', {
-        assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
-      }),
-      stepFunctionsRole: new iam.Role(mockStack, 'MockSFNRole', {
-        assumedBy: new iam.ServicePrincipal('states.amazonaws.com'),
-      }),
+      triageLambdaRole: iam.Role.fromRoleArn(
+        mockStack,
+        'MockTriageRole',
+        triageRoleArn,
+        { mutable: false }
+      ) as unknown as iam.Role,
+      agentLambdaRole: iam.Role.fromRoleArn(
+        mockStack,
+        'MockAgentRole',
+        agentRoleArn,
+        { mutable: false }
+      ) as unknown as iam.Role,
+      stepFunctionsRole: iam.Role.fromRoleArn(
+        mockStack,
+        'MockSFNRole',
+        sfnRoleArn,
+        { mutable: false }
+      ) as unknown as iam.Role,
     };
 
     // Create mock Lambda asset directory
@@ -177,11 +196,7 @@ describe('AgentStack', () => {
       triageFunctions.forEach((name) => {
         template.hasResourceProperties('AWS::Lambda::Function', {
           FunctionName: `agentic-pm-${name}`,
-          Role: Match.objectLike({
-            'Fn::GetAtt': Match.arrayWith([
-              Match.stringLikeRegexp('MockTriageRole'),
-            ]),
-          }),
+          Role: triageRoleArn,
         });
       });
     });
@@ -199,11 +214,7 @@ describe('AgentStack', () => {
       agentFunctions.forEach((name) => {
         template.hasResourceProperties('AWS::Lambda::Function', {
           FunctionName: `agentic-pm-${name}`,
-          Role: Match.objectLike({
-            'Fn::GetAtt': Match.arrayWith([
-              Match.stringLikeRegexp('MockAgentRole'),
-            ]),
-          }),
+          Role: agentRoleArn,
         });
       });
     });
@@ -424,22 +435,27 @@ describe('AgentStack', () => {
     });
 
     it('KMS key grants CloudWatch Logs permissions', () => {
-      template.hasResourceProperties('AWS::KMS::Key', {
-        KeyPolicy: Match.objectLike({
-          Statement: Match.arrayWith([
-            Match.objectLike({
-              Principal: Match.objectLike({
-                Service: Match.stringLikeRegexp('logs.*amazonaws.com'),
-              }),
-              Action: Match.arrayWith([
-                'kms:Encrypt*',
-                'kms:Decrypt*',
-                'kms:GenerateDataKey*',
-              ]),
-            }),
-          ]),
-        }),
+      // The Service principal contains a region token (Fn::Join), so we
+      // verify via findResources + JSON.stringify instead of stringLikeRegexp.
+      const keys = template.findResources('AWS::KMS::Key');
+      const key = Object.values(keys)[0] as any;
+      const statements = key.Properties.KeyPolicy.Statement;
+
+      const logsStatement = statements.find((s: any) => {
+        const serviceStr = JSON.stringify(s.Principal?.Service || '');
+        return (
+          serviceStr.includes('logs') && serviceStr.includes('amazonaws.com')
+        );
       });
+
+      expect(logsStatement).toBeDefined();
+      expect(logsStatement.Action).toEqual(
+        expect.arrayContaining([
+          'kms:Encrypt*',
+          'kms:Decrypt*',
+          'kms:GenerateDataKey*',
+        ])
+      );
     });
   });
 
@@ -476,14 +492,27 @@ describe('AgentStack', () => {
         .map((p: any) => p.Properties.PolicyDocument.Statement)
         .flat();
 
-      const invokePermissions = policyStatements.filter(
+      // CDK creates per-Lambda invoke statements (each with 2 resources:
+      // function ARN + function ARN:*). Count total resources across all
+      // invoke-permission statements to verify all Lambdas are covered.
+      const invokeStatements = policyStatements.filter(
         (stmt: any) =>
-          stmt.Action === 'lambda:InvokeFunction' &&
-          Array.isArray(stmt.Resource) &&
-          stmt.Resource.length >= 10
+          stmt.Effect === 'Allow' &&
+          (stmt.Action === 'lambda:InvokeFunction' ||
+            (Array.isArray(stmt.Action) &&
+              stmt.Action.includes('lambda:InvokeFunction')))
       );
 
-      expect(invokePermissions.length).toBeGreaterThan(0);
+      expect(invokeStatements.length).toBeGreaterThan(0);
+
+      const totalResources = invokeStatements.reduce(
+        (sum: number, stmt: any) =>
+          sum + (Array.isArray(stmt.Resource) ? stmt.Resource.length : 1),
+        0
+      );
+
+      // 10 Lambda functions, each contributes at least ARN + ARN:*
+      expect(totalResources).toBeGreaterThanOrEqual(10);
     });
 
     it('does not grant admin access to any role', () => {

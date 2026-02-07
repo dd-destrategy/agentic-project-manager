@@ -562,6 +562,10 @@ describe('AgentConfigRepository', () => {
     });
 
     it('should return true when housekeeping is due', async () => {
+      // Use fake timers to ensure current hour is after 8am (default working hours start)
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2024-06-15T10:00:00.000Z'));
+
       const yesterday = new Date(
         Date.now() - 24 * 60 * 60 * 1000
       ).toISOString();
@@ -570,6 +574,8 @@ describe('AgentConfigRepository', () => {
       const result = await repo.isHousekeepingDue();
 
       expect(result).toBe(true);
+
+      vi.useRealTimers();
     });
 
     it('should return false when housekeeping already ran today', async () => {
@@ -612,7 +618,12 @@ describe('AgentConfigRepository', () => {
     });
 
     it('should set autonomy level and create pending acknowledgement', async () => {
-      vi.mocked(mockDb.get).mockResolvedValueOnce({ value: 'monitoring' });
+      vi.mocked(mockDb.get)
+        .mockResolvedValueOnce({ value: 'monitoring' }) // getAutonomyLevel() in setAutonomyLevel
+        .mockResolvedValueOnce({ value: 'tactical' }) // getAutonomySettings -> AUTONOMY_LEVEL
+        .mockResolvedValueOnce(null) // getAutonomySettings -> DRY_RUN
+        .mockResolvedValueOnce(null) // getAutonomySettings -> LAST_AUTONOMY_CHANGE
+        .mockResolvedValueOnce(null); // getAutonomySettings -> PENDING_ACKNOWLEDGEMENT
       vi.mocked(mockDb.put).mockResolvedValue(undefined);
 
       const result = await repo.setAutonomyLevel('tactical');

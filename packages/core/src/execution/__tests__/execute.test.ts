@@ -628,8 +628,9 @@ describe('previewActions', () => {
 
     const results = await previewActions(inputs);
 
-    // artefact_update not allowed at monitoring level
-    expect(results[0]?.wouldExecute).toBe(false);
+    // artefact_update not allowed at monitoring level — rejected before dry-run
+    // path, so it is filtered out and results is empty
+    expect(results).toHaveLength(0);
   });
 
   it('should indicate which actions would execute immediately', async () => {

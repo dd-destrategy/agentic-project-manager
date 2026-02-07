@@ -5,7 +5,10 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { CheckpointRepository, createCheckpointRepository } from './checkpoint.js';
+import {
+  CheckpointRepository,
+  createCheckpointRepository,
+} from './checkpoint.js';
 import type { DynamoDBClient } from '../client.js';
 import type { AgentCheckpoint } from '../../types/index.js';
 import { KEY_PREFIX } from '../../constants.js';
@@ -15,6 +18,7 @@ function createMockDbClient(): DynamoDBClient {
   return {
     get: vi.fn(),
     put: vi.fn(),
+    putWithCondition: vi.fn().mockResolvedValue(true),
     query: vi.fn(),
     delete: vi.fn(),
     update: vi.fn(),
@@ -75,7 +79,8 @@ describe('CheckpointRepository', () => {
 
   describe('set', () => {
     it('should store a checkpoint', async () => {
-      vi.mocked(mockDb.put).mockResolvedValueOnce(undefined);
+      vi.mocked(mockDb.get).mockResolvedValueOnce(null); // no existing checkpoint
+      vi.mocked((mockDb as any).putWithCondition).mockResolvedValueOnce(true);
 
       const result = await repo.set(
         'project-1',
@@ -90,7 +95,7 @@ describe('CheckpointRepository', () => {
       expect(result.checkpointValue).toBe('2024-01-15T10:00:00.000Z');
       expect(result.updatedAt).toBeDefined();
 
-      expect(mockDb.put).toHaveBeenCalledWith(
+      expect((mockDb as any).putWithCondition).toHaveBeenCalledWith(
         expect.objectContaining({
           PK: `${KEY_PREFIX.PROJECT}project-1`,
           SK: `${KEY_PREFIX.CHECKPOINT}jira#last_sync`,
@@ -98,20 +103,25 @@ describe('CheckpointRepository', () => {
           integration: 'jira',
           checkpointKey: 'last_sync',
           checkpointValue: '2024-01-15T10:00:00.000Z',
-        })
+        }),
+        'attribute_not_exists(PK)',
+        undefined
       );
     });
 
     it('should use default checkpoint key when not provided', async () => {
-      vi.mocked(mockDb.put).mockResolvedValueOnce(undefined);
+      vi.mocked(mockDb.get).mockResolvedValueOnce(null); // no existing checkpoint
+      vi.mocked((mockDb as any).putWithCondition).mockResolvedValueOnce(true);
 
       await repo.set('project-1', 'jira', '2024-01-15T10:00:00.000Z');
 
-      expect(mockDb.put).toHaveBeenCalledWith(
+      expect((mockDb as any).putWithCondition).toHaveBeenCalledWith(
         expect.objectContaining({
           SK: `${KEY_PREFIX.CHECKPOINT}jira#last_sync`,
           checkpointKey: 'last_sync',
-        })
+        }),
+        'attribute_not_exists(PK)',
+        undefined
       );
     });
   });
@@ -119,7 +129,7 @@ describe('CheckpointRepository', () => {
   describe('setIfNewer', () => {
     it('should update checkpoint when no existing checkpoint', async () => {
       vi.mocked(mockDb.get).mockResolvedValueOnce(null);
-      vi.mocked(mockDb.put).mockResolvedValueOnce(undefined);
+      vi.mocked((mockDb as any).putWithCondition).mockResolvedValueOnce(true);
 
       const result = await repo.setIfNewer(
         'project-1',
@@ -128,7 +138,7 @@ describe('CheckpointRepository', () => {
       );
 
       expect(result).toBe(true);
-      expect(mockDb.put).toHaveBeenCalled();
+      expect((mockDb as any).putWithCondition).toHaveBeenCalled();
     });
 
     it('should update checkpoint when new value is more recent', async () => {
@@ -141,7 +151,7 @@ describe('CheckpointRepository', () => {
       };
 
       vi.mocked(mockDb.get).mockResolvedValueOnce(existingCheckpoint);
-      vi.mocked(mockDb.put).mockResolvedValueOnce(undefined);
+      vi.mocked((mockDb as any).putWithCondition).mockResolvedValueOnce(true);
 
       const result = await repo.setIfNewer(
         'project-1',
@@ -150,7 +160,7 @@ describe('CheckpointRepository', () => {
       );
 
       expect(result).toBe(true);
-      expect(mockDb.put).toHaveBeenCalled();
+      expect((mockDb as any).putWithCondition).toHaveBeenCalled();
     });
 
     it('should not update checkpoint when new value is older', async () => {
@@ -305,7 +315,8 @@ describe('CheckpointRepository', () => {
 
   describe('setLastSyncTime', () => {
     it('should set checkpoint from Date object', async () => {
-      vi.mocked(mockDb.put).mockResolvedValueOnce(undefined);
+      vi.mocked(mockDb.get).mockResolvedValueOnce(null);
+      vi.mocked((mockDb as any).putWithCondition).mockResolvedValueOnce(true);
 
       const date = new Date('2024-01-15T10:00:00.000Z');
       const result = await repo.setLastSyncTime('project-1', 'jira', date);
@@ -314,7 +325,8 @@ describe('CheckpointRepository', () => {
     });
 
     it('should set checkpoint from string', async () => {
-      vi.mocked(mockDb.put).mockResolvedValueOnce(undefined);
+      vi.mocked(mockDb.get).mockResolvedValueOnce(null);
+      vi.mocked((mockDb as any).putWithCondition).mockResolvedValueOnce(true);
 
       const result = await repo.setLastSyncTime(
         'project-1',
@@ -328,12 +340,16 @@ describe('CheckpointRepository', () => {
 
   describe('initializeForProject', () => {
     it('should create initial checkpoints for specified integrations', async () => {
-      vi.mocked(mockDb.put).mockResolvedValue(undefined);
+      vi.mocked(mockDb.get).mockResolvedValue(null); // no existing checkpoints
+      vi.mocked((mockDb as any).putWithCondition).mockResolvedValue(true);
 
-      const result = await repo.initializeForProject('project-1', ['jira', 'outlook']);
+      const result = await repo.initializeForProject('project-1', [
+        'jira',
+        'outlook',
+      ]);
 
       expect(result).toHaveLength(2);
-      expect(mockDb.put).toHaveBeenCalledTimes(2);
+      expect((mockDb as any).putWithCondition).toHaveBeenCalledTimes(2);
 
       // Verify checkpoints are set to 24 hours ago
       for (const checkpoint of result) {

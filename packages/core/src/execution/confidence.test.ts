@@ -81,10 +81,7 @@ describe('Source Agreement Dimension', () => {
   });
 
   it('should score higher with multiple sources', () => {
-    const signals = [
-      createMockSignal('jira'),
-      createMockSignal('outlook'),
-    ];
+    const signals = [createMockSignal('jira'), createMockSignal('outlook')];
     const result = checkConfidence('artefact_update', signals, [], true);
 
     expect(result.dimensions.sourceAgreement.pass).toBe(true);
@@ -113,10 +110,7 @@ describe('Source Agreement Dimension', () => {
   });
 
   it('should list source names in evidence', () => {
-    const signals = [
-      createMockSignal('jira'),
-      createMockSignal('outlook'),
-    ];
+    const signals = [createMockSignal('jira'), createMockSignal('outlook')];
     const result = checkConfidence('artefact_update', signals, [], true);
 
     expect(result.dimensions.sourceAgreement.evidence).toContain('jira');
@@ -143,7 +137,12 @@ describe('Source Agreement Dimension', () => {
 
 describe('Boundary Compliance Dimension', () => {
   describe('auto-execute actions', () => {
-    const autoExecuteActions: ActionType[] = ['artefact_update', 'heartbeat_log', 'notification_sent', 'jira_comment'];
+    const autoExecuteActions: ActionType[] = [
+      'artefact_update',
+      'heartbeat_log',
+      'notification_internal',
+      'jira_comment',
+    ];
 
     autoExecuteActions.forEach((action) => {
       it(`should pass for auto-execute action: ${action}`, () => {
@@ -152,13 +151,15 @@ describe('Boundary Compliance Dimension', () => {
 
         expect(result.dimensions.boundaryCompliance.pass).toBe(true);
         expect(result.dimensions.boundaryCompliance.score).toBe(1);
-        expect(result.dimensions.boundaryCompliance.evidence).toContain('can be auto-executed');
+        expect(result.dimensions.boundaryCompliance.evidence).toContain(
+          'can be auto-executed'
+        );
       });
     });
   });
 
   describe('hold queue actions', () => {
-    const holdQueueActions: ActionType[] = ['email_sent'];
+    const holdQueueActions: ActionType[] = ['email_stakeholder'];
 
     holdQueueActions.forEach((action) => {
       it(`should pass for hold queue action: ${action}`, () => {
@@ -167,13 +168,15 @@ describe('Boundary Compliance Dimension', () => {
 
         expect(result.dimensions.boundaryCompliance.pass).toBe(true);
         expect(result.dimensions.boundaryCompliance.score).toBe(0.7);
-        expect(result.dimensions.boundaryCompliance.evidence).toContain('requires hold queue');
+        expect(result.dimensions.boundaryCompliance.evidence).toContain(
+          'requires hold queue'
+        );
       });
     });
   });
 
   describe('approval-required actions', () => {
-    const approvalActions: ActionType[] = ['escalation_created'];
+    const approvalActions: ActionType[] = ['email_external'];
 
     approvalActions.forEach((action) => {
       it(`should pass for approval-required action: ${action}`, () => {
@@ -182,7 +185,9 @@ describe('Boundary Compliance Dimension', () => {
 
         expect(result.dimensions.boundaryCompliance.pass).toBe(true);
         expect(result.dimensions.boundaryCompliance.score).toBe(0.5);
-        expect(result.dimensions.boundaryCompliance.evidence).toContain('requires user approval');
+        expect(result.dimensions.boundaryCompliance.evidence).toContain(
+          'requires user approval'
+        );
       });
     });
   });
@@ -191,22 +196,36 @@ describe('Boundary Compliance Dimension', () => {
     it('should fail for neverDo actions', () => {
       const signals = [createMockSignal('jira')];
       // Using a type assertion since 'delete_data' is not in ActionType
-      const result = checkConfidence('delete_data' as ActionType, signals, [], true);
+      const result = checkConfidence(
+        'delete_data' as ActionType,
+        signals,
+        [],
+        true
+      );
 
       expect(result.dimensions.boundaryCompliance.pass).toBe(false);
       expect(result.dimensions.boundaryCompliance.score).toBe(0);
-      expect(result.dimensions.boundaryCompliance.evidence).toContain('neverDo');
+      expect(result.dimensions.boundaryCompliance.evidence).toContain(
+        'neverDo'
+      );
     });
   });
 
   describe('unknown actions', () => {
     it('should fail for unknown action types', () => {
       const signals = [createMockSignal('jira')];
-      const result = checkConfidence('unknown_action' as ActionType, signals, [], true);
+      const result = checkConfidence(
+        'unknown_action' as ActionType,
+        signals,
+        [],
+        true
+      );
 
       expect(result.dimensions.boundaryCompliance.pass).toBe(false);
       expect(result.dimensions.boundaryCompliance.score).toBe(0);
-      expect(result.dimensions.boundaryCompliance.evidence).toContain('not in any boundary list');
+      expect(result.dimensions.boundaryCompliance.evidence).toContain(
+        'not in any boundary list'
+      );
     });
   });
 });
@@ -222,7 +241,9 @@ describe('Schema Validity Dimension', () => {
 
     expect(result.dimensions.schemaValidity.pass).toBe(true);
     expect(result.dimensions.schemaValidity.score).toBe(1);
-    expect(result.dimensions.schemaValidity.evidence).toContain('passed Zod schema validation');
+    expect(result.dimensions.schemaValidity.evidence).toContain(
+      'passed Zod schema validation'
+    );
   });
 
   it('should fail when schema is invalid', () => {
@@ -231,14 +252,21 @@ describe('Schema Validity Dimension', () => {
 
     expect(result.dimensions.schemaValidity.pass).toBe(false);
     expect(result.dimensions.schemaValidity.score).toBe(0);
-    expect(result.dimensions.schemaValidity.evidence).toContain('failed Zod schema validation');
+    expect(result.dimensions.schemaValidity.evidence).toContain(
+      'failed Zod schema validation'
+    );
   });
 
   it('should be binary (0 or 1 score)', () => {
     const signals = [createMockSignal('jira')];
 
     const validResult = checkConfidence('artefact_update', signals, [], true);
-    const invalidResult = checkConfidence('artefact_update', signals, [], false);
+    const invalidResult = checkConfidence(
+      'artefact_update',
+      signals,
+      [],
+      false
+    );
 
     expect(validResult.dimensions.schemaValidity.score).toBe(1);
     expect(invalidResult.dimensions.schemaValidity.score).toBe(0);
@@ -254,10 +282,17 @@ describe('Precedent Match Dimension', () => {
     const signals = [createMockSignal('jira')];
     const precedents = [createMockPrecedent('artefact_update', true)];
 
-    const result = checkConfidence('artefact_update', signals, precedents, true);
+    const result = checkConfidence(
+      'artefact_update',
+      signals,
+      precedents,
+      true
+    );
 
     expect(result.dimensions.precedentMatch.pass).toBe(true);
-    expect(result.dimensions.precedentMatch.evidence).toContain('1 successful precedent(s)');
+    expect(result.dimensions.precedentMatch.evidence).toContain(
+      '1 successful precedent(s)'
+    );
   });
 
   it('should score higher with more precedents', () => {
@@ -268,11 +303,18 @@ describe('Precedent Match Dimension', () => {
       createMockPrecedent('artefact_update', true),
     ];
 
-    const result = checkConfidence('artefact_update', signals, precedents, true);
+    const result = checkConfidence(
+      'artefact_update',
+      signals,
+      precedents,
+      true
+    );
 
     expect(result.dimensions.precedentMatch.pass).toBe(true);
     expect(result.dimensions.precedentMatch.score).toBe(1); // 3/3 = 1 (capped)
-    expect(result.dimensions.precedentMatch.evidence).toContain('3 successful precedent(s)');
+    expect(result.dimensions.precedentMatch.evidence).toContain(
+      '3 successful precedent(s)'
+    );
   });
 
   it('should fail with no precedents', () => {
@@ -281,7 +323,9 @@ describe('Precedent Match Dimension', () => {
 
     expect(result.dimensions.precedentMatch.pass).toBe(false);
     expect(result.dimensions.precedentMatch.score).toBe(0);
-    expect(result.dimensions.precedentMatch.evidence).toContain('0 successful precedent(s)');
+    expect(result.dimensions.precedentMatch.evidence).toContain(
+      '0 successful precedent(s)'
+    );
   });
 
   it('should only count executed precedents', () => {
@@ -291,7 +335,12 @@ describe('Precedent Match Dimension', () => {
       createMockPrecedent('artefact_update', false), // Not executed
     ];
 
-    const result = checkConfidence('artefact_update', signals, precedents, true);
+    const result = checkConfidence(
+      'artefact_update',
+      signals,
+      precedents,
+      true
+    );
 
     expect(result.dimensions.precedentMatch.pass).toBe(false);
     expect(result.dimensions.precedentMatch.score).toBe(0);
@@ -304,10 +353,17 @@ describe('Precedent Match Dimension', () => {
       createMockPrecedent('notification_sent', true), // Different action type
     ];
 
-    const result = checkConfidence('artefact_update', signals, precedents, true);
+    const result = checkConfidence(
+      'artefact_update',
+      signals,
+      precedents,
+      true
+    );
 
     expect(result.dimensions.precedentMatch.pass).toBe(false);
-    expect(result.dimensions.precedentMatch.evidence).toContain('0 successful precedent(s)');
+    expect(result.dimensions.precedentMatch.evidence).toContain(
+      '0 successful precedent(s)'
+    );
   });
 
   it('should max score at 3 precedents', () => {
@@ -320,7 +376,12 @@ describe('Precedent Match Dimension', () => {
       createMockPrecedent('artefact_update', true),
     ];
 
-    const result = checkConfidence('artefact_update', signals, precedents, true);
+    const result = checkConfidence(
+      'artefact_update',
+      signals,
+      precedents,
+      true
+    );
 
     // Score should cap at 1 (min(5/3, 1) = 1)
     expect(result.dimensions.precedentMatch.score).toBe(1);
@@ -361,7 +422,12 @@ describe('Overall Confidence Pass/Fail', () => {
     const signals = [createMockSignal('jira')];
     const precedents = [createMockPrecedent('artefact_update', true)];
 
-    const result = checkConfidence('artefact_update', signals, precedents, true);
+    const result = checkConfidence(
+      'artefact_update',
+      signals,
+      precedents,
+      true
+    );
 
     expect(result.pass).toBe(true);
     expect(result.dimensions.sourceAgreement.pass).toBe(true);
@@ -385,7 +451,12 @@ describe('Overall Confidence Pass/Fail', () => {
     const precedents = [createMockPrecedent('artefact_update', true)];
 
     // Unknown action type fails boundary compliance
-    const result = checkConfidence('unknown_action' as ActionType, signals, precedents, true);
+    const result = checkConfidence(
+      'unknown_action' as ActionType,
+      signals,
+      precedents,
+      true
+    );
 
     expect(result.pass).toBe(false);
     expect(result.dimensions.boundaryCompliance.pass).toBe(false);
@@ -395,7 +466,12 @@ describe('Overall Confidence Pass/Fail', () => {
     const signals = [createMockSignal('jira')];
     const precedents = [createMockPrecedent('artefact_update', true)];
 
-    const result = checkConfidence('artefact_update', signals, precedents, false);
+    const result = checkConfidence(
+      'artefact_update',
+      signals,
+      precedents,
+      false
+    );
 
     expect(result.pass).toBe(false);
     expect(result.dimensions.schemaValidity.pass).toBe(false);
@@ -430,7 +506,12 @@ describe('canAutoExecute', () => {
   it('should return true when confidence passes', () => {
     const signals = [createMockSignal('jira')];
     const precedents = [createMockPrecedent('artefact_update', true)];
-    const confidence = checkConfidence('artefact_update', signals, precedents, true);
+    const confidence = checkConfidence(
+      'artefact_update',
+      signals,
+      precedents,
+      true
+    );
 
     expect(canAutoExecute(confidence)).toBe(true);
   });
@@ -445,7 +526,12 @@ describe('canAutoExecute', () => {
     const signals = [createMockSignal('jira')];
     const precedents = [createMockPrecedent('artefact_update', true)];
 
-    const passingConfidence = checkConfidence('artefact_update', signals, precedents, true);
+    const passingConfidence = checkConfidence(
+      'artefact_update',
+      signals,
+      precedents,
+      true
+    );
     const failingConfidence = checkConfidence('artefact_update', [], [], false);
 
     expect(canAutoExecute(passingConfidence)).toBe(passingConfidence.pass);
@@ -461,7 +547,12 @@ describe('getBlockingReasons', () => {
   it('should return empty array when all dimensions pass', () => {
     const signals = [createMockSignal('jira')];
     const precedents = [createMockPrecedent('artefact_update', true)];
-    const confidence = checkConfidence('artefact_update', signals, precedents, true);
+    const confidence = checkConfidence(
+      'artefact_update',
+      signals,
+      precedents,
+      true
+    );
 
     const reasons = getBlockingReasons(confidence);
 
@@ -473,27 +564,45 @@ describe('getBlockingReasons', () => {
 
     const reasons = getBlockingReasons(confidence);
 
-    expect(reasons.some((r) => r.includes('Source agreement failed'))).toBe(true);
+    expect(reasons.some((r) => r.includes('Source agreement failed'))).toBe(
+      true
+    );
   });
 
   it('should include boundaryCompliance failure reason', () => {
     const signals = [createMockSignal('jira')];
-    const precedents = [createMockPrecedent('unknown_action' as ActionType, true)];
-    const confidence = checkConfidence('unknown_action' as ActionType, signals, precedents, true);
+    const precedents = [
+      createMockPrecedent('unknown_action' as ActionType, true),
+    ];
+    const confidence = checkConfidence(
+      'unknown_action' as ActionType,
+      signals,
+      precedents,
+      true
+    );
 
     const reasons = getBlockingReasons(confidence);
 
-    expect(reasons.some((r) => r.includes('Boundary compliance failed'))).toBe(true);
+    expect(reasons.some((r) => r.includes('Boundary compliance failed'))).toBe(
+      true
+    );
   });
 
   it('should include schemaValidity failure reason', () => {
     const signals = [createMockSignal('jira')];
     const precedents = [createMockPrecedent('artefact_update', true)];
-    const confidence = checkConfidence('artefact_update', signals, precedents, false);
+    const confidence = checkConfidence(
+      'artefact_update',
+      signals,
+      precedents,
+      false
+    );
 
     const reasons = getBlockingReasons(confidence);
 
-    expect(reasons.some((r) => r.includes('Schema validity failed'))).toBe(true);
+    expect(reasons.some((r) => r.includes('Schema validity failed'))).toBe(
+      true
+    );
   });
 
   it('should include precedentMatch failure reason', () => {
@@ -502,11 +611,18 @@ describe('getBlockingReasons', () => {
 
     const reasons = getBlockingReasons(confidence);
 
-    expect(reasons.some((r) => r.includes('Precedent match failed'))).toBe(true);
+    expect(reasons.some((r) => r.includes('Precedent match failed'))).toBe(
+      true
+    );
   });
 
   it('should include all failure reasons when multiple dimensions fail', () => {
-    const confidence = checkConfidence('unknown_action' as ActionType, [], [], false);
+    const confidence = checkConfidence(
+      'unknown_action' as ActionType,
+      [],
+      [],
+      false
+    );
 
     const reasons = getBlockingReasons(confidence);
 
@@ -557,7 +673,12 @@ describe('computeConfidence', () => {
     };
 
     const resultFromCompute = computeConfidence(input);
-    const resultFromCheck = checkConfidence('artefact_update', signals, precedents, true);
+    const resultFromCheck = checkConfidence(
+      'artefact_update',
+      signals,
+      precedents,
+      true
+    );
 
     expect(resultFromCompute.pass).toBe(resultFromCheck.pass);
     expect(resultFromCompute.dimensions.sourceAgreement.pass).toBe(
@@ -600,7 +721,12 @@ describe('formatConfidenceForDisplay', () => {
   it('should format passing confidence correctly', () => {
     const signals = [createMockSignal('jira')];
     const precedents = [createMockPrecedent('artefact_update', true)];
-    const confidence = checkConfidence('artefact_update', signals, precedents, true);
+    const confidence = checkConfidence(
+      'artefact_update',
+      signals,
+      precedents,
+      true
+    );
 
     const display: ConfidenceDisplay = formatConfidenceForDisplay(confidence);
 
@@ -621,7 +747,12 @@ describe('formatConfidenceForDisplay', () => {
   it('should include all dimension details', () => {
     const signals = [createMockSignal('jira')];
     const precedents = [createMockPrecedent('artefact_update', true)];
-    const confidence = checkConfidence('artefact_update', signals, precedents, true);
+    const confidence = checkConfidence(
+      'artefact_update',
+      signals,
+      precedents,
+      true
+    );
 
     const display = formatConfidenceForDisplay(confidence);
 
@@ -634,12 +765,19 @@ describe('formatConfidenceForDisplay', () => {
   it('should include labels for each dimension', () => {
     const signals = [createMockSignal('jira')];
     const precedents = [createMockPrecedent('artefact_update', true)];
-    const confidence = checkConfidence('artefact_update', signals, precedents, true);
+    const confidence = checkConfidence(
+      'artefact_update',
+      signals,
+      precedents,
+      true
+    );
 
     const display = formatConfidenceForDisplay(confidence);
 
     expect(display.dimensions.sourceAgreement.label).toBe('Source Agreement');
-    expect(display.dimensions.boundaryCompliance.label).toBe('Boundary Compliance');
+    expect(display.dimensions.boundaryCompliance.label).toBe(
+      'Boundary Compliance'
+    );
     expect(display.dimensions.schemaValidity.label).toBe('Schema Validity');
     expect(display.dimensions.precedentMatch.label).toBe('Precedent Match');
   });
@@ -647,20 +785,36 @@ describe('formatConfidenceForDisplay', () => {
   it('should include descriptions for each dimension', () => {
     const signals = [createMockSignal('jira')];
     const precedents = [createMockPrecedent('artefact_update', true)];
-    const confidence = checkConfidence('artefact_update', signals, precedents, true);
+    const confidence = checkConfidence(
+      'artefact_update',
+      signals,
+      precedents,
+      true
+    );
 
     const display = formatConfidenceForDisplay(confidence);
 
     expect(display.dimensions.sourceAgreement.description).toContain('sources');
-    expect(display.dimensions.boundaryCompliance.description).toContain('boundaries');
-    expect(display.dimensions.schemaValidity.description).toContain('structured output');
-    expect(display.dimensions.precedentMatch.description).toContain('succeeded');
+    expect(display.dimensions.boundaryCompliance.description).toContain(
+      'boundaries'
+    );
+    expect(display.dimensions.schemaValidity.description).toContain(
+      'structured output'
+    );
+    expect(display.dimensions.precedentMatch.description).toContain(
+      'succeeded'
+    );
   });
 
   it('should calculate overall score as average', () => {
     const signals = [createMockSignal('jira')];
     const precedents = [createMockPrecedent('artefact_update', true)];
-    const confidence = checkConfidence('artefact_update', signals, precedents, true);
+    const confidence = checkConfidence(
+      'artefact_update',
+      signals,
+      precedents,
+      true
+    );
 
     const display = formatConfidenceForDisplay(confidence);
 
@@ -683,7 +837,12 @@ describe('ConfidenceScore structure', () => {
   it('should include all required fields', () => {
     const signals = [createMockSignal('jira')];
     const precedents = [createMockPrecedent('artefact_update', true)];
-    const result: ConfidenceScore = checkConfidence('artefact_update', signals, precedents, true);
+    const result: ConfidenceScore = checkConfidence(
+      'artefact_update',
+      signals,
+      precedents,
+      true
+    );
 
     expect(result).toHaveProperty('pass');
     expect(result).toHaveProperty('dimensions');
@@ -724,15 +883,17 @@ describe('ConfidenceScore structure', () => {
   });
 
   it('should have scores between 0 and 1', () => {
-    const signals = [
-      createMockSignal('jira'),
-      createMockSignal('outlook'),
-    ];
+    const signals = [createMockSignal('jira'), createMockSignal('outlook')];
     const precedents = [
       createMockPrecedent('artefact_update', true),
       createMockPrecedent('artefact_update', true),
     ];
-    const result = checkConfidence('artefact_update', signals, precedents, true);
+    const result = checkConfidence(
+      'artefact_update',
+      signals,
+      precedents,
+      true
+    );
 
     Object.values(result.dimensions).forEach((dim) => {
       expect(dim.score).toBeGreaterThanOrEqual(0);
@@ -760,7 +921,12 @@ describe('Edge cases', () => {
     const signals = Array.from({ length: 100 }, () => createMockSignal('jira'));
     const precedents = [createMockPrecedent('artefact_update', true)];
 
-    const result = checkConfidence('artefact_update', signals, precedents, true);
+    const result = checkConfidence(
+      'artefact_update',
+      signals,
+      precedents,
+      true
+    );
 
     // Should still work, score capped at 1
     expect(result.dimensions.sourceAgreement.score).toBeLessThanOrEqual(1);
@@ -772,7 +938,12 @@ describe('Edge cases', () => {
       createMockPrecedent('artefact_update', true)
     );
 
-    const result = checkConfidence('artefact_update', signals, precedents, true);
+    const result = checkConfidence(
+      'artefact_update',
+      signals,
+      precedents,
+      true
+    );
 
     // Should still work, score capped at 1
     expect(result.dimensions.precedentMatch.score).toBe(1);
@@ -787,7 +958,12 @@ describe('Edge cases', () => {
       createMockPrecedent('artefact_update', false),
     ];
 
-    const result = checkConfidence('artefact_update', signals, precedents, true);
+    const result = checkConfidence(
+      'artefact_update',
+      signals,
+      precedents,
+      true
+    );
 
     // Only 2 executed precedents count
     expect(result.dimensions.precedentMatch.pass).toBe(true);
@@ -803,7 +979,12 @@ describe('Edge cases', () => {
       createMockPrecedent('notification_sent', true),
     ];
 
-    const result = checkConfidence('artefact_update', signals, precedents, true);
+    const result = checkConfidence(
+      'artefact_update',
+      signals,
+      precedents,
+      true
+    );
 
     // Only 2 matching action types count
     expect(result.dimensions.precedentMatch.score).toBeCloseTo(2 / 3, 2);
@@ -816,15 +997,18 @@ describe('Edge cases', () => {
 
 describe('Integration scenarios', () => {
   it('should correctly evaluate a typical artefact update', () => {
-    const signals = [
-      createMockSignal('jira', { type: 'ticket_updated' }),
-    ];
+    const signals = [createMockSignal('jira', { type: 'ticket_updated' })];
     const precedents = [
       createMockPrecedent('artefact_update', true),
       createMockPrecedent('artefact_update', true),
     ];
 
-    const result = checkConfidence('artefact_update', signals, precedents, true);
+    const result = checkConfidence(
+      'artefact_update',
+      signals,
+      precedents,
+      true
+    );
 
     expect(result.pass).toBe(true);
     expect(canAutoExecute(result)).toBe(true);
@@ -832,10 +1016,7 @@ describe('Integration scenarios', () => {
   });
 
   it('should correctly evaluate a new action type without precedents', () => {
-    const signals = [
-      createMockSignal('jira'),
-      createMockSignal('outlook'),
-    ];
+    const signals = [createMockSignal('jira'), createMockSignal('outlook')];
     // No precedents for this action type
 
     const result = checkConfidence('artefact_update', signals, [], true);
@@ -852,7 +1033,12 @@ describe('Integration scenarios', () => {
     const precedents = [createMockPrecedent('artefact_update', true)];
 
     // Schema validation failed
-    const result = checkConfidence('artefact_update', signals, precedents, false);
+    const result = checkConfidence(
+      'artefact_update',
+      signals,
+      precedents,
+      false
+    );
 
     expect(result.pass).toBe(false);
     expect(canAutoExecute(result)).toBe(false);

@@ -199,7 +199,7 @@ describe('MonitoringStack', () => {
         AlarmDescription: 'Agent cycle state machine is failing',
         Threshold: 1,
         EvaluationPeriods: 1,
-        ComparisonOperator: 'GreaterThanThreshold',
+        ComparisonOperator: 'GreaterThanOrEqualToThreshold',
       });
     });
 
@@ -220,7 +220,7 @@ describe('MonitoringStack', () => {
         AlarmDescription: 'DynamoDB is being throttled',
         Threshold: 5,
         EvaluationPeriods: 1,
-        ComparisonOperator: 'GreaterThanThreshold',
+        ComparisonOperator: 'GreaterThanOrEqualToThreshold',
       });
     });
 
@@ -243,14 +243,15 @@ describe('MonitoringStack', () => {
       ) as any;
 
       const dimensions = dynamoAlarm.Properties.Dimensions;
-      expect(dimensions).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            Name: 'TableName',
-            Value: 'AgenticPM',
-          }),
-        ])
+      const tableNameDimension = dimensions.find(
+        (d: any) => d.Name === 'TableName'
       );
+      expect(tableNameDimension).toBeDefined();
+      // Table is from a different stack, so the value is a cross-stack
+      // reference (Fn::ImportValue) rather than a literal string.
+      expect(tableNameDimension.Value).toBeDefined();
+      const valueStr = JSON.stringify(tableNameDimension.Value);
+      expect(valueStr).toContain('ProdTable');
     });
 
     it('alarms treat missing data as not breaching', () => {

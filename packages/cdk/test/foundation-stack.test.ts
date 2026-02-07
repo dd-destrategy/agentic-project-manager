@@ -65,7 +65,7 @@ describe('FoundationStack', () => {
               Match.objectLike({ AttributeName: 'GSI1PK', KeyType: 'HASH' }),
               Match.objectLike({ AttributeName: 'GSI1SK', KeyType: 'RANGE' }),
             ]),
-            ProjectionType: 'ALL',
+            Projection: { ProjectionType: 'ALL' },
           }),
         ]),
       });
@@ -230,7 +230,7 @@ describe('FoundationStack', () => {
           Statement: Match.arrayWith([
             Match.objectLike({
               Effect: 'Deny',
-              Action: ['secretsmanager:GetSecretValue'],
+              Action: 'secretsmanager:GetSecretValue',
             }),
           ]),
         }),
@@ -251,19 +251,27 @@ describe('FoundationStack', () => {
     });
 
     it('agent role has SES permissions restricted to verified domain', () => {
-      devTemplate.hasResourceProperties('AWS::IAM::Policy', {
-        PolicyDocument: Match.objectLike({
-          Statement: Match.arrayWith([
-            Match.objectLike({
-              Effect: 'Allow',
-              Action: Match.arrayWith(['ses:SendEmail', 'ses:SendRawEmail']),
-              Resource: Match.arrayWith([
-                Match.stringLikeRegexp('.*ses.*identity.*example.com'),
-              ]),
-            }),
-          ]),
-        }),
-      });
+      // Resource is a single Fn::Join expression (region/account are tokens),
+      // so we verify the SES Allow statement exists and its resource contains
+      // the verified domain.
+      const policies = devTemplate.findResources('AWS::IAM::Policy');
+      const allStatements = Object.values(policies).flatMap(
+        (p: any) => p.Properties.PolicyDocument.Statement
+      );
+
+      const sesAllowStatement = allStatements.find(
+        (s: any) =>
+          s.Effect === 'Allow' &&
+          Array.isArray(s.Action) &&
+          s.Action.includes('ses:SendEmail') &&
+          s.Action.includes('ses:SendRawEmail')
+      );
+
+      expect(sesAllowStatement).toBeDefined();
+      // Verify resource is restricted to the verified domain
+      const resourceStr = JSON.stringify(sesAllowStatement.Resource);
+      expect(resourceStr).toContain('ses');
+      expect(resourceStr).toContain('identity/example.com');
     });
 
     it('creates exactly 3 IAM roles', () => {

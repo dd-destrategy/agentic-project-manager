@@ -3,15 +3,26 @@
  *
  * Tests concurrent approve/cancel operations to ensure atomic
  * conditional updates prevent double-processing of actions.
+ *
+ * Requires a live DynamoDB instance at localhost:8000.
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { DynamoDBClient } from '../../db/client.js';
 import { HoldQueueService } from '../hold-queue.js';
 import type { ActionExecutor } from '../hold-queue.js';
-import type { EmailStakeholderPayload, JiraStatusChangePayload } from '../../db/repositories/held-action.js';
+import type {
+  EmailStakeholderPayload,
+  JiraStatusChangePayload,
+} from '../../db/repositories/held-action.js';
 
-describe('HoldQueueService - Approval Race Conditions', () => {
+const DYNAMODB_ENDPOINT =
+  process.env.DYNAMODB_ENDPOINT || 'http://localhost:8000';
+
+const describeMaybeSkip =
+  process.env.CI || !process.env.DYNAMODB_ENDPOINT ? describe.skip : describe;
+
+describeMaybeSkip('HoldQueueService - Approval Race Conditions', () => {
   let db: DynamoDBClient;
   let service: HoldQueueService;
   let mockExecutor: ActionExecutor;
@@ -21,7 +32,7 @@ describe('HoldQueueService - Approval Race Conditions', () => {
     // Use local DynamoDB or mock
     db = new DynamoDBClient(
       {
-        endpoint: process.env.DYNAMODB_ENDPOINT || 'http://localhost:8000',
+        endpoint: DYNAMODB_ENDPOINT,
         region: 'local',
         credentials: {
           accessKeyId: 'local',
@@ -152,9 +163,24 @@ describe('HoldQueueService - Approval Race Conditions', () => {
 
       // Three concurrent operations
       const operations = [
-        service.approveAction(testProjectId, result.action.id, mockExecutor, 'user-1'),
-        service.approveAction(testProjectId, result.action.id, mockExecutor, 'user-2'),
-        service.cancelAction(testProjectId, result.action.id, 'Cancel', 'user-3'),
+        service.approveAction(
+          testProjectId,
+          result.action.id,
+          mockExecutor,
+          'user-1'
+        ),
+        service.approveAction(
+          testProjectId,
+          result.action.id,
+          mockExecutor,
+          'user-2'
+        ),
+        service.cancelAction(
+          testProjectId,
+          result.action.id,
+          'Cancel',
+          'user-3'
+        ),
       ];
 
       const results = await Promise.allSettled(operations);
@@ -271,7 +297,11 @@ describe('HoldQueueService - Approval Race Conditions', () => {
       });
 
       // First approval
-      await service.approveAction(testProjectId, result.action.id, mockExecutor);
+      await service.approveAction(
+        testProjectId,
+        result.action.id,
+        mockExecutor
+      );
 
       // Second approval attempt
       const secondApproval = await service.approveAction(
@@ -299,10 +329,17 @@ describe('HoldQueueService - Approval Race Conditions', () => {
       });
 
       // Approve first
-      await service.approveAction(testProjectId, result.action.id, mockExecutor);
+      await service.approveAction(
+        testProjectId,
+        result.action.id,
+        mockExecutor
+      );
 
       // Try to cancel
-      const cancelResult = await service.cancelAction(testProjectId, result.action.id);
+      const cancelResult = await service.cancelAction(
+        testProjectId,
+        result.action.id
+      );
 
       expect(cancelResult).toBeNull();
     });
@@ -432,7 +469,10 @@ describe('HoldQueueService - Approval Race Conditions', () => {
     });
 
     it('should return null when cancelling non-existent action', async () => {
-      const result = await service.cancelAction(testProjectId, 'non-existent-id');
+      const result = await service.cancelAction(
+        testProjectId,
+        'non-existent-id'
+      );
 
       expect(result).toBeNull();
     });

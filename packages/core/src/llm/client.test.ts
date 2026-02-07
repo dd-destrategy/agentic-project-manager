@@ -69,11 +69,13 @@ vi.mock('@anthropic-ai/sdk', () => {
   }
 
   return {
-    default: vi.fn().mockImplementation(() => ({
-      messages: {
-        create: mockCreate,
-      },
-    })),
+    default: vi.fn().mockImplementation(function () {
+      return {
+        messages: {
+          create: mockCreate,
+        },
+      };
+    }),
     RateLimitError,
     AuthenticationError,
     BadRequestError,
@@ -119,7 +121,10 @@ const testTools: ToolDefinition[] = [
   },
 ];
 
-function createMockToolUseResponse(toolName: string, input: Record<string, unknown>) {
+function createMockToolUseResponse(
+  toolName: string,
+  input: Record<string, unknown>
+) {
   return {
     id: 'msg_123',
     type: 'message',
@@ -250,14 +255,13 @@ describe('callWithTools', () => {
   it('should call Claude API with correct parameters', async () => {
     const mockCreate = getMockCreate();
     mockCreate.mockResolvedValueOnce(
-      createMockToolUseResponse('classify_signal', { importance: 'high', category: 'blocker' })
+      createMockToolUseResponse('classify_signal', {
+        importance: 'high',
+        category: 'blocker',
+      })
     );
 
-    await client.callWithTools(
-      'System prompt',
-      'User message',
-      testTools
-    );
+    await client.callWithTools('System prompt', 'User message', testTools);
 
     expect(mockCreate).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -295,7 +299,10 @@ describe('callWithTools', () => {
   it('should include token usage in response', async () => {
     const mockCreate = getMockCreate();
     mockCreate.mockResolvedValueOnce(
-      createMockToolUseResponse('classify_signal', { importance: 'high', category: 'blocker' })
+      createMockToolUseResponse('classify_signal', {
+        importance: 'high',
+        category: 'blocker',
+      })
     );
 
     const result = await client.callWithTools(
@@ -313,7 +320,10 @@ describe('callWithTools', () => {
   it('should include duration in response', async () => {
     const mockCreate = getMockCreate();
     mockCreate.mockResolvedValueOnce(
-      createMockToolUseResponse('classify_signal', { importance: 'high', category: 'blocker' })
+      createMockToolUseResponse('classify_signal', {
+        importance: 'high',
+        category: 'blocker',
+      })
     );
 
     const result = await client.callWithTools(
@@ -345,15 +355,15 @@ describe('callWithTools', () => {
   it('should force specific tool when forceTool option is set', async () => {
     const mockCreate = getMockCreate();
     mockCreate.mockResolvedValueOnce(
-      createMockToolUseResponse('classify_signal', { importance: 'medium', category: 'routine' })
+      createMockToolUseResponse('classify_signal', {
+        importance: 'medium',
+        category: 'routine',
+      })
     );
 
-    await client.callWithTools(
-      'System prompt',
-      'User message',
-      testTools,
-      { forceTool: 'classify_signal' }
-    );
+    await client.callWithTools('System prompt', 'User message', testTools, {
+      forceTool: 'classify_signal',
+    });
 
     expect(mockCreate).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -365,15 +375,15 @@ describe('callWithTools', () => {
   it('should use custom maxTokens when provided', async () => {
     const mockCreate = getMockCreate();
     mockCreate.mockResolvedValueOnce(
-      createMockToolUseResponse('classify_signal', { importance: 'high', category: 'blocker' })
+      createMockToolUseResponse('classify_signal', {
+        importance: 'high',
+        category: 'blocker',
+      })
     );
 
-    await client.callWithTools(
-      'System prompt',
-      'User message',
-      testTools,
-      { maxTokens: 2048 }
-    );
+    await client.callWithTools('System prompt', 'User message', testTools, {
+      maxTokens: 2048,
+    });
 
     expect(mockCreate).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -441,7 +451,7 @@ describe('Cost calculation', () => {
     // Input: 1M tokens * $0.80/M = $0.80
     // Output: 500K tokens * $4.00/M = $2.00
     // Total: $2.80
-    expect(cost).toBeCloseTo(2.80, 2);
+    expect(cost).toBeCloseTo(2.8, 2);
   });
 
   it('should calculate cost for Sonnet model', () => {
@@ -455,7 +465,7 @@ describe('Cost calculation', () => {
     // Input: 1M tokens * $3.00/M = $3.00
     // Output: 500K tokens * $15.00/M = $7.50
     // Total: $10.50
-    expect(cost).toBeCloseTo(10.50, 2);
+    expect(cost).toBeCloseTo(10.5, 2);
   });
 
   it('should include cache read cost', () => {
@@ -483,7 +493,7 @@ describe('Cost calculation', () => {
 
     // Cache write: 500K tokens * $1.00/M = $0.50
     expect(costWithCache).toBeGreaterThan(costWithoutCache);
-    expect(costWithCache - costWithoutCache).toBeCloseTo(0.50, 2);
+    expect(costWithCache - costWithoutCache).toBeCloseTo(0.5, 2);
   });
 });
 
@@ -607,7 +617,10 @@ describe('callWithToolsCached', () => {
   it('should call with cache control markers', async () => {
     const mockCreate = getMockCreate();
     mockCreate.mockResolvedValueOnce(
-      createMockToolUseResponse('classify_signal', { importance: 'high', category: 'blocker' })
+      createMockToolUseResponse('classify_signal', {
+        importance: 'high',
+        category: 'blocker',
+      })
     );
 
     await client.callWithToolsCached(
@@ -649,7 +662,10 @@ describe('callWithToolsCached', () => {
   it('should return successful response', async () => {
     const mockCreate = getMockCreate();
     mockCreate.mockResolvedValueOnce(
-      createMockToolUseResponse('classify_signal', { importance: 'medium', category: 'routine' })
+      createMockToolUseResponse('classify_signal', {
+        importance: 'medium',
+        category: 'routine',
+      })
     );
 
     const result = await client.callWithToolsCached(
@@ -666,7 +682,10 @@ describe('callWithToolsCached', () => {
   it('should handle cache metrics in usage', async () => {
     const mockCreate = getMockCreate();
     mockCreate.mockResolvedValueOnce({
-      ...createMockToolUseResponse('classify_signal', { importance: 'high', category: 'blocker' }),
+      ...createMockToolUseResponse('classify_signal', {
+        importance: 'high',
+        category: 'blocker',
+      }),
       usage: {
         input_tokens: 100,
         output_tokens: 50,
@@ -701,7 +720,9 @@ describe('complete method', () => {
 
   it('should return text completion', async () => {
     const mockCreate = getMockCreate();
-    mockCreate.mockResolvedValueOnce(createMockTextResponse('Hello, I am Claude!'));
+    mockCreate.mockResolvedValueOnce(
+      createMockTextResponse('Hello, I am Claude!')
+    );
 
     const result = await client.complete('System prompt', 'Say hello');
 

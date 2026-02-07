@@ -60,7 +60,10 @@ const mockJiraIssues: JiraIssue[] = [
       summary: 'Database migration blocked',
       status: { name: 'Blocked', id: '10' },
       priority: { name: 'Critical', id: '1' },
-      assignee: { displayName: 'Alice Brown', emailAddress: 'alice@example.com' },
+      assignee: {
+        displayName: 'Alice Brown',
+        emailAddress: 'alice@example.com',
+      },
       reporter: { displayName: 'Bob Wilson', emailAddress: 'bob@example.com' },
       labels: ['database', 'blocked-by-external'],
       created: '2024-01-03T09:00:00.000Z',
@@ -78,7 +81,10 @@ const mockJiraIssues: JiraIssue[] = [
       summary: 'Update API documentation',
       status: { name: 'Done', id: '5' },
       priority: { name: 'Low', id: '4' },
-      assignee: { displayName: 'Charlie Green', emailAddress: 'charlie@example.com' },
+      assignee: {
+        displayName: 'Charlie Green',
+        emailAddress: 'charlie@example.com',
+      },
       reporter: { displayName: 'Diana Lee', emailAddress: 'diana@example.com' },
       labels: ['documentation'],
       created: '2024-01-02T14:00:00.000Z',
@@ -149,7 +155,8 @@ describe('Artefact Schema Validation', () => {
     it('should validate a complete DeliveryState', () => {
       const validDeliveryState: DeliveryStateContent = {
         overallStatus: 'amber',
-        statusSummary: 'Project progressing with some blockers requiring attention.',
+        statusSummary:
+          'Project progressing with some blockers requiring attention.',
         currentSprint: {
           name: 'Sprint 1',
           startDate: '2024-01-01T00:00:00.000Z',
@@ -192,7 +199,10 @@ describe('Artefact Schema Validation', () => {
         ],
       };
 
-      const result = validateArtefactContent('delivery_state', validDeliveryState);
+      const result = validateArtefactContent(
+        'delivery_state',
+        validDeliveryState
+      );
 
       expect(result.valid).toBe(true);
       expect(result.errors).toBeUndefined();
@@ -213,7 +223,10 @@ describe('Artefact Schema Validation', () => {
         nextActions: [],
       };
 
-      const result = validateArtefactContent('delivery_state', invalidDeliveryState as any);
+      const result = validateArtefactContent(
+        'delivery_state',
+        invalidDeliveryState as any
+      );
 
       expect(result.valid).toBe(false);
       expect(result.errors).toBeDefined();
@@ -224,7 +237,10 @@ describe('Artefact Schema Validation', () => {
         overallStatus: 'green',
       };
 
-      const result = validateArtefactContent('delivery_state', incompleteDeliveryState as any);
+      const result = validateArtefactContent(
+        'delivery_state',
+        incompleteDeliveryState as any
+      );
 
       expect(result.valid).toBe(false);
     });
@@ -401,7 +417,10 @@ describe('Artefact Schema Validation', () => {
         scopeNotes: 'Two new stories added mid-sprint for urgent bug fixes',
       };
 
-      const result = validateArtefactContent('backlog_summary', validBacklogSummary);
+      const result = validateArtefactContent(
+        'backlog_summary',
+        validBacklogSummary
+      );
 
       expect(result.valid).toBe(true);
     });
@@ -418,7 +437,12 @@ describe('Artefact Schema Validation', () => {
         highlights: [
           { ticketId: 'A', title: 'A', flag: 'blocked', detail: 'Blocked' },
           { ticketId: 'B', title: 'B', flag: 'stale', detail: 'Stale' },
-          { ticketId: 'C', title: 'C', flag: 'missing_criteria', detail: 'Missing' },
+          {
+            ticketId: 'C',
+            title: 'C',
+            flag: 'missing_criteria',
+            detail: 'Missing',
+          },
           { ticketId: 'D', title: 'D', flag: 'scope_creep', detail: 'Scope' },
           { ticketId: 'E', title: 'E', flag: 'new', detail: 'New' },
         ],
@@ -438,7 +462,8 @@ describe('Artefact Schema Validation', () => {
           {
             id: 'D001',
             title: 'Use PostgreSQL for database',
-            context: 'Need to choose between PostgreSQL and MySQL for main database',
+            context:
+              'Need to choose between PostgreSQL and MySQL for main database',
             optionsConsidered: [
               {
                 option: 'PostgreSQL',
@@ -483,7 +508,10 @@ describe('Artefact Schema Validation', () => {
         ],
       };
 
-      const result = validateArtefactContent('decision_log', invalidDecisionLog as any);
+      const result = validateArtefactContent(
+        'decision_log',
+        invalidDecisionLog as any
+      );
 
       expect(result.valid).toBe(false);
     });
@@ -520,16 +548,22 @@ describe('Artefact Bootstrap from Jira', () => {
 
   it('should set correct overall status based on blockers', async () => {
     const result = await bootstrapArtefactsFromJira(mockBootstrapInput, mockDb);
-    const deliveryState = result.artefacts.find((a) => a.type === 'delivery_state');
+    const deliveryState = result.artefacts.find(
+      (a) => a.type === 'delivery_state'
+    );
 
     expect(deliveryState).toBeDefined();
-    // With 1 blocked issue, should be amber
-    expect((deliveryState!.content as DeliveryStateContent).overallStatus).toBe('amber');
+    // With 1 blocked out of 4 total issues (25% > 20% threshold), status is red
+    expect((deliveryState!.content as DeliveryStateContent).overallStatus).toBe(
+      'red'
+    );
   });
 
   it('should detect blocked issues as blockers in DeliveryState', async () => {
     const result = await bootstrapArtefactsFromJira(mockBootstrapInput, mockDb);
-    const deliveryState = result.artefacts.find((a) => a.type === 'delivery_state');
+    const deliveryState = result.artefacts.find(
+      (a) => a.type === 'delivery_state'
+    );
     const content = deliveryState!.content as DeliveryStateContent;
 
     expect(content.blockers.length).toBeGreaterThan(0);
@@ -545,7 +579,9 @@ describe('Artefact Bootstrap from Jira', () => {
     expect(content.items.length).toBeGreaterThan(0);
 
     // Check for issue from blocked ticket
-    const blockedIssue = content.items.find((i) => i.sourceReference === 'TEST-2');
+    const blockedIssue = content.items.find(
+      (i) => i.sourceReference === 'TEST-2'
+    );
     expect(blockedIssue).toBeDefined();
     expect(blockedIssue!.type).toBe('issue');
     expect(blockedIssue!.status).toBe('open');
@@ -553,7 +589,9 @@ describe('Artefact Bootstrap from Jira', () => {
 
   it('should calculate backlog summary statistics correctly', async () => {
     const result = await bootstrapArtefactsFromJira(mockBootstrapInput, mockDb);
-    const backlogSummary = result.artefacts.find((a) => a.type === 'backlog_summary');
+    const backlogSummary = result.artefacts.find(
+      (a) => a.type === 'backlog_summary'
+    );
     const content = backlogSummary!.content as BacklogSummaryContent;
 
     expect(content.summary.totalItems).toBe(4);
@@ -565,12 +603,16 @@ describe('Artefact Bootstrap from Jira', () => {
 
   it('should populate sprint info when active sprint exists', async () => {
     const result = await bootstrapArtefactsFromJira(mockBootstrapInput, mockDb);
-    const deliveryState = result.artefacts.find((a) => a.type === 'delivery_state');
+    const deliveryState = result.artefacts.find(
+      (a) => a.type === 'delivery_state'
+    );
     const content = deliveryState!.content as DeliveryStateContent;
 
     expect(content.currentSprint).toBeDefined();
     expect(content.currentSprint!.name).toBe('Sprint 1 - MVP');
-    expect(content.currentSprint!.goal).toBe('Complete core authentication features');
+    expect(content.currentSprint!.goal).toBe(
+      'Complete core authentication features'
+    );
   });
 
   it('should handle bootstrap without active sprint', async () => {
@@ -580,7 +622,9 @@ describe('Artefact Bootstrap from Jira', () => {
     };
 
     const result = await bootstrapArtefactsFromJira(inputWithoutSprint, mockDb);
-    const deliveryState = result.artefacts.find((a) => a.type === 'delivery_state');
+    const deliveryState = result.artefacts.find(
+      (a) => a.type === 'delivery_state'
+    );
     const content = deliveryState!.content as DeliveryStateContent;
 
     expect(content.currentSprint).toBeUndefined();
@@ -624,7 +668,9 @@ describe('Artefact Bootstrap from Jira', () => {
     };
 
     const result = await bootstrapArtefactsFromJira(input, mockDb);
-    const backlogSummary = result.artefacts.find((a) => a.type === 'backlog_summary');
+    const backlogSummary = result.artefacts.find(
+      (a) => a.type === 'backlog_summary'
+    );
     const content = backlogSummary!.content as BacklogSummaryContent;
 
     // Should have refinement candidates for missing description
@@ -633,17 +679,23 @@ describe('Artefact Bootstrap from Jira', () => {
 
   it('should generate highlights for blocked items', async () => {
     const result = await bootstrapArtefactsFromJira(mockBootstrapInput, mockDb);
-    const backlogSummary = result.artefacts.find((a) => a.type === 'backlog_summary');
+    const backlogSummary = result.artefacts.find(
+      (a) => a.type === 'backlog_summary'
+    );
     const content = backlogSummary!.content as BacklogSummaryContent;
 
-    const blockedHighlight = content.highlights.find((h) => h.flag === 'blocked');
+    const blockedHighlight = content.highlights.find(
+      (h) => h.flag === 'blocked'
+    );
     expect(blockedHighlight).toBeDefined();
     expect(blockedHighlight!.ticketId).toBe('TEST-2');
   });
 
   it('should calculate key metrics', async () => {
     const result = await bootstrapArtefactsFromJira(mockBootstrapInput, mockDb);
-    const deliveryState = result.artefacts.find((a) => a.type === 'delivery_state');
+    const deliveryState = result.artefacts.find(
+      (a) => a.type === 'delivery_state'
+    );
     const content = deliveryState!.content as DeliveryStateContent;
 
     expect(content.keyMetrics).toBeDefined();
@@ -955,9 +1007,7 @@ describe('Artefact Diff Calculation', () => {
           id: 'D001',
           title: 'New decision',
           context: 'Context',
-          optionsConsidered: [
-            { option: 'A', pros: ['Pro'], cons: ['Con'] },
-          ],
+          optionsConsidered: [{ option: 'A', pros: ['Pro'], cons: ['Con'] }],
           decision: 'A',
           rationale: 'Rationale',
           madeBy: 'agent',
@@ -1016,14 +1066,20 @@ describe('Golden Scenario: Full Artefact Lifecycle', () => {
 
   it('should handle complete lifecycle: bootstrap -> update -> diff', async () => {
     // 1. Bootstrap artefacts from Jira
-    const bootstrapResult = await bootstrapArtefactsFromJira(mockBootstrapInput, mockDb);
+    const bootstrapResult = await bootstrapArtefactsFromJira(
+      mockBootstrapInput,
+      mockDb
+    );
 
     expect(bootstrapResult.success).toBe(true);
     expect(bootstrapResult.artefacts).toHaveLength(4);
 
     // 2. All artefacts should be valid
     for (const artefact of bootstrapResult.artefacts) {
-      const validation = validateArtefactContent(artefact.type, artefact.content);
+      const validation = validateArtefactContent(
+        artefact.type,
+        artefact.content
+      );
       expect(validation.valid).toBe(true);
     }
 

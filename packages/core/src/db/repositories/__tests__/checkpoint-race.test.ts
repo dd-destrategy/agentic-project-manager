@@ -3,14 +3,22 @@
  *
  * Tests concurrent checkpoint updates to ensure optimistic locking
  * prevents lost updates and inconsistent state.
+ *
+ * Requires a live DynamoDB instance at localhost:8000.
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, beforeAll } from 'vitest';
 import { DynamoDBClient } from '../../client.js';
 import { CheckpointRepository } from '../checkpoint.js';
 import type { IntegrationSource } from '../../../types/index.js';
 
-describe('CheckpointRepository - Race Conditions', () => {
+const DYNAMODB_ENDPOINT =
+  process.env.DYNAMODB_ENDPOINT || 'http://localhost:8000';
+
+const describeMaybeSkip =
+  process.env.CI || !process.env.DYNAMODB_ENDPOINT ? describe.skip : describe;
+
+describeMaybeSkip('CheckpointRepository - Race Conditions', () => {
   let db: DynamoDBClient;
   let repo: CheckpointRepository;
   const testProjectId = 'test-project-123';
@@ -20,7 +28,7 @@ describe('CheckpointRepository - Race Conditions', () => {
     // Use local DynamoDB or mock
     db = new DynamoDBClient(
       {
-        endpoint: process.env.DYNAMODB_ENDPOINT || 'http://localhost:8000',
+        endpoint: DYNAMODB_ENDPOINT,
         region: 'local',
         credentials: {
           accessKeyId: 'local',
@@ -45,8 +53,16 @@ describe('CheckpointRepository - Race Conditions', () => {
       await repo.set(testProjectId, testIntegration, '2024-01-01T10:00:00Z');
 
       // Simulate two concurrent updates
-      const update1 = repo.set(testProjectId, testIntegration, '2024-01-01T11:00:00Z');
-      const update2 = repo.set(testProjectId, testIntegration, '2024-01-01T12:00:00Z');
+      const update1 = repo.set(
+        testProjectId,
+        testIntegration,
+        '2024-01-01T11:00:00Z'
+      );
+      const update2 = repo.set(
+        testProjectId,
+        testIntegration,
+        '2024-01-01T12:00:00Z'
+      );
 
       // Both should succeed (with retries)
       const results = await Promise.allSettled([update1, update2]);
@@ -102,7 +118,9 @@ describe('CheckpointRepository - Race Conditions', () => {
         '2024-01-01T10:05:00Z',
       ];
 
-      const updates = timestamps.map((ts) => repo.set(testProjectId, testIntegration, ts));
+      const updates = timestamps.map((ts) =>
+        repo.set(testProjectId, testIntegration, ts)
+      );
 
       await Promise.all(updates);
 
@@ -178,8 +196,16 @@ describe('CheckpointRepository - Race Conditions', () => {
       await repo.set(testProjectId, testIntegration, '2024-01-01T10:00:00Z');
 
       // Start concurrent writes
-      const write1 = repo.set(testProjectId, testIntegration, '2024-01-01T11:00:00Z');
-      const write2 = repo.set(testProjectId, testIntegration, '2024-01-01T12:00:00Z');
+      const write1 = repo.set(
+        testProjectId,
+        testIntegration,
+        '2024-01-01T11:00:00Z'
+      );
+      const write2 = repo.set(
+        testProjectId,
+        testIntegration,
+        '2024-01-01T12:00:00Z'
+      );
 
       // Read while writes are happening
       const read = repo.get(testProjectId, testIntegration);
@@ -215,7 +241,11 @@ describe('CheckpointRepository - Race Conditions', () => {
 
   describe('Edge cases', () => {
     it('should handle very rapid sequential updates', async () => {
-      let checkpoint = await repo.set(testProjectId, testIntegration, '2024-01-01T10:00:00Z');
+      let checkpoint = await repo.set(
+        testProjectId,
+        testIntegration,
+        '2024-01-01T10:00:00Z'
+      );
 
       // 10 rapid sequential updates
       for (let i = 1; i <= 10; i++) {
@@ -229,7 +259,9 @@ describe('CheckpointRepository - Race Conditions', () => {
       expect(checkpoint.checkpointValue).toBe('2024-01-01T20:00:00Z');
 
       // Version should be 11
-      const checkpointWithVersion = checkpoint as typeof checkpoint & { version?: number };
+      const checkpointWithVersion = checkpoint as typeof checkpoint & {
+        version?: number;
+      };
       expect(checkpointWithVersion.version).toBe(11);
     });
 
@@ -238,7 +270,11 @@ describe('CheckpointRepository - Race Conditions', () => {
       await repo.set(testProjectId, testIntegration, timestamp);
 
       // Try to set same timestamp again
-      const result = await repo.setIfNewer(testProjectId, testIntegration, timestamp);
+      const result = await repo.setIfNewer(
+        testProjectId,
+        testIntegration,
+        timestamp
+      );
 
       // Should return false (not newer)
       expect(result).toBe(false);
@@ -267,7 +303,11 @@ describe('CheckpointRepository - Race Conditions', () => {
       await repo.set(testProjectId, testIntegration, '2024-01-01T10:00:00Z');
 
       // This should succeed despite potential conflicts
-      const result = await repo.set(testProjectId, testIntegration, '2024-01-01T11:00:00Z');
+      const result = await repo.set(
+        testProjectId,
+        testIntegration,
+        '2024-01-01T11:00:00Z'
+      );
 
       expect(result.checkpointValue).toBe('2024-01-01T11:00:00Z');
     });

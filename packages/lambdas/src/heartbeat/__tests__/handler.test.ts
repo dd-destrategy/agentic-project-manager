@@ -4,22 +4,49 @@
  * Tests for the heartbeat handler that initiates agent cycles and checks health.
  */
 
-import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+
+// Use vi.hoisted() so mock objects are available in vi.mock() factories.
+// The handler caches repositories in module-level singletons, so the same
+// mock objects must be returned by the constructor mocks AND used in tests.
+const { mockProjectRepo, mockEventRepo, mockConfigRepo } = vi.hoisted(() => ({
+  mockProjectRepo: {
+    getActive: vi.fn(),
+    getById: vi.fn(),
+  },
+  mockEventRepo: {
+    createHeartbeat: vi.fn(),
+    createError: vi.fn(),
+  },
+  mockConfigRepo: {
+    getBudgetStatus: vi.fn(),
+    isHousekeepingDue: vi.fn(),
+    updateLastHeartbeat: vi.fn(),
+  },
+}));
 
 // Mock dependencies before importing handler
 vi.mock('@agentic-pm/core/db', () => ({
-  DynamoDBClient: vi.fn().mockImplementation(() => ({
-    get: vi.fn(),
-    put: vi.fn(),
-    query: vi.fn(),
-    queryGSI1: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-    getTableName: vi.fn().mockReturnValue('TestTable'),
-  })),
-  ProjectRepository: vi.fn(),
-  EventRepository: vi.fn(),
-  AgentConfigRepository: vi.fn(),
+  DynamoDBClient: vi.fn().mockImplementation(function () {
+    return {
+      get: vi.fn(),
+      put: vi.fn(),
+      query: vi.fn(),
+      queryGSI1: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+      getTableName: vi.fn().mockReturnValue('TestTable'),
+    };
+  }),
+  ProjectRepository: vi.fn().mockImplementation(function () {
+    return mockProjectRepo;
+  }),
+  EventRepository: vi.fn().mockImplementation(function () {
+    return mockEventRepo;
+  }),
+  AgentConfigRepository: vi.fn().mockImplementation(function () {
+    return mockConfigRepo;
+  }),
 }));
 
 vi.mock('../../shared/context.js', () => ({
@@ -38,12 +65,6 @@ vi.mock('../../shared/context.js', () => ({
 }));
 
 import type { Context } from 'aws-lambda';
-
-import {
-  ProjectRepository,
-  EventRepository,
-  AgentConfigRepository,
-} from '@agentic-pm/core/db';
 
 import type { AgentCycleInput } from '../../shared/types.js';
 
@@ -67,57 +88,32 @@ const mockContext: Context = {
 };
 
 describe('Heartbeat Handler', () => {
-  let mockProjectRepo: {
-    getActive: Mock;
-    getById: Mock;
-  };
-  let mockEventRepo: {
-    createHeartbeat: Mock;
-    createError: Mock;
-  };
-  let mockConfigRepo: {
-    getBudgetStatus: Mock;
-    isHousekeepingDue: Mock;
-    updateLastHeartbeat: Mock;
-  };
-
   beforeEach(() => {
     vi.clearAllMocks();
 
-    // Get fresh mock instances
-    mockProjectRepo = {
-      getActive: vi.fn().mockResolvedValue({ items: [] }),
-      getById: vi.fn().mockResolvedValue(null),
-    };
+    // Reset and set default implementations on stable mock objects
+    mockProjectRepo.getActive.mockReset();
+    mockProjectRepo.getActive.mockResolvedValue({ items: [] });
+    mockProjectRepo.getById.mockReset();
+    mockProjectRepo.getById.mockResolvedValue(null);
 
-    mockEventRepo = {
-      createHeartbeat: vi.fn().mockResolvedValue({}),
-      createError: vi.fn().mockResolvedValue({}),
-    };
+    mockEventRepo.createHeartbeat.mockReset();
+    mockEventRepo.createHeartbeat.mockResolvedValue({});
+    mockEventRepo.createError.mockReset();
+    mockEventRepo.createError.mockResolvedValue({});
 
-    mockConfigRepo = {
-      getBudgetStatus: vi.fn().mockResolvedValue({
-        dailySpendUsd: 0.05,
-        dailyLimitUsd: 0.5,
-        monthlySpendUsd: 1.5,
-        monthlyLimitUsd: 7.0,
-        degradationTier: 'none',
-      }),
-      isHousekeepingDue: vi.fn().mockResolvedValue(false),
-      updateLastHeartbeat: vi.fn().mockResolvedValue({}),
-    };
-
-    // Configure mocks
-    vi.mocked(ProjectRepository).mockImplementation(
-      () => mockProjectRepo as unknown as InstanceType<typeof ProjectRepository>
-    );
-    vi.mocked(EventRepository).mockImplementation(
-      () => mockEventRepo as unknown as InstanceType<typeof EventRepository>
-    );
-    vi.mocked(AgentConfigRepository).mockImplementation(
-      () =>
-        mockConfigRepo as unknown as InstanceType<typeof AgentConfigRepository>
-    );
+    mockConfigRepo.getBudgetStatus.mockReset();
+    mockConfigRepo.getBudgetStatus.mockResolvedValue({
+      dailySpendUsd: 0.05,
+      dailyLimitUsd: 0.5,
+      monthlySpendUsd: 1.5,
+      monthlyLimitUsd: 7.0,
+      degradationTier: 'none',
+    });
+    mockConfigRepo.isHousekeepingDue.mockReset();
+    mockConfigRepo.isHousekeepingDue.mockResolvedValue(false);
+    mockConfigRepo.updateLastHeartbeat.mockReset();
+    mockConfigRepo.updateLastHeartbeat.mockResolvedValue({});
   });
 
   describe('Happy Path', () => {

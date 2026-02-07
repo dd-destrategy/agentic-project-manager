@@ -237,17 +237,15 @@ describe('CircuitBreaker', () => {
   });
 
   describe('State transitions with getState()', () => {
-    it('should report half-open when reading state after timeout', () => {
+    it('should report half-open when reading state after timeout', async () => {
       const breaker = new CircuitBreaker({
         failureThreshold: 1,
         resetTimeoutMs: 60000,
       });
       const mockFn = vi.fn().mockRejectedValue(new Error('Failure'));
 
-      // Open the circuit
-      breaker.execute(mockFn).catch(() => {
-        /* ignore */
-      });
+      // Open the circuit (must await so onFailure is called)
+      await expect(breaker.execute(mockFn)).rejects.toThrow('Failure');
 
       expect(breaker.getState()).toBe('open');
 

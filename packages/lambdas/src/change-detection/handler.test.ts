@@ -9,51 +9,71 @@ import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest';
 
 // Mock dependencies before importing handler
 vi.mock('@agentic-pm/core', () => ({
-  DynamoDBClient: vi.fn().mockImplementation(() => ({
-    get: vi.fn(),
-    put: vi.fn(),
-    query: vi.fn(),
-    queryGSI1: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-    getTableName: vi.fn().mockReturnValue('TestTable'),
-  })),
+  DynamoDBClient: vi.fn().mockImplementation(function () {
+    return {
+      get: vi.fn(),
+      put: vi.fn(),
+      query: vi.fn(),
+      queryGSI1: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+      getTableName: vi.fn().mockReturnValue('TestTable'),
+    };
+  }),
+  parseJiraCredentials: vi.fn().mockReturnValue({
+    baseUrl: 'https://test.atlassian.net',
+    email: 'test@example.com',
+    apiToken: 'test-token',
+  }),
 }));
 
 vi.mock('@agentic-pm/core/integrations/jira', () => ({
-  JiraClient: vi.fn().mockImplementation(() => ({
-    authenticate: vi.fn().mockResolvedValue(true),
-    fetchDelta: vi.fn().mockResolvedValue({ signals: [], newCheckpoint: '2024-01-15T10:00:00.000Z' }),
-    healthCheck: vi.fn().mockResolvedValue({ healthy: true, latencyMs: 50 }),
-    source: 'jira',
-  })),
+  JiraClient: vi.fn().mockImplementation(function () {
+    return {
+      authenticate: vi.fn().mockResolvedValue(true),
+      fetchDelta: vi
+        .fn()
+        .mockResolvedValue({
+          signals: [],
+          newCheckpoint: '2024-01-15T10:00:00.000Z',
+        }),
+      healthCheck: vi.fn().mockResolvedValue({ healthy: true, latencyMs: 50 }),
+      source: 'jira',
+    };
+  }),
 }));
 
 vi.mock('@agentic-pm/core/db/repositories/checkpoint', () => ({
-  CheckpointRepository: vi.fn().mockImplementation(() => ({
-    get: vi.fn().mockResolvedValue(null),
-    set: vi.fn().mockResolvedValue({}),
-    setIfNewer: vi.fn().mockResolvedValue(true),
-  })),
+  CheckpointRepository: vi.fn().mockImplementation(function () {
+    return {
+      get: vi.fn().mockResolvedValue(null),
+      set: vi.fn().mockResolvedValue({}),
+      setIfNewer: vi.fn().mockResolvedValue(true),
+    };
+  }),
 }));
 
 vi.mock('@agentic-pm/core/db/repositories/project', () => ({
-  ProjectRepository: vi.fn().mockImplementation(() => ({
-    getById: vi.fn().mockResolvedValue(null),
-    getActive: vi.fn().mockResolvedValue({ items: [] }),
-  })),
+  ProjectRepository: vi.fn().mockImplementation(function () {
+    return {
+      getById: vi.fn().mockResolvedValue(null),
+      getActive: vi.fn().mockResolvedValue({ items: [] }),
+    };
+  }),
 }));
 
 vi.mock('@aws-sdk/client-secrets-manager', () => ({
-  SecretsManagerClient: vi.fn().mockImplementation(() => ({
-    send: vi.fn().mockResolvedValue({
-      SecretString: JSON.stringify({
-        baseUrl: 'https://test.atlassian.net',
-        email: 'test@example.com',
-        apiToken: 'test-token',
+  SecretsManagerClient: vi.fn().mockImplementation(function () {
+    return {
+      send: vi.fn().mockResolvedValue({
+        SecretString: JSON.stringify({
+          baseUrl: 'https://test.atlassian.net',
+          email: 'test@example.com',
+          apiToken: 'test-token',
+        }),
       }),
-    }),
-  })),
+    };
+  }),
   GetSecretValueCommand: vi.fn(),
 }));
 
@@ -87,7 +107,8 @@ const mockContext: Context = {
   awsRequestId: 'test-request-id',
   functionName: 'change-detection',
   functionVersion: '1',
-  invokedFunctionArn: 'arn:aws:lambda:us-east-1:123456789:function:change-detection',
+  invokedFunctionArn:
+    'arn:aws:lambda:us-east-1:123456789:function:change-detection',
   memoryLimitInMB: '256',
   logGroupName: '/aws/lambda/change-detection',
   logStreamName: '2024/01/15/[$LATEST]abc123',
@@ -121,7 +142,12 @@ describe('Change Detection Handler', () => {
     // Get fresh mock instances
     mockJiraClient = {
       authenticate: vi.fn().mockResolvedValue(true),
-      fetchDelta: vi.fn().mockResolvedValue({ signals: [], newCheckpoint: '2024-01-15T10:00:00.000Z' }),
+      fetchDelta: vi
+        .fn()
+        .mockResolvedValue({
+          signals: [],
+          newCheckpoint: '2024-01-15T10:00:00.000Z',
+        }),
       healthCheck: vi.fn().mockResolvedValue({ healthy: true, latencyMs: 50 }),
       source: 'jira',
     };
@@ -138,9 +164,19 @@ describe('Change Detection Handler', () => {
     };
 
     // Configure mocks
-    vi.mocked(JiraClient).mockImplementation(() => mockJiraClient as unknown as InstanceType<typeof JiraClient>);
-    vi.mocked(CheckpointRepository).mockImplementation(() => mockCheckpointRepo as unknown as InstanceType<typeof CheckpointRepository>);
-    vi.mocked(ProjectRepository).mockImplementation(() => mockProjectRepo as unknown as InstanceType<typeof ProjectRepository>);
+    vi.mocked(JiraClient).mockImplementation(function () {
+      return mockJiraClient as unknown as InstanceType<typeof JiraClient>;
+    });
+    vi.mocked(CheckpointRepository).mockImplementation(function () {
+      return mockCheckpointRepo as unknown as InstanceType<
+        typeof CheckpointRepository
+      >;
+    });
+    vi.mocked(ProjectRepository).mockImplementation(function () {
+      return mockProjectRepo as unknown as InstanceType<
+        typeof ProjectRepository
+      >;
+    });
   });
 
   describe('Change Detection Gate', () => {
@@ -149,7 +185,13 @@ describe('Change Detection Handler', () => {
         cycleId: 'cycle-1',
         timestamp: '2024-01-15T10:00:00.000Z',
         activeProjects: [],
-        integrations: [{ name: 'jira', healthy: true, lastCheck: '2024-01-15T09:55:00.000Z' }],
+        integrations: [
+          {
+            name: 'jira',
+            healthy: true,
+            lastCheck: '2024-01-15T09:55:00.000Z',
+          },
+        ],
         housekeepingDue: false,
       };
 
@@ -164,7 +206,13 @@ describe('Change Detection Handler', () => {
         cycleId: 'cycle-1',
         timestamp: '2024-01-15T10:00:00.000Z',
         activeProjects: ['project-1'],
-        integrations: [{ name: 'jira', healthy: true, lastCheck: '2024-01-15T09:55:00.000Z' }],
+        integrations: [
+          {
+            name: 'jira',
+            healthy: true,
+            lastCheck: '2024-01-15T09:55:00.000Z',
+          },
+        ],
         housekeepingDue: false,
       };
 
@@ -196,7 +244,13 @@ describe('Change Detection Handler', () => {
         cycleId: 'cycle-1',
         timestamp: '2024-01-15T10:00:00.000Z',
         activeProjects: ['project-1'],
-        integrations: [{ name: 'jira', healthy: true, lastCheck: '2024-01-15T09:55:00.000Z' }],
+        integrations: [
+          {
+            name: 'jira',
+            healthy: true,
+            lastCheck: '2024-01-15T09:55:00.000Z',
+          },
+        ],
         housekeepingDue: false,
       };
 
@@ -248,7 +302,13 @@ describe('Change Detection Handler', () => {
         cycleId: 'cycle-1',
         timestamp: '2024-01-15T10:00:00.000Z',
         activeProjects: ['project-1'],
-        integrations: [{ name: 'jira', healthy: true, lastCheck: '2024-01-15T09:55:00.000Z' }],
+        integrations: [
+          {
+            name: 'jira',
+            healthy: true,
+            lastCheck: '2024-01-15T09:55:00.000Z',
+          },
+        ],
         housekeepingDue: false,
       };
 
@@ -291,7 +351,13 @@ describe('Change Detection Handler', () => {
         cycleId: 'cycle-1',
         timestamp: '2024-01-15T10:00:00.000Z',
         activeProjects: ['project-1'],
-        integrations: [{ name: 'jira', healthy: true, lastCheck: '2024-01-15T09:55:00.000Z' }],
+        integrations: [
+          {
+            name: 'jira',
+            healthy: true,
+            lastCheck: '2024-01-15T09:55:00.000Z',
+          },
+        ],
         housekeepingDue: false,
       };
 
@@ -338,7 +404,14 @@ describe('Change Detection Handler', () => {
         cycleId: 'cycle-1',
         timestamp: '2024-01-15T10:00:00.000Z',
         activeProjects: ['project-1'],
-        integrations: [{ name: 'jira', healthy: false, lastCheck: '2024-01-15T09:55:00.000Z', error: 'Connection failed' }],
+        integrations: [
+          {
+            name: 'jira',
+            healthy: false,
+            lastCheck: '2024-01-15T09:55:00.000Z',
+            error: 'Connection failed',
+          },
+        ],
         housekeepingDue: false,
       };
 
@@ -367,7 +440,13 @@ describe('Change Detection Handler', () => {
         cycleId: 'cycle-1',
         timestamp: '2024-01-15T10:00:00.000Z',
         activeProjects: ['non-existent-project'],
-        integrations: [{ name: 'jira', healthy: true, lastCheck: '2024-01-15T09:55:00.000Z' }],
+        integrations: [
+          {
+            name: 'jira',
+            healthy: true,
+            lastCheck: '2024-01-15T09:55:00.000Z',
+          },
+        ],
         housekeepingDue: false,
       };
 
@@ -384,7 +463,13 @@ describe('Change Detection Handler', () => {
         cycleId: 'cycle-1',
         timestamp: '2024-01-15T10:00:00.000Z',
         activeProjects: ['project-1', 'project-2'],
-        integrations: [{ name: 'jira', healthy: true, lastCheck: '2024-01-15T09:55:00.000Z' }],
+        integrations: [
+          {
+            name: 'jira',
+            healthy: true,
+            lastCheck: '2024-01-15T09:55:00.000Z',
+          },
+        ],
         housekeepingDue: false,
       };
 
@@ -452,7 +537,13 @@ describe('Change Detection Handler', () => {
         cycleId: 'cycle-1',
         timestamp: '2024-01-15T10:00:00.000Z',
         activeProjects: ['project-1', 'project-2'],
-        integrations: [{ name: 'jira', healthy: true, lastCheck: '2024-01-15T09:55:00.000Z' }],
+        integrations: [
+          {
+            name: 'jira',
+            healthy: true,
+            lastCheck: '2024-01-15T09:55:00.000Z',
+          },
+        ],
         housekeepingDue: false,
       };
 
