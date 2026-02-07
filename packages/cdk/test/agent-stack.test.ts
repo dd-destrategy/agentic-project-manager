@@ -29,6 +29,7 @@ describe('AgentStack', () => {
     llmBudgetMonthly: 10.0,
     enableAlarms: true,
     sesVerifiedDomain: 'example.com',
+    sesFromAddress: 'noreply@example.com',
   };
 
   beforeAll(() => {

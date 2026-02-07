@@ -150,7 +150,7 @@ describe('FoundationStack', () => {
 
     it('creates Jira API token secret', () => {
       devTemplate.hasResourceProperties('AWS::SecretsManager::Secret', {
-        Name: '/agentic-pm/jira/api-token',
+        Name: '/agentic-pm/jira/credentials',
         Description: 'Jira Cloud API token',
       });
     });

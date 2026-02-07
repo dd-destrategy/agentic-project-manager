@@ -50,7 +50,10 @@ const mockIssue: JiraIssue = {
     status: { name: 'In Progress', id: '3' },
     priority: { name: 'High', id: '2' },
     assignee: { displayName: 'Test User', emailAddress: 'test@example.com' },
-    reporter: { displayName: 'Reporter User', emailAddress: 'reporter@example.com' },
+    reporter: {
+      displayName: 'Reporter User',
+      emailAddress: 'reporter@example.com',
+    },
     labels: ['backend', 'urgent'],
     created: '2024-01-01T10:00:00.000Z',
     updated: '2024-01-02T15:30:00.000Z',
@@ -105,14 +108,18 @@ const mockBoardSprintsResponse = {
 
 const mockProjectsResponse = {
   values: [
-    { id: '10000', key: 'TEST', name: 'Test Project', self: 'url', projectTypeKey: 'software' },
+    {
+      id: '10000',
+      key: 'TEST',
+      name: 'Test Project',
+      self: 'url',
+      projectTypeKey: 'software',
+    },
   ],
 };
 
 const mockBoardsResponse = {
-  values: [
-    { id: 1, name: 'Test Board', type: 'scrum' as const, self: 'url' },
-  ],
+  values: [{ id: 1, name: 'Test Board', type: 'scrum' as const, self: 'url' }],
 };
 
 // Helper to create mock response
@@ -238,7 +245,9 @@ describe('JiraClient', () => {
     });
 
     it('should return false when authentication fails', async () => {
-      mockFetch.mockResolvedValueOnce(createMockResponse({ error: 'Unauthorized' }, 401));
+      mockFetch.mockResolvedValueOnce(
+        createMockResponse({ error: 'Unauthorized' }, 401)
+      );
 
       const result = await client.authenticate();
 
@@ -248,15 +257,22 @@ describe('JiraClient', () => {
 
   describe('healthCheck', () => {
     it('should return healthy status when API responds', async () => {
-      mockFetch.mockResolvedValueOnce(createMockResponse(mockServerInfoResponse));
+      mockFetch.mockResolvedValueOnce(
+        createMockResponse({
+          accountId: '12345',
+          displayName: 'Test User',
+          emailAddress: 'test@example.com',
+          active: true,
+        })
+      );
 
       const result = await client.healthCheck();
 
       expect(result.healthy).toBe(true);
       expect(result.latencyMs).toBeGreaterThanOrEqual(0);
       expect(result.details).toMatchObject({
-        version: '1001.0.0',
-        baseUrl: 'https://test.atlassian.net',
+        accountId: '12345',
+        displayName: 'Test User',
       });
     });
 
@@ -320,23 +336,33 @@ describe('JiraClient', () => {
       const page1 = {
         ...mockSearchResponse,
         total: 75,
-        issues: Array(50).fill(mockIssue).map((issue, i) => ({
-          ...issue,
-          id: `1000${i}`,
-          key: `TEST-${i}`,
-          fields: { ...issue.fields, updated: `2024-01-02T15:${30 + Math.floor(i / 60)}:${i % 60}0.000Z` },
-        })),
+        issues: Array(50)
+          .fill(mockIssue)
+          .map((issue, i) => ({
+            ...issue,
+            id: `1000${i}`,
+            key: `TEST-${i}`,
+            fields: {
+              ...issue.fields,
+              updated: `2024-01-02T15:${30 + Math.floor(i / 60)}:${i % 60}0.000Z`,
+            },
+          })),
       };
       const page2 = {
         ...mockSearchResponse,
         startAt: 50,
         total: 75,
-        issues: Array(25).fill(mockIssue).map((issue, i) => ({
-          ...issue,
-          id: `2000${i}`,
-          key: `TEST-${50 + i}`,
-          fields: { ...issue.fields, updated: `2024-01-02T16:${i % 60}0:00.000Z` },
-        })),
+        issues: Array(25)
+          .fill(mockIssue)
+          .map((issue, i) => ({
+            ...issue,
+            id: `2000${i}`,
+            key: `TEST-${50 + i}`,
+            fields: {
+              ...issue.fields,
+              updated: `2024-01-02T16:${i % 60}0:00.000Z`,
+            },
+          })),
       };
 
       mockFetch
@@ -366,7 +392,9 @@ describe('JiraClient', () => {
 
   describe('fetchSprintsForBoard', () => {
     it('should fetch sprints for a board', async () => {
-      mockFetch.mockResolvedValueOnce(createMockResponse(mockBoardSprintsResponse));
+      mockFetch.mockResolvedValueOnce(
+        createMockResponse(mockBoardSprintsResponse)
+      );
 
       const result = await client.fetchSprintsForBoard('1');
 
@@ -375,7 +403,9 @@ describe('JiraClient', () => {
     });
 
     it('should filter by state when provided', async () => {
-      mockFetch.mockResolvedValueOnce(createMockResponse(mockBoardSprintsResponse));
+      mockFetch.mockResolvedValueOnce(
+        createMockResponse(mockBoardSprintsResponse)
+      );
 
       await client.fetchSprintsForBoard('1', 'active');
 
@@ -386,7 +416,9 @@ describe('JiraClient', () => {
 
   describe('fetchActiveSprint', () => {
     it('should fetch the active sprint for a board', async () => {
-      mockFetch.mockResolvedValueOnce(createMockResponse(mockBoardSprintsResponse));
+      mockFetch.mockResolvedValueOnce(
+        createMockResponse(mockBoardSprintsResponse)
+      );
 
       const result = await client.fetchActiveSprint('1');
 

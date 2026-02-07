@@ -11,6 +11,7 @@ export interface EnvironmentConfig {
   llmBudgetMonthly: number;
   enableAlarms: boolean;
   sesVerifiedDomain: string;
+  sesFromAddress: string;
 }
 
 const baseConfig = {
@@ -28,10 +29,11 @@ export const environments: Record<string, EnvironmentConfig> = {
     pollingIntervalMinutes: 15,
     holdQueueCheckMinutes: 1,
     logRetentionDays: 7,
-    llmBudgetDaily: 0.30,
-    llmBudgetMonthly: 10.00,
+    llmBudgetDaily: 0.3,
+    llmBudgetMonthly: 10.0,
     enableAlarms: false,
     sesVerifiedDomain: process.env.SES_VERIFIED_DOMAIN || 'example.com',
+    sesFromAddress: process.env.SES_FROM_ADDRESS || 'noreply@example.com',
   },
   prod: {
     ...baseConfig,
@@ -41,9 +43,10 @@ export const environments: Record<string, EnvironmentConfig> = {
     holdQueueCheckMinutes: 1,
     logRetentionDays: 30,
     llmBudgetDaily: 0.23,
-    llmBudgetMonthly: 8.00,
+    llmBudgetMonthly: 8.0,
     enableAlarms: true,
     sesVerifiedDomain: process.env.SES_VERIFIED_DOMAIN || 'example.com',
+    sesFromAddress: process.env.SES_FROM_ADDRESS || 'noreply@example.com',
   },
 };
 

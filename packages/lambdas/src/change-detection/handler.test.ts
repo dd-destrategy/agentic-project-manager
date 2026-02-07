@@ -31,12 +31,10 @@ vi.mock('@agentic-pm/core/integrations/jira', () => ({
   JiraClient: vi.fn().mockImplementation(function () {
     return {
       authenticate: vi.fn().mockResolvedValue(true),
-      fetchDelta: vi
-        .fn()
-        .mockResolvedValue({
-          signals: [],
-          newCheckpoint: '2024-01-15T10:00:00.000Z',
-        }),
+      fetchDelta: vi.fn().mockResolvedValue({
+        signals: [],
+        newCheckpoint: '2024-01-15T10:00:00.000Z',
+      }),
       healthCheck: vi.fn().mockResolvedValue({ healthy: true, latencyMs: 50 }),
       source: 'jira',
     };
@@ -62,19 +60,14 @@ vi.mock('@agentic-pm/core/db/repositories/project', () => ({
   }),
 }));
 
-vi.mock('@aws-sdk/client-secrets-manager', () => ({
-  SecretsManagerClient: vi.fn().mockImplementation(function () {
-    return {
-      send: vi.fn().mockResolvedValue({
-        SecretString: JSON.stringify({
-          baseUrl: 'https://test.atlassian.net',
-          email: 'test@example.com',
-          apiToken: 'test-token',
-        }),
-      }),
-    };
-  }),
-  GetSecretValueCommand: vi.fn(),
+vi.mock('../shared/secrets-cache.js', () => ({
+  getCachedSecret: vi.fn().mockResolvedValue(
+    JSON.stringify({
+      baseUrl: 'https://test.atlassian.net',
+      email: 'test@example.com',
+      apiToken: 'test-token',
+    })
+  ),
 }));
 
 vi.mock('../shared/context.js', () => ({
@@ -142,12 +135,10 @@ describe('Change Detection Handler', () => {
     // Get fresh mock instances
     mockJiraClient = {
       authenticate: vi.fn().mockResolvedValue(true),
-      fetchDelta: vi
-        .fn()
-        .mockResolvedValue({
-          signals: [],
-          newCheckpoint: '2024-01-15T10:00:00.000Z',
-        }),
+      fetchDelta: vi.fn().mockResolvedValue({
+        signals: [],
+        newCheckpoint: '2024-01-15T10:00:00.000Z',
+      }),
       healthCheck: vi.fn().mockResolvedValue({ healthy: true, latencyMs: 50 }),
       source: 'jira',
     };

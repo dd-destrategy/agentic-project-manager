@@ -1,4 +1,6 @@
 import { DynamoDBClient } from '@agentic-pm/core/db/client';
+import { EventRepository } from '@agentic-pm/core/db/repositories/event';
+import { GraduationStateRepository } from '@agentic-pm/core/db/repositories/graduation-state';
 import { HeldActionRepository } from '@agentic-pm/core/db/repositories/held-action';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
@@ -31,12 +33,17 @@ export async function POST(
     const body = await request.json();
     const result = cancelHeldActionSchema.safeParse(body);
     if (!result.success) {
-      return NextResponse.json({ error: result.error.flatten() }, { status: 400 });
+      return NextResponse.json(
+        { error: result.error.flatten() },
+        { status: 400 }
+      );
     }
 
-    // Initialize DynamoDB client and repository
+    // Initialize DynamoDB client and repositories
     const db = new DynamoDBClient();
     const repo = new HeldActionRepository(db);
+    const graduationRepo = new GraduationStateRepository(db);
+    const eventRepo = new EventRepository(db);
 
     // Cancel the action
     const cancelledAction = await repo.cancel(
@@ -52,6 +59,30 @@ export async function POST(
         { status: 409 }
       );
     }
+
+    // Track graduation state — cancellation resets approval progress
+    await graduationRepo.recordCancellation(
+      cancelledAction.projectId,
+      cancelledAction.actionType
+    );
+
+    // Log the cancellation event
+    await eventRepo.create({
+      projectId: cancelledAction.projectId,
+      eventType: 'action_rejected',
+      severity: 'info',
+      summary: `Cancelled held action "${cancelledAction.actionType}"`,
+      detail: {
+        relatedIds: {
+          actionId: id,
+        },
+        context: {
+          actionType: cancelledAction.actionType,
+          reason: result.data.reason,
+          decidedBy: session.user?.email ?? 'user',
+        },
+      },
+    });
 
     const response: HeldActionResponse = {
       heldAction: cancelledAction,

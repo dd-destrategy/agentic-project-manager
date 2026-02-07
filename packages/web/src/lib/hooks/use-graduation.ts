@@ -45,10 +45,13 @@ async function fetchComprehensiveEvidence(): Promise<ComprehensiveEvidenceData> 
 /**
  * Confirm graduation via API
  */
-async function confirmGraduation(): Promise<GraduationConfirmResponse> {
+async function confirmGraduation(
+  targetLevel: number
+): Promise<GraduationConfirmResponse> {
   const response = await fetch('/api/graduation/confirm', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ targetLevel }),
   });
 
   if (!response.ok) {

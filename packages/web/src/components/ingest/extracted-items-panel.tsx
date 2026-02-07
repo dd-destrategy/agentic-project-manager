@@ -6,6 +6,7 @@ import {
   Loader2,
   ListChecks,
   Trash2,
+  Zap,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -16,6 +17,8 @@ import {
   useApproveExtractedItem,
   useDismissExtractedItem,
   useDeleteExtractedItem,
+  useApplyExtractedItem,
+  useProjects,
 } from '@/lib/hooks';
 import { extractedItemTypeLabels } from '@/types';
 
@@ -30,14 +33,20 @@ export function ExtractedItemsPanel({
   hideHeader,
 }: ExtractedItemsPanelProps) {
   const { data, isLoading } = useSessionExtractedItems(sessionId);
+  const { data: projectsData } = useProjects();
   const approveMutation = useApproveExtractedItem();
   const dismissMutation = useDismissExtractedItem();
   const deleteMutation = useDeleteExtractedItem();
+  const applyMutation = useApplyExtractedItem();
 
   const items = data?.items ?? [];
   const pendingCount = items.filter(
     (i) => i.status === 'pending_review'
   ).length;
+
+  const defaultProjectId = projectsData?.projects?.find(
+    (p) => p.status === 'active'
+  )?.id;
 
   return (
     <div className="flex h-full flex-col">
@@ -156,6 +165,26 @@ export function ExtractedItemsPanel({
                     disabled={deleteMutation.isPending}
                   >
                     <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              )}
+              {item.status === 'approved' && defaultProjectId && (
+                <div className="mt-1.5 flex gap-1">
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="h-6 flex-1 text-[10px]"
+                    onClick={() =>
+                      applyMutation.mutate({
+                        id: item.id,
+                        sessionId: item.sessionId,
+                        projectId: item.projectId ?? defaultProjectId,
+                      })
+                    }
+                    disabled={applyMutation.isPending}
+                  >
+                    <Zap className="mr-0.5 h-3 w-3" />
+                    Apply to Artefact
                   </Button>
                 </div>
               )}

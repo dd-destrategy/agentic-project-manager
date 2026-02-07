@@ -170,6 +170,15 @@ export class AgentStack extends cdk.Stack {
       functions.set(config.name, fn);
     }
 
+    // Add SES_FROM_ADDRESS to housekeeping Lambda for daily digest emails
+    const housekeepingFn = functions.get('housekeeping');
+    if (housekeepingFn) {
+      housekeepingFn.addEnvironment(
+        'SES_FROM_ADDRESS',
+        props.config.sesFromAddress
+      );
+    }
+
     return functions;
   }
 

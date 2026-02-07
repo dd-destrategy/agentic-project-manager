@@ -9,6 +9,8 @@ import { NextRequest } from 'next/server';
 // ============================================================================
 
 const mockApprove = vi.fn();
+const mockRecordApproval = vi.fn();
+const mockEventCreate = vi.fn();
 
 vi.mock('@agentic-pm/core/db/client', () => ({
   DynamoDBClient: vi.fn().mockImplementation(function () {
@@ -20,6 +22,22 @@ vi.mock('@agentic-pm/core/db/repositories/held-action', () => ({
   HeldActionRepository: vi.fn().mockImplementation(function () {
     return {
       approve: mockApprove,
+    };
+  }),
+}));
+
+vi.mock('@agentic-pm/core/db/repositories/graduation-state', () => ({
+  GraduationStateRepository: vi.fn().mockImplementation(function () {
+    return {
+      recordApproval: mockRecordApproval,
+    };
+  }),
+}));
+
+vi.mock('@agentic-pm/core/db/repositories/event', () => ({
+  EventRepository: vi.fn().mockImplementation(function () {
+    return {
+      create: mockEventCreate,
     };
   }),
 }));
@@ -62,16 +80,18 @@ const MOCK_SESSION = {
 const MOCK_HELD_ACTION = {
   id: 'ha-1',
   projectId: 'proj-1',
-  actionType: 'create_jira_ticket',
+  actionType: 'email_stakeholder',
   status: 'approved',
-  proposedAction: {
-    summary: 'Create ticket for issue',
-    details: { key: 'TP-123' },
+  payload: {
+    to: ['user@example.com'],
+    subject: 'Test',
+    bodyText: 'Test email',
   },
-  rationale: 'This action requires approval',
+  heldUntil: '2024-01-01T00:30:00Z',
   approvedBy: 'test@example.com',
   approvedAt: '2024-01-01T00:00:00Z',
   createdAt: '2024-01-01T00:00:00Z',
+  updatedAt: '2024-01-01T00:00:00Z',
 };
 
 // ============================================================================
@@ -247,5 +267,87 @@ describe('POST /api/held-actions/[id]/approve', () => {
 
     expect(response.status).toBe(200);
     expect(mockApprove).toHaveBeenCalledWith('proj-1', 'ha-1', 'user');
+  });
+
+  it('calls recordApproval on successful approval', async () => {
+    mockGetServerSession.mockResolvedValueOnce(MOCK_SESSION);
+    mockApprove.mockResolvedValueOnce(MOCK_HELD_ACTION);
+    mockRecordApproval.mockResolvedValueOnce({
+      projectId: 'proj-1',
+      actionType: 'email_stakeholder',
+      consecutiveApprovals: 1,
+      tier: 0,
+      updatedAt: new Date().toISOString(),
+    });
+
+    const request = createRequest(
+      'http://localhost:3000/api/held-actions/ha-1/approve',
+      {
+        method: 'POST',
+        body: JSON.stringify({ actionId: 'ha-1', projectId: 'proj-1' }),
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+
+    const response = await POST(request, createParams('ha-1'));
+
+    expect(response.status).toBe(200);
+    expect(mockRecordApproval).toHaveBeenCalledWith(
+      'proj-1',
+      'email_stakeholder'
+    );
+  });
+
+  it('creates an event on successful approval', async () => {
+    mockGetServerSession.mockResolvedValueOnce(MOCK_SESSION);
+    mockApprove.mockResolvedValueOnce(MOCK_HELD_ACTION);
+
+    const request = createRequest(
+      'http://localhost:3000/api/held-actions/ha-1/approve',
+      {
+        method: 'POST',
+        body: JSON.stringify({ actionId: 'ha-1', projectId: 'proj-1' }),
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+
+    const response = await POST(request, createParams('ha-1'));
+
+    expect(response.status).toBe(200);
+    expect(mockEventCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projectId: 'proj-1',
+        eventType: 'action_approved',
+        severity: 'info',
+        summary: expect.stringContaining('email_stakeholder'),
+        detail: expect.objectContaining({
+          relatedIds: { actionId: 'ha-1' },
+          context: expect.objectContaining({
+            actionType: 'email_stakeholder',
+            decidedBy: 'test@example.com',
+          }),
+        }),
+      })
+    );
+  });
+
+  it('does not call recordApproval when action not found', async () => {
+    mockGetServerSession.mockResolvedValueOnce(MOCK_SESSION);
+    mockApprove.mockResolvedValueOnce(null);
+
+    const request = createRequest(
+      'http://localhost:3000/api/held-actions/ha-1/approve',
+      {
+        method: 'POST',
+        body: JSON.stringify({ actionId: 'ha-1', projectId: 'proj-1' }),
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+
+    const response = await POST(request, createParams('ha-1'));
+
+    expect(response.status).toBe(409);
+    expect(mockRecordApproval).not.toHaveBeenCalled();
+    expect(mockEventCreate).not.toHaveBeenCalled();
   });
 });

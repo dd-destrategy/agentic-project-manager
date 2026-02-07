@@ -41,6 +41,15 @@ vi.mock('@agentic-pm/core/db/repositories/graduation-state', () => ({
   }),
 }));
 
+const mockGetActive = vi.fn();
+vi.mock('@agentic-pm/core/db/repositories/project', () => ({
+  ProjectRepository: vi.fn().mockImplementation(function () {
+    return {
+      getActive: mockGetActive,
+    };
+  }),
+}));
+
 const mockGetServerSession = vi.fn();
 vi.mock('next-auth', () => ({
   getServerSession: (...args: unknown[]) => mockGetServerSession(...args),
@@ -104,12 +113,19 @@ const MOCK_ACTION_STATES = [
 describe('GET /api/graduation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Default: fallback to active project when no projectId query param
+    mockGetActive.mockResolvedValue({
+      items: [{ id: 'proj-1' }],
+      hasMore: false,
+    });
   });
 
   it('returns 401 when not authenticated', async () => {
     mockGetServerSession.mockResolvedValueOnce(null);
 
-    const response = await GET();
+    const response = await GET(
+      createRequest('http://localhost:3000/api/graduation')
+    );
     const body = await response.json();
 
     expect(response.status).toBe(401);
@@ -122,7 +138,9 @@ describe('GET /api/graduation', () => {
     mockGetSpotCheckStats.mockResolvedValueOnce(MOCK_SPOT_CHECK_STATS);
     mockGetByProject.mockResolvedValueOnce(MOCK_ACTION_STATES);
 
-    const response = await GET();
+    const response = await GET(
+      createRequest('http://localhost:3000/api/graduation')
+    );
     const body = await response.json();
 
     expect(response.status).toBe(200);
@@ -143,7 +161,9 @@ describe('GET /api/graduation', () => {
     mockGetSpotCheckStats.mockResolvedValueOnce(MOCK_SPOT_CHECK_STATS);
     mockGetByProject.mockResolvedValueOnce(MOCK_ACTION_STATES);
 
-    const response = await GET();
+    const response = await GET(
+      createRequest('http://localhost:3000/api/graduation')
+    );
     const body = await response.json();
 
     expect(response.status).toBe(200);
@@ -163,7 +183,9 @@ describe('GET /api/graduation', () => {
       MOCK_ACTION_STATES[1],
     ]);
 
-    const response = await GET();
+    const response = await GET(
+      createRequest('http://localhost:3000/api/graduation')
+    );
     const body = await response.json();
 
     expect(response.status).toBe(200);
@@ -181,7 +203,9 @@ describe('GET /api/graduation', () => {
     });
     mockGetByProject.mockResolvedValueOnce(MOCK_ACTION_STATES);
 
-    const response = await GET();
+    const response = await GET(
+      createRequest('http://localhost:3000/api/graduation')
+    );
     const body = await response.json();
 
     expect(response.status).toBe(200);
@@ -195,7 +219,9 @@ describe('GET /api/graduation', () => {
     mockGetSpotCheckStats.mockResolvedValueOnce(MOCK_SPOT_CHECK_STATS);
     mockGetByProject.mockResolvedValueOnce(MOCK_ACTION_STATES);
 
-    const response = await GET();
+    const response = await GET(
+      createRequest('http://localhost:3000/api/graduation')
+    );
     const body = await response.json();
 
     expect(response.status).toBe(200);
@@ -217,7 +243,9 @@ describe('GET /api/graduation', () => {
       MOCK_ACTION_STATES[1],
     ]);
 
-    const response = await GET();
+    const response = await GET(
+      createRequest('http://localhost:3000/api/graduation')
+    );
     const body = await response.json();
 
     expect(response.status).toBe(200);
@@ -233,7 +261,9 @@ describe('GET /api/graduation', () => {
     mockGetSpotCheckStats.mockResolvedValueOnce(MOCK_SPOT_CHECK_STATS);
     mockGetByProject.mockResolvedValueOnce(MOCK_ACTION_STATES);
 
-    const response = await GET();
+    const response = await GET(
+      createRequest('http://localhost:3000/api/graduation')
+    );
     const body = await response.json();
 
     expect(response.status).toBe(200);
@@ -250,7 +280,9 @@ describe('GET /api/graduation', () => {
     });
     mockGetByProject.mockResolvedValueOnce(MOCK_ACTION_STATES);
 
-    const response = await GET();
+    const response = await GET(
+      createRequest('http://localhost:3000/api/graduation')
+    );
     const body = await response.json();
 
     expect(response.status).toBe(200);
@@ -263,7 +295,9 @@ describe('GET /api/graduation', () => {
     mockGetSpotCheckStats.mockResolvedValueOnce(MOCK_SPOT_CHECK_STATS);
     mockGetByProject.mockResolvedValueOnce([]);
 
-    const response = await GET();
+    const response = await GET(
+      createRequest('http://localhost:3000/api/graduation')
+    );
     const body = await response.json();
 
     expect(response.status).toBe(200);
@@ -275,7 +309,9 @@ describe('GET /api/graduation', () => {
     mockGetServerSession.mockResolvedValueOnce(MOCK_SESSION);
     mockGetAutonomyLevel.mockRejectedValueOnce(new Error('DB failure'));
 
-    const response = await GET();
+    const response = await GET(
+      createRequest('http://localhost:3000/api/graduation')
+    );
     const body = await response.json();
 
     expect(response.status).toBe(500);

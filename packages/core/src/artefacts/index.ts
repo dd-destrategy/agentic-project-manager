@@ -24,3 +24,8 @@ export type {
   LlmArtefactUpdateResult,
 } from './types.js';
 export type { BootstrapInput, BootstrapResult } from './bootstrap.js';
+export {
+  applyExtractedItem,
+  setApplyDbClient,
+} from './apply-extracted-item.js';
+export type { ApplyExtractedItemResult } from './apply-extracted-item.js';

@@ -8,23 +8,43 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 // Dynamic imports for heavy components to reduce initial bundle size
 const ActivityFeed = dynamic(
-  () => import('@/components/activity-feed').then((mod) => ({ default: mod.ActivityFeed })),
+  () =>
+    import('@/components/activity-feed').then((mod) => ({
+      default: mod.ActivityFeed,
+    })),
   { loading: () => <Skeleton className="h-64" /> }
 );
 
 const ProjectCards = dynamic(
-  () => import('@/components/project-cards').then((mod) => ({ default: mod.ProjectCards })),
+  () =>
+    import('@/components/project-cards').then((mod) => ({
+      default: mod.ProjectCards,
+    })),
   { loading: () => <Skeleton className="h-48" /> }
 );
 
 const EscalationSummary = dynamic(
-  () => import('@/components/escalation-summary').then((mod) => ({ default: mod.EscalationSummary })),
+  () =>
+    import('@/components/escalation-summary').then((mod) => ({
+      default: mod.EscalationSummary,
+    })),
   { loading: () => <Skeleton className="h-32" /> }
 );
 
 const ActivityStats = dynamic(
-  () => import('@/components/activity-stats').then((mod) => ({ default: mod.ActivityStats })),
+  () =>
+    import('@/components/activity-stats').then((mod) => ({
+      default: mod.ActivityStats,
+    })),
   { loading: () => <Skeleton className="h-32" /> }
+);
+
+const IntegrationHealth = dynamic(
+  () =>
+    import('@/components/integration-health').then((mod) => ({
+      default: mod.IntegrationHealth,
+    })),
+  { loading: () => <Skeleton className="h-40" /> }
 );
 
 /**
@@ -59,6 +79,7 @@ export default function DashboardPage() {
 
         {/* Right Column - Status & Stats (4 cols) */}
         <div className="col-span-12 lg:col-span-4 space-y-6">
+          <IntegrationHealth />
           <EscalationSummary />
           <ActivityStats />
           <ActivityFeed />

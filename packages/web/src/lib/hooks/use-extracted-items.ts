@@ -99,6 +99,52 @@ async function deleteExtractedItem({
   if (!response.ok) throw new Error('Failed to delete extracted item');
 }
 
+async function applyExtractedItemFn({
+  id,
+  sessionId,
+  projectId,
+}: {
+  id: string;
+  sessionId: string;
+  projectId: string;
+}): Promise<{ success: boolean; artefactType: string }> {
+  const response = await fetch(
+    `/api/extracted-items/${id}/apply?sessionId=${sessionId}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ projectId }),
+    }
+  );
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error ?? 'Failed to apply extracted item');
+  }
+  return response.json();
+}
+
+async function applyAllApprovedFn({
+  itemIds,
+  projectId,
+}: {
+  itemIds: Array<{ id: string; sessionId: string }>;
+  projectId: string;
+}): Promise<{
+  summary: { total: number; applied: number; skipped: number; failed: number };
+  results: Array<{ id: string; success: boolean; error?: string }>;
+}> {
+  const response = await fetch('/api/extracted-items/apply-batch', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ itemIds, projectId }),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error ?? 'Failed to batch apply extracted items');
+  }
+  return response.json();
+}
+
 // ============================================================================
 // Hooks
 // ============================================================================
@@ -184,6 +230,34 @@ export function useDeleteExtractedItem() {
     mutationFn: deleteExtractedItem,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['extracted-items'] });
+    },
+  });
+}
+
+/**
+ * Apply a single approved extracted item to its target artefact
+ */
+export function useApplyExtractedItem() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: applyExtractedItemFn,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['extracted-items'] });
+      queryClient.invalidateQueries({ queryKey: ['artefacts'] });
+    },
+  });
+}
+
+/**
+ * Apply all approved extracted items in batch
+ */
+export function useApplyAllApproved() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: applyAllApprovedFn,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['extracted-items'] });
+      queryClient.invalidateQueries({ queryKey: ['artefacts'] });
     },
   });
 }

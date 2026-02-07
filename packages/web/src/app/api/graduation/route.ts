@@ -1,6 +1,7 @@
 import { AgentConfigRepository } from '@agentic-pm/core/db/repositories/agent-config';
 import { GraduationStateRepository } from '@agentic-pm/core/db/repositories/graduation-state';
 import type { GraduationTier } from '@agentic-pm/core/db/repositories/graduation-state';
+import { ProjectRepository } from '@agentic-pm/core/db/repositories/project';
 import type { AutonomyLevel } from '@agentic-pm/core/types';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
@@ -130,7 +131,7 @@ function calculateBlockers(evidence: GraduationEvidence): string[] {
  * Returns the current graduation evidence including metrics,
  * blockers, and whether graduation is possible.
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     // Verify authentication
     const session = await getServerSession(authOptions);
@@ -143,10 +144,18 @@ export async function GET() {
     const configRepo = new AgentConfigRepository(dbClient);
     const graduationRepo = new GraduationStateRepository(dbClient);
 
+    // Resolve project ID from query parameter or fall back to first active project
+    let projectId = request.nextUrl.searchParams.get('projectId');
+    if (!projectId) {
+      const projectRepo = new ProjectRepository(dbClient);
+      const activeProjects = await projectRepo.getActive({ limit: 1 });
+      projectId = activeProjects.items[0]?.id ?? 'default';
+    }
+
     const [autonomyLevel, spotCheckStats, actionStates] = await Promise.all([
       configRepo.getAutonomyLevel(),
       configRepo.getSpotCheckStats(),
-      graduationRepo.getByProject('demo-project'),
+      graduationRepo.getByProject(projectId),
     ]);
 
     const currentLevel = autonomyLevelToNumber(autonomyLevel);

@@ -22,8 +22,10 @@ export {
   CheckpointRepository,
   HeldActionRepository,
   GraduationStateRepository,
+  IntegrationConfigRepository,
   CONFIG_KEYS,
 } from './db/index.js';
+export type { IntegrationHealthConfig } from './db/index.js';
 
 // LLM
 export {
@@ -46,17 +48,34 @@ export type {
   UpdateDecisionLogOutput,
   ArtefactUpdateToolOutput,
 } from './llm/tools.js';
-export { BudgetTracker, DEGRADATION_THRESHOLDS, DEGRADATION_CONFIGS } from './llm/budget.js';
-export type { ModelId, TokenUsage, BudgetState, DegradationTier } from './llm/types.js';
+export {
+  BudgetTracker,
+  DEGRADATION_THRESHOLDS,
+  DEGRADATION_CONFIGS,
+} from './llm/budget.js';
+export type {
+  ModelId,
+  TokenUsage,
+  BudgetState,
+  DegradationTier,
+} from './llm/types.js';
 
 // Artefacts
 export { validateArtefactContent } from './artefacts/validator.js';
 export { bootstrapArtefactsFromJira } from './artefacts/bootstrap.js';
-export { updateArtefact, mergeArtefact, revertArtefact, calculateDiff } from './artefacts/updater.js';
+export {
+  updateArtefact,
+  mergeArtefact,
+  revertArtefact,
+  calculateDiff,
+} from './artefacts/updater.js';
 
 // Triage
 export { sanitiseSignal, INJECTION_PATTERNS } from './triage/sanitise.js';
-export { classifySignal, TRIAGE_CLASSIFY_SYSTEM_PROMPT } from './triage/classify.js';
+export {
+  classifySignal,
+  TRIAGE_CLASSIFY_SYSTEM_PROMPT,
+} from './triage/classify.js';
 
 // Execution
 export {

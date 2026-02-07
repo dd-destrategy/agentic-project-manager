@@ -32,6 +32,9 @@ import {
   useDismissExtractedItem,
   useUpdateExtractedItem,
   useDeleteExtractedItem,
+  useApplyExtractedItem,
+  useApplyAllApproved,
+  useProjects,
 } from '@/lib/hooks';
 import type {
   ExtractedItem,
@@ -94,10 +97,14 @@ function ExtractedItemCard({
   item,
   onApprove,
   onDismiss,
+  onApply,
+  isApplying,
 }: {
   item: ExtractedItem;
   onApprove: (item: ExtractedItem) => void;
   onDismiss: (item: ExtractedItem) => void;
+  onApply?: (item: ExtractedItem) => void;
+  isApplying?: boolean;
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(item.title);
@@ -270,6 +277,18 @@ function ExtractedItemCard({
                 </Button>
               </>
             )}
+            {item.status === 'approved' && onApply && (
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => onApply(item)}
+                disabled={isApplying}
+                className="h-7 text-xs"
+              >
+                <Zap className="mr-1 h-3 w-3" />
+                Apply
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="sm"
@@ -338,12 +357,22 @@ export default function ExtractedItemsPage() {
 
   const statusParam = activeTab === 'all' ? undefined : activeTab;
   const { data, isLoading, error } = useExtractedItems(statusParam);
+  const { data: projectsData } = useProjects();
   const approveMutation = useApproveExtractedItem();
   const dismissMutation = useDismissExtractedItem();
+  const applyMutation = useApplyExtractedItem();
+  const applyAllMutation = useApplyAllApproved();
 
   const items = data?.items ?? [];
   const filteredItems =
     typeFilter === 'all' ? items : items.filter((i) => i.type === typeFilter);
+
+  // Use the first active project as the default projectId
+  const defaultProjectId = projectsData?.projects?.find(
+    (p) => p.status === 'active'
+  )?.id;
+
+  const approvedItems = filteredItems.filter((i) => i.status === 'approved');
 
   const handleApprove = useCallback(
     (item: ExtractedItem) => {
@@ -359,15 +388,56 @@ export default function ExtractedItemsPage() {
     [dismissMutation]
   );
 
+  const handleApply = useCallback(
+    (item: ExtractedItem) => {
+      const projectId = item.projectId ?? defaultProjectId;
+      if (!projectId) return;
+      applyMutation.mutate({
+        id: item.id,
+        sessionId: item.sessionId,
+        projectId,
+      });
+    },
+    [applyMutation, defaultProjectId]
+  );
+
+  const handleApplyAll = useCallback(() => {
+    if (!defaultProjectId || approvedItems.length === 0) return;
+    applyAllMutation.mutate({
+      itemIds: approvedItems.map((i) => ({
+        id: i.id,
+        sessionId: i.sessionId,
+      })),
+      projectId: defaultProjectId,
+    });
+  }, [applyAllMutation, approvedItems, defaultProjectId]);
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold">Extracted Items</h1>
-        <p className="text-sm text-muted-foreground">
-          Review items extracted from ingestion sessions before applying to
-          artefacts
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Extracted Items</h1>
+          <p className="text-sm text-muted-foreground">
+            Review items extracted from ingestion sessions before applying to
+            artefacts
+          </p>
+        </div>
+        {activeTab === 'approved' &&
+          approvedItems.length > 0 &&
+          defaultProjectId && (
+            <Button
+              onClick={handleApplyAll}
+              disabled={applyAllMutation.isPending}
+            >
+              {applyAllMutation.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Zap className="mr-2 h-4 w-4" />
+              )}
+              Apply All Approved ({approvedItems.length})
+            </Button>
+          )}
       </div>
 
       {/* Status tabs */}
@@ -459,6 +529,8 @@ export default function ExtractedItemsPage() {
             item={item}
             onApprove={handleApprove}
             onDismiss={handleDismiss}
+            onApply={defaultProjectId ? handleApply : undefined}
+            isApplying={applyMutation.isPending}
           />
         ))}
       </div>

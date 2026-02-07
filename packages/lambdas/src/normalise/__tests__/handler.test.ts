@@ -16,6 +16,38 @@ vi.mock('../../shared/context.js', () => ({
   },
 }));
 
+let jiraNormaliseCallCount = 0;
+
+vi.mock('@agentic-pm/core/signals/jira', () => ({
+  normaliseJiraSignal: vi.fn().mockImplementation((raw, projectId) => {
+    jiraNormaliseCallCount++;
+    const payload = raw.rawPayload as Record<string, unknown>;
+    const key = (payload as { key?: string }).key ?? 'UNKNOWN';
+    const fields = (
+      payload as {
+        fields?: { summary?: string; created?: string; updated?: string };
+      }
+    ).fields;
+    const summary = fields?.summary ?? '';
+    // Determine type based on created/updated heuristic
+    const created = fields?.created ? new Date(fields.created).getTime() : 0;
+    const updated = fields?.updated ? new Date(fields.updated).getTime() : 0;
+    const isNew = created > 0 && Math.abs(updated - created) < 1000;
+    return {
+      id: `mock-signal-${jiraNormaliseCallCount}`,
+      source: 'jira',
+      timestamp: raw.timestamp,
+      type: isNew ? 'ticket_created' : 'ticket_updated',
+      summary: isNew
+        ? `New ticket created: ${key} - ${summary}`
+        : `${key} updated: ${summary}`,
+      raw: payload,
+      projectId,
+      metadata: { relatedTickets: [key] },
+    };
+  }),
+}));
+
 import type { Context } from 'aws-lambda';
 
 import type {
@@ -72,7 +104,7 @@ describe('Normalise Handler', () => {
   });
 
   describe('Single Signal Batch', () => {
-    it('should normalise a single Jira signal', async () => {
+    it('should normalise a single Jira signal via the Jira normaliser', async () => {
       const rawJiraIssue = {
         id: '10001',
         key: 'TEST-1',
@@ -102,11 +134,57 @@ describe('Normalise Handler', () => {
         id: expect.any(String),
         source: 'jira',
         timestamp: expect.any(String),
-        type: 'unknown',
-        summary: 'Signal detected',
+        type: 'ticket_updated',
+        summary: 'TEST-1 updated: Test Issue',
         projectId: 'project-1',
         raw: rawJiraIssue,
+        metadata: { relatedTickets: ['TEST-1'] },
       });
+    });
+
+    it('should dispatch Jira signals to normaliseJiraSignal', async () => {
+      const { normaliseJiraSignal } =
+        await import('@agentic-pm/core/signals/jira');
+
+      const rawJiraIssue = {
+        id: '10002',
+        key: 'TEST-2',
+        fields: {
+          summary: 'Another Issue',
+          status: { name: 'To Do', id: '1' },
+          created: '2024-01-15T10:00:00.000Z',
+          updated: '2024-01-15T10:00:00.000Z',
+        },
+      };
+
+      const batch: RawSignalBatch = {
+        projectId: 'project-1',
+        source: 'jira',
+        signals: [rawJiraIssue],
+        checkpoint: '2024-01-15T10:00:00.000Z',
+      };
+
+      const input: ChangeDetectionOutput = {
+        hasChanges: true,
+        signals: [batch],
+      };
+
+      const result = await handler(input, mockContext);
+
+      // Verify normaliseJiraSignal was called
+      expect(normaliseJiraSignal).toHaveBeenCalledWith(
+        expect.objectContaining({
+          source: 'jira',
+          rawPayload: rawJiraIssue,
+        }),
+        'project-1'
+      );
+
+      // Created === updated within 1s, so mock returns ticket_created
+      expect(result.signals).toHaveLength(1);
+      expect(result.signals[0].type).toBe('ticket_created');
+      expect(result.signals[0].summary).toContain('New ticket created');
+      expect(result.signals[0].summary).toContain('TEST-2');
     });
 
     it('should normalise multiple signals in a batch', async () => {
@@ -257,10 +335,10 @@ describe('Normalise Handler', () => {
       expect(result.signals[0].raw).toEqual(rawPayload);
     });
 
-    it('should set type to unknown for stub implementation', async () => {
+    it('should set type to unknown for generic fallback (non-jira source)', async () => {
       const batch: RawSignalBatch = {
         projectId: 'project-1',
-        source: 'jira',
+        source: 'outlook',
         signals: [{ id: '1' }],
         checkpoint: '2024-01-15T10:00:00.000Z',
       };
@@ -275,10 +353,10 @@ describe('Normalise Handler', () => {
       expect(result.signals[0].type).toBe('unknown');
     });
 
-    it('should set generic summary for stub implementation', async () => {
+    it('should set generic summary for fallback (non-jira source)', async () => {
       const batch: RawSignalBatch = {
         projectId: 'project-1',
-        source: 'jira',
+        source: 'outlook',
         signals: [{ id: '1' }],
         checkpoint: '2024-01-15T10:00:00.000Z',
       };

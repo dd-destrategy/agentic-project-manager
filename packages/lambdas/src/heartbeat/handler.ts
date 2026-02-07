@@ -10,18 +10,30 @@ import {
   ProjectRepository,
   EventRepository,
   AgentConfigRepository,
+  IntegrationConfigRepository,
 } from '@agentic-pm/core/db';
+import type { IntegrationHealthCheck } from '@agentic-pm/core/integrations';
+import { JiraClient } from '@agentic-pm/core/integrations/jira';
+import { SESClient } from '@agentic-pm/core/integrations/ses';
 import type { Context } from 'aws-lambda';
 import { ulid } from 'ulid';
 
-import { logger, getEnv } from '../shared/context.js';
-import type { AgentCycleInput, HeartbeatOutput, IntegrationStatus } from '../shared/types.js';
+import { logger, getEnv, getCachedSecret } from '../shared/context.js';
+import type {
+  AgentCycleInput,
+  HeartbeatOutput,
+  IntegrationStatus,
+} from '../shared/types.js';
+
+/** Timeout for individual health checks (ms) */
+const HEALTH_CHECK_TIMEOUT_MS = 5000;
 
 // Initialise clients outside handler for connection reuse
 let dbClient: DynamoDBClient | null = null;
 let projectRepo: ProjectRepository | null = null;
 let eventRepo: EventRepository | null = null;
 let configRepo: AgentConfigRepository | null = null;
+let integrationConfigRepo: IntegrationConfigRepository | null = null;
 
 function getRepositories() {
   if (!dbClient) {
@@ -33,8 +45,124 @@ function getRepositories() {
     projectRepo = new ProjectRepository(dbClient);
     eventRepo = new EventRepository(dbClient);
     configRepo = new AgentConfigRepository(dbClient);
+    integrationConfigRepo = new IntegrationConfigRepository(dbClient);
   }
-  return { projectRepo: projectRepo!, eventRepo: eventRepo!, configRepo: configRepo! };
+  return {
+    projectRepo: projectRepo!,
+    eventRepo: eventRepo!,
+    configRepo: configRepo!,
+    integrationConfigRepo: integrationConfigRepo!,
+  };
+}
+
+/**
+ * Run a health check with a timeout
+ */
+async function withTimeout(
+  promise: Promise<IntegrationHealthCheck>,
+  timeoutMs: number
+): Promise<IntegrationHealthCheck> {
+  let timer: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<IntegrationHealthCheck>((resolve) => {
+    timer = setTimeout(() => {
+      resolve({
+        healthy: false,
+        latencyMs: timeoutMs,
+        error: `Health check timed out after ${timeoutMs}ms`,
+      });
+    }, timeoutMs);
+  });
+
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    clearTimeout(timer!);
+  }
+}
+
+/**
+ * Perform real health checks against configured integrations
+ */
+async function checkIntegrationHealth(
+  repo: IntegrationConfigRepository
+): Promise<IntegrationStatus[]> {
+  const timestamp = new Date().toISOString();
+
+  const checks: Array<{
+    name: string;
+    check: () => Promise<IntegrationHealthCheck>;
+  }> = [];
+
+  // Jira health check
+  checks.push({
+    name: 'jira',
+    check: async () => {
+      const credentialsJson = await getCachedSecret(
+        '/agentic-pm/jira/credentials'
+      );
+      const credentials = JSON.parse(credentialsJson) as {
+        baseUrl: string;
+        email: string;
+        apiToken: string;
+      };
+      const client = new JiraClient(credentials);
+      return client.healthCheck();
+    },
+  });
+
+  // SES health check
+  checks.push({
+    name: 'ses',
+    check: async () => {
+      const sesConfigJson = await getCachedSecret('/agentic-pm/ses/config');
+      const sesConfig = JSON.parse(sesConfigJson) as {
+        fromAddress: string;
+        region?: string;
+      };
+      const client = new SESClient(sesConfig);
+      return client.healthCheck();
+    },
+  });
+
+  // Run all checks in parallel with timeout
+  const results = await Promise.allSettled(
+    checks.map(async ({ name, check }) => {
+      const result = await withTimeout(check(), HEALTH_CHECK_TIMEOUT_MS);
+      // Record result in DynamoDB
+      await repo.updateHealthStatus(
+        name,
+        result.healthy,
+        { ...result.details, latencyMs: result.latencyMs },
+        result.error
+      );
+      return { name, result };
+    })
+  );
+
+  return results.map((settled, index) => {
+    const name = checks[index]!.name;
+    if (settled.status === 'fulfilled') {
+      return {
+        name,
+        healthy: settled.value.result.healthy,
+        lastCheck: timestamp,
+        error: settled.value.result.error,
+      };
+    }
+    // Promise.allSettled rejected — unexpected error
+    const errorMsg =
+      settled.reason instanceof Error
+        ? settled.reason.message
+        : 'Unknown error';
+    // Best-effort record failure
+    repo.updateHealthStatus(name, false, undefined, errorMsg).catch(() => {});
+    return {
+      name,
+      healthy: false,
+      lastCheck: timestamp,
+      error: errorMsg,
+    };
+  });
 }
 
 export async function handler(
@@ -53,7 +181,8 @@ export async function handler(
     environment: env.ENVIRONMENT,
   });
 
-  const { projectRepo, eventRepo, configRepo } = getRepositories();
+  const { projectRepo, eventRepo, configRepo, integrationConfigRepo } =
+    getRepositories();
 
   try {
     // 1. Get active projects from DynamoDB
@@ -66,14 +195,31 @@ export async function handler(
       projectIds: activeProjects,
     });
 
-    // 2. Check integration health (stub for Sprint 1 - will be implemented in Sprint 3)
-    const integrations: IntegrationStatus[] = [
-      {
-        name: 'jira',
-        healthy: true,
-        lastCheck: timestamp,
-      },
-    ];
+    // 2. Check integration health with real calls
+    let integrations: IntegrationStatus[];
+    try {
+      integrations = await checkIntegrationHealth(integrationConfigRepo);
+    } catch (healthError) {
+      logger.warn('Integration health checks failed, using defaults', {
+        cycleId,
+        error:
+          healthError instanceof Error ? healthError.message : 'Unknown error',
+      });
+      integrations = [
+        {
+          name: 'jira',
+          healthy: false,
+          lastCheck: timestamp,
+          error: 'Health check failed',
+        },
+        {
+          name: 'ses',
+          healthy: false,
+          lastCheck: timestamp,
+          error: 'Health check failed',
+        },
+      ];
+    }
 
     // 3. Get budget status
     const budgetStatus = await configRepo.getBudgetStatus();
@@ -99,7 +245,10 @@ export async function handler(
       },
       context: {
         activeProjects: activeProjects.length,
-        integrations: integrations.map((i) => ({ name: i.name, healthy: i.healthy })),
+        integrations: integrations.map((i) => ({
+          name: i.name,
+          healthy: i.healthy,
+        })),
         housekeepingDue,
         budgetStatus: {
           dailySpendUsd: budgetStatus.dailySpendUsd,
@@ -111,7 +260,10 @@ export async function handler(
     logger.info('Heartbeat completed', {
       cycleId,
       activeProjects: activeProjects.length,
-      integrations: integrations.map((i) => ({ name: i.name, healthy: i.healthy })),
+      integrations: integrations.map((i) => ({
+        name: i.name,
+        healthy: i.healthy,
+      })),
       housekeepingDue,
     });
 

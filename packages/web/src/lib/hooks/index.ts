@@ -66,5 +66,13 @@ export {
   useApproveExtractedItem,
   useDismissExtractedItem,
   useDeleteExtractedItem,
+  useApplyExtractedItem,
+  useApplyAllApproved,
 } from './use-extracted-items';
+export {
+  useIntegrationHealth,
+  formatLastHealthCheck,
+  getHealthStatusVariant,
+  type IntegrationHealthConfig,
+} from './use-integration-health';
 export { useToast, toast } from './use-toast';

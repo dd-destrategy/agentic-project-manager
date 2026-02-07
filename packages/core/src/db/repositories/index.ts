@@ -10,4 +10,8 @@ export { ExtractedItemRepository } from './extracted-item.js';
 export { GraduationStateRepository } from './graduation-state.js';
 export { HeldActionRepository } from './held-action.js';
 export { IngestionSessionRepository } from './ingestion-session.js';
+export {
+  IntegrationConfigRepository,
+  type IntegrationHealthConfig,
+} from './integration-config.js';
 export { ProjectRepository } from './project.js';

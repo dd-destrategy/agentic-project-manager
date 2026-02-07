@@ -7,9 +7,16 @@
 export { DynamoDBClient, DynamoDBError } from './client.js';
 export { ProjectRepository } from './repositories/project.js';
 export { EventRepository } from './repositories/event.js';
-export type { CreateEventOptions, EventQueryOptions } from './repositories/event.js';
+export type {
+  CreateEventOptions,
+  EventQueryOptions,
+} from './repositories/event.js';
 export { ArtefactRepository } from './repositories/artefact.js';
-export { AgentConfigRepository, CONFIG_KEYS, DEFAULT_CONFIG } from './repositories/agent-config.js';
+export {
+  AgentConfigRepository,
+  CONFIG_KEYS,
+  DEFAULT_CONFIG,
+} from './repositories/agent-config.js';
 export { EscalationRepository } from './repositories/escalation.js';
 export type {
   CreateEscalationOptions,
@@ -29,4 +36,8 @@ export {
   GRADUATION_HOLD_TIMES,
   type GraduationState,
 } from './repositories/graduation-state.js';
+export {
+  IntegrationConfigRepository,
+  type IntegrationHealthConfig,
+} from './repositories/integration-config.js';
 export type { QueryOptions, QueryResult } from './types.js';

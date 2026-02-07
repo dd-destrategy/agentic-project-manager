@@ -603,25 +603,27 @@ export class JiraClient implements SignalSource {
   }
 
   /**
-   * Check Jira API health
+   * Check Jira API health by validating auth credentials via /myself
    */
   async healthCheck(): Promise<IntegrationHealthCheck> {
     const start = Date.now();
 
     try {
       const data = await this.request<{
-        version: string;
-        baseUrl: string;
-        serverTitle?: string;
-      }>('/rest/api/3/serverInfo');
+        accountId: string;
+        displayName: string;
+        emailAddress?: string;
+        active: boolean;
+      }>('/rest/api/3/myself');
 
       return {
         healthy: true,
         latencyMs: Date.now() - start,
         details: {
-          version: data.version,
-          baseUrl: data.baseUrl,
-          serverTitle: data.serverTitle,
+          accountId: data.accountId,
+          displayName: data.displayName,
+          emailAddress: data.emailAddress,
+          active: data.active,
           consecutiveErrors: this.consecutiveErrors,
         },
       };

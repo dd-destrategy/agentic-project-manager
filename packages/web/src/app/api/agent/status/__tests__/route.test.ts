@@ -11,6 +11,7 @@ const mockGetLastHeartbeat = vi.fn();
 const mockGetBudgetStatus = vi.fn();
 const mockGetConfig = vi.fn();
 const mockGetLatestHeartbeat = vi.fn();
+const mockGetAllIntegrations = vi.fn();
 
 vi.mock('@agentic-pm/core/db', () => ({
   DynamoDBClient: vi.fn().mockImplementation(function () {
@@ -29,6 +30,11 @@ vi.mock('@agentic-pm/core/db/repositories', () => ({
   EventRepository: vi.fn().mockImplementation(function () {
     return {
       getLatestHeartbeat: mockGetLatestHeartbeat,
+    };
+  }),
+  IntegrationConfigRepository: vi.fn().mockImplementation(function () {
+    return {
+      getAll: mockGetAllIntegrations,
     };
   }),
 }));
@@ -78,6 +84,7 @@ const MOCK_CONFIG = {
 describe('GET /api/agent/status', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetAllIntegrations.mockResolvedValue([]);
   });
 
   it('returns 401 when not authenticated', async () => {
@@ -108,9 +115,9 @@ describe('GET /api/agent/status', () => {
     expect(body.lastHeartbeat).toBe(recentHeartbeat);
     expect(body.currentCycleState).toBe('cycle-123');
     expect(body.budgetStatus).toEqual(MOCK_BUDGET_STATUS);
-    expect(body.integrations).toHaveLength(2);
+    expect(body.integrations).toHaveLength(1);
     expect(body.integrations[0].name).toBe('jira');
-    expect(body.integrations[1].name).toBe('outlook');
+    expect(body.integrations[0].status).toBe('healthy');
   });
 
   it('returns stopped status when heartbeat is old', async () => {

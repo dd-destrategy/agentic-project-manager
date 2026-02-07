@@ -9,7 +9,12 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 // Use vi.hoisted() so mock objects are available in vi.mock() factories.
 // The handler caches repositories in module-level singletons, so the same
 // mock objects must be returned by the constructor mocks AND used in tests.
-const { mockProjectRepo, mockEventRepo, mockConfigRepo } = vi.hoisted(() => ({
+const {
+  mockProjectRepo,
+  mockEventRepo,
+  mockConfigRepo,
+  mockIntegrationConfigRepo,
+} = vi.hoisted(() => ({
   mockProjectRepo: {
     getActive: vi.fn(),
     getById: vi.fn(),
@@ -22,6 +27,12 @@ const { mockProjectRepo, mockEventRepo, mockConfigRepo } = vi.hoisted(() => ({
     getBudgetStatus: vi.fn(),
     isHousekeepingDue: vi.fn(),
     updateLastHeartbeat: vi.fn(),
+  },
+  mockIntegrationConfigRepo: {
+    getByName: vi.fn(),
+    getAll: vi.fn(),
+    upsert: vi.fn(),
+    updateHealthStatus: vi.fn(),
   },
 }));
 
@@ -47,7 +58,28 @@ vi.mock('@agentic-pm/core/db', () => ({
   AgentConfigRepository: vi.fn().mockImplementation(function () {
     return mockConfigRepo;
   }),
+  IntegrationConfigRepository: vi.fn().mockImplementation(function () {
+    return mockIntegrationConfigRepo;
+  }),
 }));
+
+// Mock Jira and SES clients
+const mockJiraHealthCheck = vi.fn();
+const mockSesHealthCheck = vi.fn();
+
+vi.mock('@agentic-pm/core/integrations/jira', () => ({
+  JiraClient: vi.fn().mockImplementation(function () {
+    return { healthCheck: mockJiraHealthCheck };
+  }),
+}));
+
+vi.mock('@agentic-pm/core/integrations/ses', () => ({
+  SESClient: vi.fn().mockImplementation(function () {
+    return { healthCheck: mockSesHealthCheck };
+  }),
+}));
+
+vi.mock('@agentic-pm/core/integrations', () => ({}));
 
 vi.mock('../../shared/context.js', () => ({
   logger: {
@@ -61,6 +93,26 @@ vi.mock('../../shared/context.js', () => ({
     TABLE_ARN: 'arn:aws:dynamodb:us-east-1:123456789:table/TestTable',
     ENVIRONMENT: 'test',
     LOG_LEVEL: 'INFO',
+  }),
+  getCachedSecret: vi.fn().mockImplementation((secretId: string) => {
+    if (secretId === '/agentic-pm/jira/credentials') {
+      return Promise.resolve(
+        JSON.stringify({
+          baseUrl: 'https://test.atlassian.net',
+          email: 'test@example.com',
+          apiToken: 'test-token',
+        })
+      );
+    }
+    if (secretId === '/agentic-pm/ses/config') {
+      return Promise.resolve(
+        JSON.stringify({
+          fromAddress: 'noreply@example.com',
+          region: 'ap-southeast-2',
+        })
+      );
+    }
+    return Promise.reject(new Error(`Unknown secret: ${secretId}`));
   }),
 }));
 
@@ -114,6 +166,24 @@ describe('Heartbeat Handler', () => {
     mockConfigRepo.isHousekeepingDue.mockResolvedValue(false);
     mockConfigRepo.updateLastHeartbeat.mockReset();
     mockConfigRepo.updateLastHeartbeat.mockResolvedValue({});
+
+    mockIntegrationConfigRepo.updateHealthStatus.mockReset();
+    mockIntegrationConfigRepo.updateHealthStatus.mockResolvedValue(undefined);
+
+    // Default healthy responses for integration health checks
+    mockJiraHealthCheck.mockReset();
+    mockJiraHealthCheck.mockResolvedValue({
+      healthy: true,
+      latencyMs: 150,
+      details: { accountId: 'test-account', displayName: 'Test User' },
+    });
+
+    mockSesHealthCheck.mockReset();
+    mockSesHealthCheck.mockResolvedValue({
+      healthy: true,
+      latencyMs: 100,
+      details: { fromAddress: 'noreply@example.com', max24HourSend: 50000 },
+    });
   });
 
   describe('Happy Path', () => {
@@ -129,9 +199,11 @@ describe('Heartbeat Handler', () => {
       expect(result.cycleId).toBeDefined();
       expect(result.timestamp).toBeDefined();
       expect(result.activeProjects).toEqual([]);
-      expect(result.integrations).toHaveLength(1);
-      expect(result.integrations[0].name).toBe('jira');
-      expect(result.integrations[0].healthy).toBe(true);
+      expect(result.integrations).toHaveLength(2);
+      expect(result.integrations[0]!.name).toBe('jira');
+      expect(result.integrations[0]!.healthy).toBe(true);
+      expect(result.integrations[1]!.name).toBe('ses');
+      expect(result.integrations[1]!.healthy).toBe(true);
       expect(result.housekeepingDue).toBe(false);
 
       // Verify heartbeat event was created
@@ -320,12 +392,116 @@ describe('Heartbeat Handler', () => {
       const result = await handler(input, mockContext);
 
       expect(result.integrations).toBeDefined();
-      expect(result.integrations).toHaveLength(1);
+      expect(result.integrations).toHaveLength(2);
       expect(result.integrations[0]).toMatchObject({
         name: 'jira',
         healthy: true,
         lastCheck: expect.any(String),
       });
+      expect(result.integrations[1]).toMatchObject({
+        name: 'ses',
+        healthy: true,
+        lastCheck: expect.any(String),
+      });
+    });
+
+    it('should record health check results in DynamoDB', async () => {
+      const input: AgentCycleInput = {
+        source: 'scheduled',
+      };
+
+      await handler(input, mockContext);
+
+      expect(
+        mockIntegrationConfigRepo.updateHealthStatus
+      ).toHaveBeenCalledTimes(2);
+      expect(mockIntegrationConfigRepo.updateHealthStatus).toHaveBeenCalledWith(
+        'jira',
+        true,
+        expect.objectContaining({ latencyMs: 150 }),
+        undefined
+      );
+      expect(mockIntegrationConfigRepo.updateHealthStatus).toHaveBeenCalledWith(
+        'ses',
+        true,
+        expect.objectContaining({ latencyMs: 100 }),
+        undefined
+      );
+    });
+
+    it('should handle unhealthy integrations gracefully', async () => {
+      const input: AgentCycleInput = {
+        source: 'scheduled',
+      };
+
+      mockJiraHealthCheck.mockResolvedValue({
+        healthy: false,
+        latencyMs: 200,
+        error: 'Authentication failed',
+      });
+
+      const result = await handler(input, mockContext);
+
+      expect(result.integrations[0]).toMatchObject({
+        name: 'jira',
+        healthy: false,
+        error: 'Authentication failed',
+      });
+      // SES should still be healthy
+      expect(result.integrations[1]).toMatchObject({
+        name: 'ses',
+        healthy: true,
+      });
+    });
+
+    it('should use fallback when all health checks fail catastrophically', async () => {
+      const input: AgentCycleInput = {
+        source: 'scheduled',
+      };
+
+      // Simulate getCachedSecret throwing for both secrets
+      const { getCachedSecret: mockGetCachedSecret } =
+        await import('../../shared/context.js');
+      (mockGetCachedSecret as ReturnType<typeof vi.fn>).mockRejectedValue(
+        new Error('Secrets Manager unavailable')
+      );
+
+      const result = await handler(input, mockContext);
+
+      // Should fall back to unhealthy defaults
+      expect(result.integrations).toHaveLength(2);
+      expect(result.integrations[0]).toMatchObject({
+        name: 'jira',
+        healthy: false,
+      });
+      expect(result.integrations[1]).toMatchObject({
+        name: 'ses',
+        healthy: false,
+      });
+
+      // Restore mock for other tests
+      (mockGetCachedSecret as ReturnType<typeof vi.fn>).mockImplementation(
+        (secretId: string) => {
+          if (secretId === '/agentic-pm/jira/credentials') {
+            return Promise.resolve(
+              JSON.stringify({
+                baseUrl: 'https://test.atlassian.net',
+                email: 'test@example.com',
+                apiToken: 'test-token',
+              })
+            );
+          }
+          if (secretId === '/agentic-pm/ses/config') {
+            return Promise.resolve(
+              JSON.stringify({
+                fromAddress: 'noreply@example.com',
+                region: 'ap-southeast-2',
+              })
+            );
+          }
+          return Promise.reject(new Error(`Unknown secret: ${secretId}`));
+        }
+      );
     });
   });
 

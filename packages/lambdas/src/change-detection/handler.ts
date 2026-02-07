@@ -17,13 +17,10 @@ import { DynamoDBClient } from '@agentic-pm/core/db/client';
 import { CheckpointRepository } from '@agentic-pm/core/db/repositories/checkpoint';
 import { ProjectRepository } from '@agentic-pm/core/db/repositories/project';
 import { JiraClient } from '@agentic-pm/core/integrations/jira';
-import {
-  SecretsManagerClient,
-  GetSecretValueCommand,
-} from '@aws-sdk/client-secrets-manager';
 import type { Context } from 'aws-lambda';
 
 import { logger, getEnv } from '../shared/context.js';
+import { getCachedSecret } from '../shared/secrets-cache.js';
 import type {
   HeartbeatOutput,
   ChangeDetectionOutput,
@@ -32,7 +29,6 @@ import type {
 
 // Initialise clients outside handler for connection reuse
 let dbClient: DynamoDBClient | null = null;
-let secretsClient: SecretsManagerClient | null = null;
 
 /**
  * Get or create DynamoDB client
@@ -46,35 +42,10 @@ function getDbClient(): DynamoDBClient {
 }
 
 /**
- * Get or create Secrets Manager client
- */
-function getSecretsClient(): SecretsManagerClient {
-  if (!secretsClient) {
-    secretsClient = new SecretsManagerClient({});
-  }
-  return secretsClient;
-}
-
-/**
- * Retrieve a secret from AWS Secrets Manager
- */
-async function getSecret(secretId: string): Promise<string> {
-  const client = getSecretsClient();
-  const command = new GetSecretValueCommand({ SecretId: secretId });
-  const response = await client.send(command);
-
-  if (!response.SecretString) {
-    throw new Error(`Secret ${secretId} has no string value`);
-  }
-
-  return response.SecretString;
-}
-
-/**
  * Create Jira client from stored credentials
  */
 async function createJiraClientFromSecrets(): Promise<JiraClient> {
-  const secretValue = await getSecret('/agentic-pm/jira/credentials');
+  const secretValue = await getCachedSecret('/agentic-pm/jira/credentials');
   const credentials = parseJiraCredentials(JSON.parse(secretValue));
 
   return new JiraClient(credentials);

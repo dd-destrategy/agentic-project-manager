@@ -8,27 +8,47 @@
  * Sprint 3: Full normalisation with Jira and Outlook transformers.
  */
 
-import type { NormalisedSignal, IntegrationSource, SignalType } from '@agentic-pm/core';
+import type {
+  NormalisedSignal,
+  IntegrationSource,
+  SignalType,
+  RawSignal,
+} from '@agentic-pm/core';
+import { normaliseJiraSignal } from '@agentic-pm/core/signals/jira';
 import type { Context } from 'aws-lambda';
 import { ulid } from 'ulid';
 
 import { logger } from '../shared/context.js';
-import type { ChangeDetectionOutput, NormaliseOutput, RawSignalBatch } from '../shared/types.js';
+import type {
+  ChangeDetectionOutput,
+  NormaliseOutput,
+  RawSignalBatch,
+} from '../shared/types.js';
 
 /**
- * Normalise a single raw signal from any integration source
- * Sprint 3: This will dispatch to source-specific normalisers
+ * Normalise a single raw signal from any integration source.
+ * Dispatches to source-specific normalisers where available,
+ * falling back to a generic stub for unknown sources.
  */
 function normaliseSignal(
   raw: unknown,
   source: IntegrationSource,
   projectId: string
 ): NormalisedSignal {
-  const id = ulid();
   const timestamp = new Date().toISOString();
 
-  // Stub normalisation - extracts basic info
-  // Full implementation in Sprint 3 with source-specific handlers
+  // Dispatch to source-specific normalisers
+  if (source === 'jira') {
+    const rawSignal: RawSignal = {
+      source: 'jira',
+      timestamp,
+      rawPayload: raw,
+    };
+    return normaliseJiraSignal(rawSignal, projectId);
+  }
+
+  // Generic fallback for sources without a dedicated normaliser
+  const id = ulid();
   return {
     id,
     source,

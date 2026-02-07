@@ -9,6 +9,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   SESClient as AWSSESClient,
   SendEmailCommand,
+  GetSendQuotaCommand,
 } from '@aws-sdk/client-ses';
 import { SESClient, type SESConfig } from '../ses.js';
 
@@ -21,6 +22,10 @@ vi.mock('@aws-sdk/client-ses', () => {
       return this;
     }),
     SendEmailCommand: vi.fn(function (this: any, input: any) {
+      this.input = input;
+      return this;
+    }),
+    GetSendQuotaCommand: vi.fn(function (this: any, input: any) {
       this.input = input;
       return this;
     }),
@@ -310,16 +315,31 @@ describe('SESClient', () => {
 
   describe('healthCheck', () => {
     it('should return healthy status', async () => {
+      mockSend.mockResolvedValueOnce({
+        Max24HourSend: 50000,
+        SentLast24Hours: 100,
+        MaxSendRate: 14,
+      });
+
       const result = await client.healthCheck();
 
       expect(result.healthy).toBe(true);
       expect(result.latencyMs).toBeGreaterThanOrEqual(0);
       expect(result.details).toMatchObject({
         fromAddress: 'noreply@example.com',
+        max24HourSend: 50000,
+        sentLast24Hours: 100,
+        maxSendRate: 14,
       });
     });
 
     it('should measure latency', async () => {
+      mockSend.mockResolvedValueOnce({
+        Max24HourSend: 50000,
+        SentLast24Hours: 100,
+        MaxSendRate: 14,
+      });
+
       const result = await client.healthCheck();
 
       expect(result.latencyMs).toBeDefined();
@@ -328,15 +348,13 @@ describe('SESClient', () => {
     });
 
     it('should handle health check errors', async () => {
-      // Force an error by providing invalid config
-      const invalidClient = new SESClient({
-        fromAddress: 'invalid',
-      });
+      mockSend.mockRejectedValueOnce(new Error('Access denied'));
 
-      // SES healthCheck doesn't actually call AWS (no simple health endpoint)
-      // so it should still return healthy
-      const result = await invalidClient.healthCheck();
-      expect(result.healthy).toBe(true);
+      const result = await client.healthCheck();
+
+      expect(result.healthy).toBe(false);
+      expect(result.error).toBe('Access denied');
+      expect(result.latencyMs).toBeGreaterThanOrEqual(0);
     });
   });
 

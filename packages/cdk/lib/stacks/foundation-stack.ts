@@ -89,14 +89,18 @@ export class FoundationStack extends cdk.Stack {
     });
 
     const jiraApiToken = new secretsmanager.Secret(this, 'JiraApiToken', {
-      secretName: '/agentic-pm/jira/api-token',
+      secretName: '/agentic-pm/jira/credentials',
       description: 'Jira Cloud API token',
     });
 
-    const graphCredentials = new secretsmanager.Secret(this, 'GraphCredentials', {
-      secretName: '/agentic-pm/graph/credentials',
-      description: 'Microsoft Graph API credentials for Outlook',
-    });
+    const graphCredentials = new secretsmanager.Secret(
+      this,
+      'GraphCredentials',
+      {
+        secretName: '/agentic-pm/graph/credentials',
+        description: 'Microsoft Graph API credentials for Outlook',
+      }
+    );
 
     const nextAuthSecret = new secretsmanager.Secret(this, 'NextAuthSecret', {
       secretName: '/agentic-pm/auth/nextauth-secret',
@@ -126,7 +130,8 @@ export class FoundationStack extends cdk.Stack {
     const triageLambdaRole = new iam.Role(this, 'TriageLambdaRole', {
       roleName: 'agentic-pm-triage-role',
       assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
-      description: 'Role for Triage Lambda - LLM access only, NO integration credentials',
+      description:
+        'Role for Triage Lambda - LLM access only, NO integration credentials',
     });
 
     // ALLOWED: LLM API key for Claude calls

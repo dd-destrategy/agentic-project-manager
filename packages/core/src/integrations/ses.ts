@@ -5,6 +5,7 @@
 import {
   SESClient as AWSSESClient,
   SendEmailCommand,
+  GetSendQuotaCommand,
   type SendEmailCommandInput,
 } from '@aws-sdk/client-ses';
 
@@ -26,7 +27,9 @@ export class SESClient {
   private fromAddress: string;
 
   constructor(config: SESConfig) {
-    this.client = new AWSSESClient({ region: config.region ?? 'ap-southeast-2' });
+    this.client = new AWSSESClient({
+      region: config.region ?? 'ap-southeast-2',
+    });
     this.fromAddress = config.fromAddress;
   }
 
@@ -104,19 +107,22 @@ This is an automated message from Agentic PM Workbench.
   }
 
   /**
-   * Check SES health
+   * Check SES health by calling GetSendQuota
    */
   async healthCheck(): Promise<IntegrationHealthCheck> {
     const start = Date.now();
 
     try {
-      // SES doesn't have a simple health check endpoint,
-      // so we just verify the client is configured
+      const quota = await this.client.send(new GetSendQuotaCommand({}));
+
       return {
         healthy: true,
         latencyMs: Date.now() - start,
         details: {
           fromAddress: this.fromAddress,
+          max24HourSend: quota.Max24HourSend,
+          sentLast24Hours: quota.SentLast24Hours,
+          maxSendRate: quota.MaxSendRate,
         },
       };
     } catch (error) {
