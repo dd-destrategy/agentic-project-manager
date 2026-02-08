@@ -89,6 +89,9 @@ See `03-dev-backlog.md` for:
 See `../archive/agentcore-analysis/` for detailed evaluation of AgentCore
 Runtime alternative.
 
+See `AGENTCORE-PM-COPILOT-SPEC.md` for the proposed PM Copilot redesign on
+AgentCore (alternative architecture direction).
+
 ---
 
 ## Cost Model Summary
