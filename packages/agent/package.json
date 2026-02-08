@@ -1,0 +1,41 @@
+{
+  "name": "@agentic-pm/agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "PM Copilot agent — ensemble reasoning, MCP tools, AgentCore runtime",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./ensemble": "./dist/ensemble/index.js",
+    "./capabilities": "./dist/capabilities/index.js",
+    "./tools": "./dist/tools/index.js",
+    "./prompts": "./dist/prompts/index.js",
+    "./memory": "./dist/memory/index.js",
+    "./runtime": "./dist/runtime/index.js",
+    "./local": "./dist/local/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "dev:server": "tsx src/local/dev-server.ts",
+    "lint": "eslint src --ext .ts",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@agentic-pm/core": "workspace:*",
+    "@anthropic-ai/sdk": "^0.32.0",
+    "zod": "^3.22.0",
+    "ulid": "^2.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.0",
+    "vitest": "^4.0.18",
+    "eslint": "^8.56.0"
+  }
+}
