@@ -89,3 +89,9 @@ export {
 export { useArtefactTrend } from './use-snapshots';
 export { useCatchup } from './use-catchup';
 export { useDecisions, useUpdateDecisionOutcome } from './use-decisions';
+export {
+  useCopilot,
+  type CopilotMessage,
+  type CopilotDeliberation,
+  type PersonaContribution,
+} from './use-copilot';

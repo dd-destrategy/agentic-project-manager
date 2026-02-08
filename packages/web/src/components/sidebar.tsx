@@ -11,6 +11,7 @@ import {
   ListChecks,
   Sunrise,
   Plug,
+  Bot,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -19,6 +20,7 @@ import { cn } from '@/lib/utils';
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { name: 'Copilot', href: '/copilot', icon: Bot },
   { name: 'Catch-up', href: '/catchup', icon: Sunrise },
   { name: 'Ingest', href: '/ingest', icon: ClipboardPaste },
   { name: 'Extracted', href: '/extracted', icon: ListChecks },
